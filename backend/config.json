@@ -1,0 +1,22 @@
+{
+  "server_port": 8080,
+  "server_host": "0.0.0.0",
+  "jwt_secret": "virtual_human_studio_secret_key",
+  "db_type": "sqlite",
+  "sqlite_path": "./data/vhs.db",
+  "mysql_host": "localhost",
+  "mysql_port": 3306,
+  "mysql_user": "root",
+  "mysql_pass": "",
+  "mysql_db": "virtual_human_studio",
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "redis_password": "",
+  "redis_db": 0,
+  "upload_dir": "./uploads",
+  "voice_clone_api": "http://10.64.24.23:8082/api/voice/clone",
+  "tts_api": "http://10.64.24.23:8082/api/tts",
+  "digital_human_api": "http://10.64.24.249:8383/easy/submit",
+  "digital_human_query": "http://10.64.24.249:8383/easy/query",
+  "digital_human_result": "http://10.64.24.249:8383/easy/result"
+}
