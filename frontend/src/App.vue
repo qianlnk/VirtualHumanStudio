@@ -1,54 +1,76 @@
 <template>
   <div id="app">
-    <!-- 顶部导航栏 -->
-    <el-header v-if="isAuthenticated" height="60px" class="app-header">
-      <div class="header-logo">
-        <router-link to="/">
-          <h1>Virtual Human Studio</h1>
-        </router-link>
-      </div>
-      
-      <el-menu 
-        :default-active="activeIndex" 
-        mode="horizontal" 
-        router 
-        class="header-menu"
-        background-color="#ffffff"
-        text-color="#303133"
-        active-text-color="#409EFF">
-        <el-menu-item index="/">首页</el-menu-item>
-        <el-submenu index="voice">
-          <template slot="title">音频服务</template>
-          <el-menu-item index="/voice-clone">音色克隆</el-menu-item>
-          <el-menu-item index="/voice-library">音色库</el-menu-item>
-          <el-menu-item index="/tts">文本转语音</el-menu-item>
-        </el-submenu>
-        <el-menu-item index="/digital-human">数字人合成</el-menu-item>
-        <el-menu-item v-if="isAdmin" index="/admin/users">用户管理</el-menu-item>
-      </el-menu>
-      
-      <div class="header-user">
-        <el-dropdown trigger="click" @command="handleCommand">
-          <span class="el-dropdown-link">
-            {{ currentUser.username }}<i class="el-icon-arrow-down el-icon--right"></i>
-          </span>
-          <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-            <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-          </el-dropdown-menu>
-        </el-dropdown>
-      </div>
-    </el-header>
-    
-    <!-- 主内容区域 -->
-    <el-main class="app-main">
-      <router-view />
-    </el-main>
-    
-    <!-- 底部版权信息 -->
-    <el-footer v-if="isAuthenticated" height="50px" class="app-footer">
-      <p>© 2023 Virtual Human Studio. All Rights Reserved.</p>
-    </el-footer>
+    <router-view v-if="$route.path === '/login' || $route.path === '/register'"></router-view>
+    <el-container v-else-if="isAuthenticated">
+        <!-- 左侧导航栏 -->
+        <el-aside width="200px" class="app-aside">
+          <div class="aside-logo">
+            <router-link to="/">
+              <h1>Virtual Human Studio</h1>
+            </router-link>
+          </div>
+          <el-menu 
+            :default-active="activeIndex" 
+            mode="vertical" 
+            router 
+            class="aside-menu"
+            background-color="#304156"
+            text-color="#bfcbd9"
+            active-text-color="#409EFF">
+            <el-menu-item index="/">
+              <i class="el-icon-s-home"></i>
+              <span>首页</span>
+            </el-menu-item>
+            <el-submenu index="voice-services">
+              <template slot="title">
+                <i class="el-icon-microphone"></i>
+                <span class="submenu-title">音频服务</span>
+              </template>
+              <el-menu-item index="/voice-clone">音色克隆</el-menu-item>
+              <el-menu-item index="/voice-library">音色库</el-menu-item>
+              <el-menu-item index="/tts">文本转语音</el-menu-item>
+            </el-submenu>
+            <el-submenu index="digital-human">
+              <template slot="title">
+                <i class="el-icon-user"></i>
+                <span class="submenu-title">数字人合成</span>
+              </template>
+              <el-menu-item index="/digital-human">数字人制作</el-menu-item>
+            </el-submenu>
+            <el-menu-item v-if="isAdmin" index="/admin/users">
+              <i class="el-icon-s-custom"></i>
+              <span>用户管理</span>
+            </el-menu-item>
+          </el-menu>
+        </el-aside>
+        
+        <el-container>
+          <!-- 顶部用户信息 -->
+          <el-header height="50px" class="app-header">
+            <div class="header-user">
+              <el-dropdown trigger="click" @command="handleCommand">
+                <span class="el-dropdown-link">
+                  {{ currentUser.username }}<i class="el-icon-arrow-down el-icon--right"></i>
+                </span>
+                <el-dropdown-menu slot="dropdown">
+                  <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                  <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </el-dropdown>
+            </div>
+          </el-header>
+          
+          <!-- 主内容区域 -->
+          <el-main class="app-main">
+            <router-view />
+          </el-main>
+          
+          <!-- 底部版权信息 -->
+          <el-footer height="50px" class="app-footer">
+            <p>© 2023 Virtual Human Studio. All Rights Reserved.</p>
+          </el-footer>
+        </el-container>
+    </el-container>
   </div>
 </template>
 
@@ -110,33 +132,54 @@ html, body {
 
 #app {
   height: 100vh;
+}
+
+/* 左侧菜单样式 */
+.app-aside {
+  background-color: #304156;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1001;
+}
+
+.aside-logo {
+  height: 50px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #1f2d3d;
+}
+
+.aside-logo h1 {
+  margin: 0;
+  font-size: 16px;
+  color: #fff;
+}
+
+.aside-logo a {
+  text-decoration: none;
+}
+
+.aside-menu {
+  border-right: none;
+  height: calc(100vh - 50px);
+}
+
+.aside-menu i {
+  margin-right: 10px;
 }
 
 /* 头部样式 */
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   border-bottom: 1px solid #ebeef5;
   background-color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   padding: 0 20px;
-}
-
-.header-logo h1 {
-  margin: 0;
-  font-size: 20px;
-  color: #409EFF;
-}
-
-.header-logo a {
-  text-decoration: none;
-}
-
-.header-menu {
-  border-bottom: none;
 }
 
 .header-user {
@@ -151,20 +194,30 @@ html, body {
 
 /* 主内容区域样式 */
 .app-main {
-  flex: 1;
-  overflow-y: auto;
-  background-color: #f5f7fa;
+  margin-left: 200px;
+  margin-top: 50px;
   padding: 20px;
+  min-height: calc(100vh - 100px);
+  background-color: #f5f7fa;
 }
 
 /* 底部样式 */
 .app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #ffffff;
-  border-top: 1px solid #ebeef5;
+  margin-left: 200px;
+  text-align: center;
   color: #909399;
   font-size: 12px;
+  padding: 15px 0;
+  border-top: 1px solid #ebeef5;
+  background-color: #fff;
+}
+
+/* 样式部分 */
+.aside-menu .submenu-title {
+  font-size: 15px;
+}
+
+.aside-menu .el-menu-item {
+  font-size: 14px;
 }
 </style>

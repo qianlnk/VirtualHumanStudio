@@ -162,3 +162,56 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f5f7fa;
+}
+
+.register-box {
+  width: 400px;
+  padding: 30px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.register-title {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.register-title h2 {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 10px;
+}
+
+.register-title p {
+  font-size: 14px;
+  color: #909399;
+}
+
+.register-form {
+  margin-bottom: 20px;
+}
+
+.register-button {
+  width: 100%;
+}
+
+.register-options {
+  text-align: center;
+  font-size: 14px;
+  color: #606266;
+}
+
+.register-options a {
+  color: #409EFF;
+  margin-left: 5px;
+}
+</style>
