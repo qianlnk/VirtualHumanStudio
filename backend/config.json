@@ -13,10 +13,17 @@
   "redis_port": 6379,
   "redis_password": "",
   "redis_db": 0,
-  "upload_dir": "./uploads",
-  "voice_clone_api": "http://10.64.24.23:8082/api/voice/clone",
-  "tts_api": "http://10.64.24.23:8082/api/tts",
-  "digital_human_api": "http://10.64.24.249:8383/easy/submit",
-  "digital_human_query": "http://10.64.24.249:8383/easy/query",
-  "digital_human_result": "http://10.64.24.249:8383/easy/result"
+  "data_dir": "./data",
+  "upload_dir": "uploads",
+  "audio_dir": "audios",
+  "video_dir": "videos",
+  "file_upload_api": "https://aigc-ops-test.skyengine.com.cn/v1/file/upload2path",
+  "file_download_api": "https://aigc-ops-test.skyengine.com.cn/v1/file/view",
+  "file_server_base_url": "https://aigc-ops-test.skyengine.com.cn",
+  "voice_clone_api": "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/cosyvoice2-05b:8080/api/voice/clone",
+  "tts_api": "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/cosyvoice2-05b:8080/api/tts",
+  "digital_human_api": "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/submit",
+  "digital_human_query": "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/query",
+  "digital_human_result": "http://10.64.24.249:8383/easy/result",
+  "domain": "http://127.0.0.1:8080"
 }

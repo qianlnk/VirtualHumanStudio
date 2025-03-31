@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -85,10 +87,12 @@ func CreateVoiceClone(c *gin.Context) {
 	// 生成唯一文件名
 	uniqueID := uuid.New().String()
 	fileName := fmt.Sprintf("%s%s", uniqueID, ext)
-	filePath := utils.GetFilePath(config.AppConfig.UploadDir, fileName)
+	// 生成相对路径和完整路径
+	filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
+	fullFilePath := filepath.Join(config.AppConfig.DataDir, filePath)
 
 	// 保存文件
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
+	if err := c.SaveUploadedFile(file, fullFilePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
 		return
 	}
@@ -108,7 +112,7 @@ func CreateVoiceClone(c *gin.Context) {
 	result := db.DB.Create(&voiceClone)
 	if result.Error != nil {
 		// 删除已上传的文件
-		os.Remove(filePath)
+		os.Remove(fullFilePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建音色克隆记录失败: " + result.Error.Error()})
 		return
 	}
@@ -118,16 +122,8 @@ func CreateVoiceClone(c *gin.Context) {
 		// 更新状态为处理中
 		db.DB.Model(&voiceClone).Update("status", "processing")
 
-		// 构建API请求
-		apiReq := APIVoiceCloneRequest{
-			ModelName:   req.ModelName,
-			PromptFile:  filePath, // 这里应该是服务器上的路径，可能需要调整
-			PromptText:  req.PromptText,
-			SpeakerName: req.SpeakerName,
-		}
-
 		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(apiReq, &voiceClone)
+		handleVoiceCloneAPI(&voiceClone)
 	}()
 
 	// 返回响应
@@ -185,7 +181,7 @@ func GetVoiceClone(c *gin.Context) {
 			Name:        voiceClone.Name,
 			Description: voiceClone.Description,
 			ModelName:   voiceClone.ModelName,
-			PromptFile:  voiceClone.PromptFile,
+			PromptFile:  utils.GetFileURL(voiceClone.PromptFile),
 			PromptText:  voiceClone.PromptText,
 			SpeakerName: voiceClone.SpeakerName,
 			Status:      voiceClone.Status,
@@ -227,7 +223,7 @@ func ListVoiceClones(c *gin.Context) {
 			Name:        vc.Name,
 			Description: vc.Description,
 			ModelName:   vc.ModelName,
-			PromptFile:  vc.PromptFile,
+			PromptFile:  utils.GetFileURL(vc.PromptFile),
 			PromptText:  vc.PromptText,
 			SpeakerName: vc.SpeakerName,
 			Status:      vc.Status,
@@ -276,10 +272,12 @@ func DeleteVoiceClone(c *gin.Context) {
 
 	// 删除关联文件
 	if voiceClone.PromptFile != "" {
-		os.Remove(voiceClone.PromptFile)
+		fullPromptPath := filepath.Join(config.AppConfig.DataDir, voiceClone.PromptFile)
+		os.Remove(fullPromptPath)
 	}
 	if voiceClone.Result != "" {
-		os.Remove(voiceClone.Result)
+		fullResultPath := filepath.Join(config.AppConfig.DataDir, voiceClone.Result)
+		os.Remove(fullResultPath)
 	}
 
 	// 删除记录
@@ -339,10 +337,12 @@ func UploadVoice(c *gin.Context) {
 	// 生成唯一文件名
 	uniqueID := uuid.New().String()
 	fileName := fmt.Sprintf("%s%s", uniqueID, ext)
-	filePath := utils.GetFilePath(config.AppConfig.UploadDir, fileName)
+	// 生成相对路径和完整路径
+	filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
+	fullFilePath := filepath.Join(config.AppConfig.DataDir, filePath)
 
 	// 保存文件
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
+	if err := c.SaveUploadedFile(file, fullFilePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
 		return
 	}
@@ -360,7 +360,7 @@ func UploadVoice(c *gin.Context) {
 	result = db.DB.Create(&voiceLibrary)
 	if result.Error != nil {
 		// 删除已上传的文件
-		os.Remove(filePath)
+		os.Remove(fullFilePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建音色库记录失败: " + result.Error.Error()})
 		return
 	}
@@ -461,7 +461,8 @@ func DeleteVoice(c *gin.Context) {
 
 	// 删除文件
 	if voice.FilePath != "" {
-		os.Remove(voice.FilePath)
+		fullFilePath := filepath.Join(config.AppConfig.DataDir, voice.FilePath)
+		os.Remove(fullFilePath)
 	}
 
 	// 删除记录
@@ -504,23 +505,97 @@ func DownloadVoice(c *gin.Context) {
 	}
 
 	// 检查文件是否存在
-	if _, err := os.Stat(voice.FilePath); os.IsNotExist(err) {
+	fullFilePath := filepath.Join(config.AppConfig.DataDir, voice.FilePath)
+	if _, err := os.Stat(fullFilePath); os.IsNotExist(err) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "音色文件不存在"})
 		return
 	}
 
 	// 获取文件名
-	fileName := filepath.Base(voice.FilePath)
+	fileName := filepath.Base(fullFilePath)
 
 	// 设置响应头
 	c.Header("Content-Description", "File Transfer")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	c.Header("Content-Type", "application/octet-stream")
-	c.File(voice.FilePath)
+	c.File(fullFilePath)
 }
 
 // handleVoiceCloneAPI 处理音色克隆API调用
-func handleVoiceCloneAPI(apiReq APIVoiceCloneRequest, voiceClone *models.VoiceClone) {
+func handleVoiceCloneAPI(voiceClone *models.VoiceClone) {
+	// 1. 上传音频文件到音色克隆服务器
+	fullPromptPath := filepath.Join(config.AppConfig.DataDir, voiceClone.PromptFile)
+	file, err := os.Open(fullPromptPath)
+	if err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "打开音频文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	// 创建multipart表单
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// 添加文件
+	part, err := writer.CreateFormFile("attachment", filepath.Base(fullPromptPath))
+	if err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "创建表单失败: " + err.Error(),
+		})
+		return
+	}
+	if _, err = io.Copy(part, file); err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "复制文件失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 添加path字段
+	uploadPath := fmt.Sprintf("vhs/%d/audios", voiceClone.UserID)
+	if err = writer.WriteField("path", uploadPath); err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "添加path字段失败: " + err.Error(),
+		})
+		return
+	}
+	writer.Close()
+
+	// 发送文件上传请求
+	uploadResp, err := http.Post(config.AppConfig.FileUploadAPI, writer.FormDataContentType(), body)
+	if err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "上传文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer uploadResp.Body.Close()
+
+	if uploadResp.StatusCode != http.StatusOK {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "文件上传失败，状态码: " + fmt.Sprint(uploadResp.StatusCode),
+		})
+		return
+	}
+
+	// 2. 调用音色克隆API
+	// 更新文件路径为服务器上的路径
+	// 构建API请求
+	apiReq := APIVoiceCloneRequest{
+		ModelName:   voiceClone.ModelName,
+		PromptFile:  path.Join("/data/aigc-ops", uploadPath, filepath.Base(fullPromptPath)),
+		PromptText:  voiceClone.PromptText,
+		SpeakerName: fmt.Sprintf("%d_%s", voiceClone.UserID, voiceClone.SpeakerName),
+	}
+
 	// 序列化请求
 	reqData, err := json.Marshal(apiReq)
 	if err != nil {
@@ -531,7 +606,7 @@ func handleVoiceCloneAPI(apiReq APIVoiceCloneRequest, voiceClone *models.VoiceCl
 		return
 	}
 
-	// 发送请求
+	// 发送克隆请求
 	resp, err := http.Post(config.AppConfig.VoiceCloneAPI, "application/json", bytes.NewBuffer(reqData))
 	if err != nil {
 		db.DB.Model(voiceClone).Updates(map[string]interface{}{
@@ -571,19 +646,65 @@ func handleVoiceCloneAPI(apiReq APIVoiceCloneRequest, voiceClone *models.VoiceCl
 		return
 	}
 
-	// 假设API返回了结果文件路径
-	resultFile, ok := apiResp["result_file"].(string)
-	if !ok {
+	// 3. 下载音色权重文件
+	speakerName := apiReq.SpeakerName
+	downloadURL := fmt.Sprintf("%s/v1/file/view?key=model/tts_models/checkpoint/CosyVoice2-0.5B_1/spk_info/%s.pt", config.AppConfig.FileServerBaseURL, speakerName)
+
+	// 创建下载目录
+	voiceDir := filepath.Join(fmt.Sprint(voiceClone.UserID), config.AppConfig.VoiceDir)
+	fullVoiceDir := filepath.Join(config.AppConfig.DataDir, voiceDir)
+
+	if err := os.MkdirAll(fullVoiceDir, 0755); err != nil {
 		db.DB.Model(voiceClone).Updates(map[string]interface{}{
-			"status":  "completed",
-			"task_id": apiResp["task_id"],
-			"result":  "", // 可能需要后续查询结果
+			"status":    "failed",
+			"error_msg": "创建下载目录失败: " + err.Error(),
 		})
-	} else {
-		db.DB.Model(voiceClone).Updates(map[string]interface{}{
-			"status":  "completed",
-			"task_id": apiResp["task_id"],
-			"result":  resultFile,
-		})
+		return
 	}
+
+	// 下载文件
+	downloadResp, err := http.Get(downloadURL)
+	if err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "下载音色权重文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer downloadResp.Body.Close()
+
+	if downloadResp.StatusCode != http.StatusOK {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "下载音色权重文件失败，状态码: " + fmt.Sprint(downloadResp.StatusCode),
+		})
+		return
+	}
+
+	// 保存文件
+	resultFile := filepath.Join(voiceDir, speakerName+".pt")
+	fullResultFile := filepath.Join(config.AppConfig.DataDir, resultFile)
+	out, err := os.Create(fullResultFile)
+	if err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "创建音色权重文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, downloadResp.Body); err != nil {
+		db.DB.Model(voiceClone).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "保存音色权重文件失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 更新任务状态
+	db.DB.Model(voiceClone).Updates(map[string]interface{}{
+		"status": "completed",
+		"result": resultFile,
+	})
 }

@@ -104,7 +104,7 @@ func CreateDigitalHuman(c *gin.Context) {
 	// 生成唯一文件名并保存音频文件
 	audioUniqueID := uuid.New().String()
 	audioFileName := fmt.Sprintf("%s%s", audioUniqueID, audioExt)
-	audioFilePath := utils.GetFilePath(config.AppConfig.UploadDir, audioFileName)
+	audioFilePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, audioFileName)
 
 	if err := c.SaveUploadedFile(audioFile, audioFilePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存音频文件失败: " + err.Error()})
@@ -114,7 +114,7 @@ func CreateDigitalHuman(c *gin.Context) {
 	// 生成唯一文件名并保存视频文件
 	videoUniqueID := uuid.New().String()
 	videoFileName := fmt.Sprintf("%s%s", videoUniqueID, videoExt)
-	videoFilePath := utils.GetFilePath(config.AppConfig.UploadDir, videoFileName)
+	videoFilePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.VideoDir, videoFileName)
 
 	if err := c.SaveUploadedFile(videoFile, videoFilePath); err != nil {
 		// 删除已上传的音频文件

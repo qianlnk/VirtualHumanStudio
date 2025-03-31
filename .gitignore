@@ -17,7 +17,7 @@ frontend/yarn-error.log*
 .env.*.local
 
 # Database files
-backend/data/*.db
+backend/data/*
 
 # Upload files
 backend/uploads/*

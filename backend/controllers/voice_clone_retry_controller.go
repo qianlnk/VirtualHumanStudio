@@ -61,16 +61,8 @@ func RetryVoiceClone(c *gin.Context) {
 		// 更新状态为处理中
 		db.DB.Model(&voiceClone).Update("status", "processing")
 
-		// 调用音色克隆API
-		apiReq := APIVoiceCloneRequest{
-			ModelName:   voiceClone.ModelName,
-			PromptFile:  voiceClone.PromptFile,
-			PromptText:  voiceClone.PromptText,
-			SpeakerName: voiceClone.SpeakerName,
-		}
-
 		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(apiReq, &voiceClone)
+		handleVoiceCloneAPI(&voiceClone)
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "任务已重新提交"})

@@ -28,8 +28,12 @@
           <span>原始音频</span>
         </div>
         <div class="audio-info">
-          <audio controls :src="baseUrl + task.prompt_file" style="width: 100%"></audio>
+          <audio controls :src="audioUrlWithToken" style="width: 100%"></audio>
           <p class="audio-info-text">音频时长: {{ task.audio_duration || '未知' }} 秒</p>
+          <div v-if="task.prompt_text" class="prompt-text">
+            <h4>提示文本</h4>
+            <p>{{ task.prompt_text }}</p>
+          </div>
         </div>
       </el-card>
       
@@ -53,7 +57,7 @@
         <div class="result-info">
           <div class="sample-audio" v-if="task.sample_url">
             <h4>示例音频</h4>
-            <audio controls :src="baseUrl + task.sample_url" style="width: 100%"></audio>
+            <audio controls :src="sampleUrlWithToken" style="width: 100%"></audio>
           </div>
           
           <div class="action-buttons">
@@ -133,7 +137,9 @@ export default {
           { required: true, message: '请输入音色名称', trigger: 'blur' },
           { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
         ]
-      }
+      },
+      audioBlob: null,
+      sampleBlob: null
     }
   },
   computed: {
@@ -144,8 +150,11 @@ export default {
       if (this.progress < 100) return ''
       return 'success'
     },
-    baseUrl() {
-      return (process.env.VUE_APP_API_URL || '') + '/'
+    audioUrlWithToken() {
+      return this.audioBlob ? URL.createObjectURL(this.audioBlob) : ''
+    },
+    sampleUrlWithToken() {
+      return this.sampleBlob ? URL.createObjectURL(this.sampleBlob) : ''
     }
   },
   created() {
@@ -153,38 +162,72 @@ export default {
   },
   beforeDestroy() {
     this.clearProgressTimer()
+    // 清理Blob URL
+    if (this.audioBlob) {
+      URL.revokeObjectURL(this.audioUrlWithToken)
+    }
+    if (this.sampleBlob) {
+      URL.revokeObjectURL(this.sampleUrlWithToken)
+    }
   },
   methods: {
     // 获取任务详情
-    fetchTaskDetail() {
+    async fetchTaskDetail() {
       this.loading = true
-      this.$http.get(`/api/voice/clone/${this.taskId}`)
-        .then(response => {
-          console.log('音色克隆任务详情数据:', response.data)
-          this.task = {
-            ...this.task,
-            ...response.data.voice_clone
-          }
-          
-          // 如果任务正在处理中，获取进度
-          if (this.task.status === 'processing') {
-            this.fetchProgress()
-            this.startProgressTimer()
-          }
-          
-          // 预填充音色库表单
-          if (this.task.name) {
-            this.libraryForm.name = this.task.name
-            this.libraryForm.description = this.task.description || ''
+      try {
+        const response = await this.$http.get(`/api/voice/clone/${this.taskId}`)
+        console.log('音色克隆任务详情数据:', response.data)
+        this.task = {
+          ...this.task,
+          ...response.data.voice_clone
+        }
+        
+        // 获取音频文件
+        if (this.task.prompt_file) {
+          await this.fetchAudioFile(this.task.prompt_file, 'audio')
+        }
+        if (this.task.sample_url) {
+          await this.fetchAudioFile(this.task.sample_url, 'sample')
+        }
+        
+        // 如果任务正在处理中，获取进度
+        if (this.task.status === 'processing') {
+          this.fetchProgress()
+          this.startProgressTimer()
+        }
+        
+        // 预填充音色库表单
+        if (this.task.name) {
+          this.libraryForm.name = this.task.name
+          this.libraryForm.description = this.task.description || ''
+        }
+      } catch (error) {
+        console.error('获取音色克隆任务详情失败', error)
+        this.$message.error('获取音色克隆任务详情失败')
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    // 获取音频文件
+    async fetchAudioFile(url, type) {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await this.$http.get(url, {
+          responseType: 'blob',
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
         })
-        .catch(error => {
-          console.error('获取音色克隆任务详情失败', error)
-          this.$message.error('获取音色克隆任务详情失败')
-        })
-        .finally(() => {
-          this.loading = false
-        })
+        if (type === 'audio') {
+          this.audioBlob = response.data
+        } else {
+          this.sampleBlob = response.data
+        }
+      } catch (error) {
+        console.error(`获取${type}音频文件失败`, error)
+        this.$message.error(`获取${type}音频文件失败`)
+      }
     },
     
     // 获取进度信息
@@ -372,6 +415,25 @@ export default {
   margin-top: 10px;
   color: #606266;
   font-size: 14px;
+}
+
+.prompt-text {
+  margin-top: 15px;
+  border-top: 1px solid #EBEEF5;
+  padding-top: 15px;
+}
+
+.prompt-text h4 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #303133;
+}
+
+.prompt-text p {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .progress-info {

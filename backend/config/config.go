@@ -32,14 +32,23 @@ type Config struct {
 	RedisDB       int    `json:"redis_db"`
 
 	// 文件存储配置
-	UploadDir string `json:"upload_dir"`
+	DataDir   string `json:"data_dir"`   // 基础数据目录
+	UploadDir string `json:"upload_dir"` // 上传文件存储目录
+	VoiceDir  string `json:"voice_dir"`  // 音色文件存储目录
+	VideoDir  string `json:"video_dir"`  // 视频文件存储目录
 
 	// API配置
+	FileUploadAPI      string `json:"file_upload_api"`      // 文件上传服务API
+	FileDownloadAPI    string `json:"file_download_api"`    // 文件下载服务API
+	FileServerBaseURL  string `json:"file_server_base_url"` // 文件服务器基础URL
 	VoiceCloneAPI      string `json:"voice_clone_api"`
 	TTSAPI             string `json:"tts_api"`
 	DigitalHumanAPI    string `json:"digital_human_api"`
 	DigitalHumanQuery  string `json:"digital_human_query"`
 	DigitalHumanResult string `json:"digital_human_result"`
+
+	// 域名
+	Domain string `json:"domain"` // 域名
 }
 
 // AppConfig 全局配置实例
@@ -67,12 +76,18 @@ func LoadConfig(configPath string) error {
 		RedisPassword: "",
 		RedisDB:       0,
 
-		UploadDir: "./uploads",
+		DataDir:   "./data",
+		UploadDir: "uploads",
+		VoiceDir:  "voices",
+		VideoDir:  "videos",
 
-		VoiceCloneAPI:      "http://10.64.24.23:8082/api/voice/clone",
-		TTSAPI:             "http://10.64.24.23:8082/api/tts", // 假设的TTS API
-		DigitalHumanAPI:    "http://10.64.24.249:8383/easy/submit",
-		DigitalHumanQuery:  "http://10.64.24.249:8383/easy/query",
+		FileUploadAPI:      "https://aigc-ops-test.skyengine.com.cn/v1/file/upload2path",
+		FileDownloadAPI:    "https://aigc-ops-test.skyengine.com.cn/v1/file/view",
+		FileServerBaseURL:  "https://aigc-ops-test.skyengine.com.cn",
+		VoiceCloneAPI:      "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/cosyvoice2-05b:8080/api/voice/clone",
+		TTSAPI:             "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/cosyvoice2-05b:8080/api/tts", // 假设的TTS API
+		DigitalHumanAPI:    "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/submit",
+		DigitalHumanQuery:  "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/query",
 		DigitalHumanResult: "http://10.64.24.249:8383/easy/result", // 假设的结果获取API
 	}
 

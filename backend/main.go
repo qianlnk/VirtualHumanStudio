@@ -63,6 +63,7 @@ func main() {
 
 	// 静态文件服务
 	router.Static("/uploads", config.AppConfig.UploadDir)
+	router.Static("/data", config.AppConfig.DataDir)
 
 	// 注册路由
 	registerRoutes(router)
@@ -125,6 +126,9 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/digital-human", controllers.ListDigitalHumans)
 		protected.DELETE("/digital-human/:id", controllers.DeleteDigitalHuman)
 		protected.GET("/digital-human/:id/download", controllers.DownloadDigitalHumanResult)
+
+		// 文件处理
+		protected.GET("/file/view", controllers.FileView)
 	}
 
 	// 管理员路由
