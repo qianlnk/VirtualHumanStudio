@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -290,235 +291,78 @@ func DeleteVoiceClone(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "音色克隆任务已删除"})
 }
 
-// UploadVoice 上传音色文件到音色库
-func UploadVoice(c *gin.Context) {
+// AddVoiceToLibrary 添加音色到库中
+func AddVoiceToLibrary(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
 		return
 	}
 
-	// 解析表单数据
-	name := c.PostForm("name")
-	if name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "音色名称不能为空"})
+	// 获取音色克隆任务ID
+	id := c.Param("id")
+
+	// 查询音色克隆任务
+	var voiceClone models.VoiceClone
+	result := db.DB.First(&voiceClone, id)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "音色克隆任务不存在"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
+		}
 		return
 	}
 
-	description := c.PostForm("description")
-	isPublicStr := c.DefaultPostForm("is_public", "false")
-	isPublic := isPublicStr == "true"
-
-	// 获取上传的文件
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "未提供音频文件"})
+	// 检查权限
+	if voiceClone.UserID != userID.(uint) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问此任务"})
 		return
 	}
 
-	// 检查文件类型
-	ext := filepath.Ext(file.Filename)
-	if ext != ".wav" && ext != ".mp3" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV或MP3格式的音频文件"})
+	// 检查任务状态
+	if voiceClone.Status != "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "音色克隆任务尚未完成"})
 		return
 	}
 
-	// 检查音色名称是否已存在
-	var existingVoice models.VoiceLibrary
-	result := db.DB.Where("name = ?", name).First(&existingVoice)
-	if result.Error == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "音色名称已存在"})
-		return
-	} else if result.Error != gorm.ErrRecordNotFound {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
-		return
-	}
-
-	// 生成唯一文件名
-	uniqueID := uuid.New().String()
-	fileName := fmt.Sprintf("%s%s", uniqueID, ext)
-	// 生成相对路径和完整路径
-	filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
-	fullFilePath := filepath.Join(config.AppConfig.DataDir, filePath)
-
-	// 保存文件
-	if err := c.SaveUploadedFile(file, fullFilePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
+	// 检查音色文件是否存在
+	if voiceClone.Result == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "音色文件不存在"})
 		return
 	}
 
 	// 创建音色库记录
 	voiceLibrary := models.VoiceLibrary{
-		Name:        name,
-		Description: description,
-		FilePath:    filePath,
-		Type:        "original",
-		OwnerID:     userID.(uint),
-		IsPublic:    isPublic,
+		Name:        voiceClone.SpeakerName,
+		Description: voiceClone.Description,
+		ModelName:   voiceClone.ModelName,
+		ModelFile:   voiceClone.Result,
+		Type:        "cloned",
+		OwnerID:     voiceClone.UserID,
+		IsPublic:    false,
 	}
 
 	result = db.DB.Create(&voiceLibrary)
 	if result.Error != nil {
-		// 删除已上传的文件
-		os.Remove(fullFilePath)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建音色库记录失败: " + result.Error.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "音色上传成功",
+		"message": "音色已添加到库中",
 		"voice": gin.H{
 			"id":          voiceLibrary.ID,
 			"name":        voiceLibrary.Name,
 			"description": voiceLibrary.Description,
-			"file_path":   voiceLibrary.FilePath,
+			"model_name":  voiceLibrary.ModelName,
+			"model_file":  voiceLibrary.ModelFile,
 			"type":        voiceLibrary.Type,
 			"owner_id":    voiceLibrary.OwnerID,
 			"is_public":   voiceLibrary.IsPublic,
 			"created_at":  voiceLibrary.CreatedAt,
 		},
 	})
-}
-
-// ListVoices 获取音色库列表
-func ListVoices(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
-		return
-	}
-
-	// 分页参数
-	page, size := utils.GetPaginationParams(c)
-
-	// 查询条件：用户自己的音色或公开的音色
-	query := db.DB.Where("owner_id = ? OR is_public = ?", userID, true)
-
-	// 查询总数
-	var count int64
-	query.Model(&models.VoiceLibrary{}).Count(&count)
-
-	// 查询列表
-	var voices []models.VoiceLibrary
-	result := query.Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&voices)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
-		return
-	}
-
-	// 构建响应
-	responses := make([]map[string]interface{}, len(voices))
-	for i, v := range voices {
-		responses[i] = map[string]interface{}{
-			"id":          v.ID,
-			"name":        v.Name,
-			"description": v.Description,
-			"file_path":   v.FilePath,
-			"type":        v.Type,
-			"owner_id":    v.OwnerID,
-			"is_public":   v.IsPublic,
-			"created_at":  v.CreatedAt,
-			"is_owner":    v.OwnerID == userID.(uint),
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"total":  count,
-		"page":   page,
-		"size":   size,
-		"voices": responses,
-	})
-}
-
-// DeleteVoice 删除音色
-func DeleteVoice(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
-		return
-	}
-
-	// 获取音色ID
-	id := c.Param("id")
-
-	// 查询音色
-	var voice models.VoiceLibrary
-	result := db.DB.First(&voice, id)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "音色不存在"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
-		}
-		return
-	}
-
-	// 检查权限
-	if voice.OwnerID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "无权删除此音色"})
-		return
-	}
-
-	// 删除文件
-	if voice.FilePath != "" {
-		fullFilePath := filepath.Join(config.AppConfig.DataDir, voice.FilePath)
-		os.Remove(fullFilePath)
-	}
-
-	// 删除记录
-	result = db.DB.Delete(&voice)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败: " + result.Error.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "音色已删除"})
-}
-
-// DownloadVoice 下载音色文件
-func DownloadVoice(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
-		return
-	}
-
-	// 获取音色ID
-	id := c.Param("id")
-
-	// 查询音色
-	var voice models.VoiceLibrary
-	result := db.DB.First(&voice, id)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "音色不存在"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
-		}
-		return
-	}
-
-	// 检查权限
-	if !voice.IsPublic && voice.OwnerID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "无权下载此音色"})
-		return
-	}
-
-	// 检查文件是否存在
-	fullFilePath := filepath.Join(config.AppConfig.DataDir, voice.FilePath)
-	if _, err := os.Stat(fullFilePath); os.IsNotExist(err) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "音色文件不存在"})
-		return
-	}
-
-	// 获取文件名
-	fileName := filepath.Base(fullFilePath)
-
-	// 设置响应头
-	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
-	c.Header("Content-Type", "application/octet-stream")
-	c.File(fullFilePath)
 }
 
 // handleVoiceCloneAPI 处理音色克隆API调用
@@ -707,4 +551,21 @@ func handleVoiceCloneAPI(voiceClone *models.VoiceClone) {
 		"status": "completed",
 		"result": resultFile,
 	})
+
+	// 自动添加到音色库
+	// 创建音色库记录
+	voiceLibrary := models.VoiceLibrary{
+		Name:        voiceClone.SpeakerName,
+		Description: voiceClone.Description,
+		ModelName:   voiceClone.ModelName,
+		ModelFile:   voiceClone.Result,
+		Type:        "cloned",
+		OwnerID:     voiceClone.UserID,
+		IsPublic:    false,
+	}
+	result := db.DB.Create(&voiceLibrary)
+	if result.Error != nil {
+		log.Println("创建音色库记录失败:", result.Error)
+		return
+	}
 }

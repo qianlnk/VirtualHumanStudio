@@ -47,10 +47,11 @@ type TTSResponse struct {
 
 // APITTSRequest API TTS请求
 type APITTSRequest struct {
-	Type        string `json:"type"`         // text2speech, speech2text
-	InputText   string `json:"input_text"`   // 文本转语音时的输入文本
-	InputFile   string `json:"input_file"`   // 语音转文本时的输入文件
-	SpeakerName string `json:"speaker_name"` // 使用的音色名称
+	ModelName   string  `json:"model_name"`   // 模型名称
+	SpeakerName string  `json:"speaker_name"` // 使用的音色名称
+	Text        string  `json:"text"`         // 输入文本
+	Language    string  `json:"language"`     // 语言，如mandarin
+	SpkRate     float64 `json:"spk_rate"`     // 语速
 }
 
 // CreateTTSTask 创建TTS任务
@@ -111,10 +112,11 @@ func CreateTTSTask(c *gin.Context) {
 		// 生成唯一文件名
 		uniqueID := uuid.New().String()
 		fileName := fmt.Sprintf("%s%s", uniqueID, ext)
-		filePath := utils.GetFilePath(config.AppConfig.UploadDir, fileName)
+		filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
+		fullFilePath := utils.GetFilePath(config.AppConfig.DataDir, fileName)
 
 		// 保存文件
-		if err := c.SaveUploadedFile(file, filePath); err != nil {
+		if err := c.SaveUploadedFile(file, fullFilePath); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
 			return
 		}
@@ -149,8 +151,8 @@ func CreateTTSTask(c *gin.Context) {
 			Description: ttsTask.Description,
 			Type:        ttsTask.Type,
 			InputText:   ttsTask.InputText,
-			InputFile:   ttsTask.InputFile,
-			OutputFile:  ttsTask.OutputFile,
+			InputFile:   utils.GetFileURL(ttsTask.InputFile),
+			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
 			SpeakerName: ttsTask.SpeakerName,
 			Status:      ttsTask.Status,
 			CreatedAt:   ttsTask.CreatedAt,
@@ -166,10 +168,11 @@ func processTTSTask(task models.TTSTask) {
 
 	// 构建API请求
 	apiReq := APITTSRequest{
-		Type:        task.Type,
-		InputText:   task.InputText,
-		InputFile:   task.InputFile,
+		ModelName:   "CosyVoice2-0.5B_1",
 		SpeakerName: task.SpeakerName,
+		Text:        task.InputText,
+		Language:    "mandarin",
+		SpkRate:     1.0,
 	}
 
 	// 序列化请求
@@ -226,18 +229,32 @@ func processTTSTask(task models.TTSTask) {
 	switch task.Type {
 	case "text2speech":
 		// 文本转语音，保存输出文件
-		outputFile, ok := apiResp["output_file"].(string)
+		waveBase64, ok := apiResp["wave_base64"].(string)
 		if !ok {
 			db.DB.Model(&task).Updates(map[string]interface{}{
 				"status":    "failed",
-				"error_msg": "API响应中未包含输出文件路径",
+				"error_msg": "API响应中未包含音频数据",
+			})
+			return
+		}
+
+		// 生成唯一的输出文件名
+		outputFileName := fmt.Sprintf("%s.wav", uuid.New().String())
+		outputFilePath := utils.GetUserFilePath(task.UserID, config.AppConfig.AudioDir, outputFileName)
+		fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, outputFilePath)
+		// 将Base64音频数据解码并保存为文件
+		_, err := utils.Base64ToFile(waveBase64, fullOutputFilePath)
+		if err != nil {
+			db.DB.Model(&task).Updates(map[string]interface{}{
+				"status":    "failed",
+				"error_msg": "保存音频文件失败: " + err.Error(),
 			})
 			return
 		}
 
 		db.DB.Model(&task).Updates(map[string]interface{}{
 			"status":      "completed",
-			"output_file": outputFile,
+			"output_file": outputFilePath,
 		})
 
 	case "speech2text":
@@ -295,8 +312,8 @@ func GetTTSTask(c *gin.Context) {
 			Description: ttsTask.Description,
 			Type:        ttsTask.Type,
 			InputText:   ttsTask.InputText,
-			InputFile:   ttsTask.InputFile,
-			OutputFile:  ttsTask.OutputFile,
+			InputFile:   utils.GetFileURL(ttsTask.InputFile),
+			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
 			SpeakerName: ttsTask.SpeakerName,
 			Status:      ttsTask.Status,
 			CreatedAt:   ttsTask.CreatedAt,
@@ -337,8 +354,8 @@ func ListTTSTasks(c *gin.Context) {
 			Description: task.Description,
 			Type:        task.Type,
 			InputText:   task.InputText,
-			InputFile:   task.InputFile,
-			OutputFile:  task.OutputFile,
+			InputFile:   utils.GetFileURL(task.InputFile),
+			OutputFile:  utils.GetFileURL(task.OutputFile),
 			SpeakerName: task.SpeakerName,
 			Status:      task.Status,
 			CreatedAt:   task.CreatedAt,
@@ -385,10 +402,12 @@ func DeleteTTSTask(c *gin.Context) {
 
 	// 删除关联文件
 	if ttsTask.InputFile != "" {
-		os.Remove(ttsTask.InputFile)
+		fullInputFilePath := utils.GetFilePath(config.AppConfig.DataDir, ttsTask.InputFile)
+		os.Remove(fullInputFilePath)
 	}
 	if ttsTask.OutputFile != "" {
-		os.Remove(ttsTask.OutputFile)
+		fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, ttsTask.OutputFile)
+		os.Remove(fullOutputFilePath)
 	}
 
 	// 删除记录
@@ -399,73 +418,4 @@ func DeleteTTSTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "TTS任务已删除"})
-}
-
-// DownloadTTSOutput 下载TTS输出文件
-func DownloadTTSOutput(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
-		return
-	}
-
-	// 获取任务ID
-	id := c.Param("id")
-
-	// 查询任务
-	var ttsTask models.TTSTask
-	result := db.DB.First(&ttsTask, id)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "TTS任务不存在"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
-		}
-		return
-	}
-
-	// 检查权限
-	if ttsTask.UserID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问此任务"})
-		return
-	}
-
-	// 检查任务状态和输出文件
-	if ttsTask.Status != "completed" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "任务尚未完成"})
-		return
-	}
-
-	if ttsTask.Type == "text2speech" {
-		// 文本转语音，下载音频文件
-		if ttsTask.OutputFile == "" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "输出文件不存在"})
-			return
-		}
-
-		// 检查文件是否存在
-		if _, err := os.Stat(ttsTask.OutputFile); os.IsNotExist(err) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "输出文件不存在"})
-			return
-		}
-
-		// 获取文件名
-		fileName := filepath.Base(ttsTask.OutputFile)
-
-		// 设置响应头
-		c.Header("Content-Description", "File Transfer")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
-		c.Header("Content-Type", "application/octet-stream")
-		c.File(ttsTask.OutputFile)
-	} else {
-		// 语音转文本，返回文本内容
-		if ttsTask.InputText == "" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "识别结果不存在"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"text": ttsTask.InputText,
-		})
-	}
 }

@@ -82,10 +82,12 @@ type DigitalHuman struct {
 // VoiceLibrary 音色库模型
 type VoiceLibrary struct {
 	BaseModel
-	Name        string `json:"name" gorm:"size:100;not null;uniqueIndex"`
-	Description string `json:"description" gorm:"size:500"`
-	FilePath    string `json:"file_path" gorm:"size:255;not null"` // 音色文件路径
-	Type        string `json:"type" gorm:"size:20;not null"`       // original, cloned
-	OwnerID     uint   `json:"owner_id" gorm:"index"`              // 所有者ID，如果是克隆音色
-	IsPublic    bool   `json:"is_public" gorm:"default:false"`     // 是否公开
+	Name        string `json:"name" gorm:"size:100;not null"`       // 音色名称
+	Description string `json:"description" gorm:"size:500"`         // 音色描述
+	ModelName   string `json:"model_name" gorm:"size:100;not null"` // 模型名称
+	ModelFile   string `json:"model_file" gorm:"size:255;not null"` // 音色模型文件路径
+	SampleFile  string `json:"sample_file" gorm:"size:255"`         // 试听音频文件路径
+	Type        string `json:"type" gorm:"size:20;not null"`        // original, cloned
+	OwnerID     uint   `json:"owner_id" gorm:"index"`               // 所有者ID，如果是克隆音色
+	IsPublic    bool   `json:"is_public" gorm:"default:false"`      // 是否公开
 }

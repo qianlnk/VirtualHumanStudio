@@ -40,11 +40,18 @@
         
         <div class="audio-section" v-if="task.status === 'completed'">
           <h3>生成结果</h3>
-          <div class="audio-player">
+          <div v-if="audioUrl" class="audio-player">
             <audio controls ref="audioPlayer" style="width: 100%">
               <source :src="audioUrl" type="audio/mpeg">
               您的浏览器不支持音频播放
             </audio>
+          </div>
+          <div v-else class="loading-audio">
+            <el-skeleton :loading="true" animated>
+              <template slot="template">
+                <el-skeleton-item variant="rect" style="width: 100%; height: 54px"/>
+              </template>
+            </el-skeleton>
           </div>
           <div class="action-buttons">
             <el-button type="primary" @click="downloadOutput">下载音频</el-button>
@@ -64,6 +71,7 @@
 
 <script>
 import axios from 'axios'
+import { getAudioUrl, downloadFile } from '@/utils/fileAccess'
 
 export default {
   name: 'TTSDetail',
@@ -132,13 +140,7 @@ export default {
     // 获取音频URL
     async getAudioUrl() {
       try {
-        const response = await axios.get(`${this.baseURL}/api/tts/${this.taskId}/download`, {
-          headers: { Authorization: `Bearer ${this.token}` },
-          responseType: 'blob'
-        })
-        
-        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' })
-        this.audioUrl = URL.createObjectURL(audioBlob)
+        this.audioUrl = await getAudioUrl(this.task.output_file)
       } catch (error) {
         console.error('获取音频失败:', error)
         this.$message.error('获取音频失败')
@@ -148,20 +150,9 @@ export default {
     // 下载输出文件
     async downloadOutput() {
       try {
-        const response = await axios.get(`${this.baseURL}/api/tts/${this.taskId}/download`, {
-          headers: { Authorization: `Bearer ${this.token}` },
-          responseType: 'blob'
-        })
-        
-        const blob = new Blob([response.data])
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.style.display = 'none'
-        a.href = url
-        a.download = `tts_output_${this.taskId}.mp3`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
+        const audioPath = await getAudioUrl(this.task.output_file)
+        const fileName = this.task.name ? `${this.task.name}.mp3` : `tts_output_${this.taskId}.mp3`
+        await downloadFile(audioPath, fileName)
       } catch (error) {
         console.error('下载文件失败:', error)
         this.$message.error('下载文件失败')

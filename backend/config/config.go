@@ -35,6 +35,7 @@ type Config struct {
 	DataDir   string `json:"data_dir"`   // 基础数据目录
 	UploadDir string `json:"upload_dir"` // 上传文件存储目录
 	VoiceDir  string `json:"voice_dir"`  // 音色文件存储目录
+	AudioDir  string `json:"audio_dir"`  // 音频文件存储目录
 	VideoDir  string `json:"video_dir"`  // 视频文件存储目录
 
 	// API配置

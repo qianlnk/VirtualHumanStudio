@@ -53,15 +53,15 @@
           <div class="media-preview">
             <div class="audio-preview">
               <h4>音频文件</h4>
-              <audio controls style="width: 100%">
-                <source :src="getMediaUrl(digitalHuman.audio_url)" type="audio/wav">
+              <audio controls style="width: 100%" ref="audioPlayer">
+                <source :src="audioUrl" type="audio/wav">
                 您的浏览器不支持音频播放
               </audio>
             </div>
             <div class="video-preview">
               <h4>视频文件</h4>
-              <video controls style="width: 100%; max-height: 300px">
-                <source :src="getMediaUrl(digitalHuman.video_url)" type="video/mp4">
+              <video controls style="width: 100%; max-height: 300px" ref="videoPlayer">
+                <source :src="videoUrl" type="video/mp4">
                 您的浏览器不支持视频播放
               </video>
             </div>
@@ -72,8 +72,8 @@
         <div class="result-section" v-if="digitalHuman.status === 'completed' && digitalHuman.result_url">
           <h3>合成结果</h3>
           <div class="result-preview">
-            <video controls style="width: 100%; max-height: 400px">
-              <source :src="getMediaUrl(digitalHuman.result_url)" type="video/mp4">
+            <video controls style="width: 100%; max-height: 400px" ref="resultPlayer">
+              <source :src="resultUrl" type="video/mp4">
               您的浏览器不支持视频播放
             </video>
           </div>
@@ -96,6 +96,7 @@
 
 <script>
 import axios from 'axios'
+import { getAudioUrl, getVideoUrl, downloadFile } from '@/utils/fileAccess'
 
 export default {
   name: 'DigitalHumanDetail',
@@ -105,7 +106,10 @@ export default {
       digitalHuman: null,
       progress: 0,
       refreshInterval: null,
-      baseURL: process.env.VUE_APP_API_URL || 'http://localhost:8080'
+      baseURL: process.env.VUE_APP_API_URL || 'http://localhost:8080',
+      audioUrl: '',
+      videoUrl: '',
+      resultUrl: ''
     }
   },
   computed: {
@@ -118,6 +122,7 @@ export default {
   },
   created() {
     this.fetchDigitalHumanDetail()
+    this.loadMediaUrls()
   },
   mounted() {
     // 如果任务状态是pending或processing，设置定时刷新
@@ -195,25 +200,39 @@ export default {
     
     // 下载结果
     downloadResult() {
-      window.open(`${this.baseURL}/digital-human/${this.taskId}/download`, '_blank')
+      if (!this.digitalHuman || !this.digitalHuman.result_url) {
+        this.$message.warning('没有可下载的结果文件')
+        return
+      }
+      const fileName = `digital_human_${this.taskId}${this.getFileExtension(this.digitalHuman.result_url)}`
+      downloadFile(this.digitalHuman.result_url, fileName)
+    },
+
+    // 获取文件扩展名
+    getFileExtension(filePath) {
+      if (!filePath) return ''
+      const match = filePath.match(/\.[^.]+$/)
+      return match ? match[0] : ''
+    },
+
+    // 加载媒体URL
+    async loadMediaUrls() {
+      if (this.digitalHuman) {
+        if (this.digitalHuman.audio_url) {
+          this.audioUrl = await getAudioUrl(this.digitalHuman.audio_url)
+        }
+        if (this.digitalHuman.video_url) {
+          this.videoUrl = await getVideoUrl(this.digitalHuman.video_url)
+        }
+        if (this.digitalHuman.result_url) {
+          this.resultUrl = await getVideoUrl(this.digitalHuman.result_url)
+        }
+      }
     },
     
     // 返回列表
     goBack() {
       this.$router.push('/digital-human')
-    },
-    
-    // 获取媒体URL
-    getMediaUrl(path) {
-      if (!path) return ''
-      // 如果是完整URL则直接返回
-      if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path
-      }
-      // 移除./uploads/前缀，只保留文件名
-      const fileName = path.replace('./uploads/', '')
-      // 拼接为完整的URL，使用/uploads/路径
-      return `${this.baseURL}/uploads/${fileName}`
     },
     
     // 格式化进度

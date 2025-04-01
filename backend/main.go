@@ -105,19 +105,18 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/voice/clones", controllers.ListVoiceClones)
 		protected.DELETE("/voice/clone/:id", controllers.DeleteVoiceClone)
 		protected.POST("/voice/clone/:id/retry", controllers.RetryVoiceClone)
+		protected.POST("/voice/clone/:id/add_to_library", controllers.AddVoiceToLibrary) // 添加到音色库
 
 		// 音色库
 		protected.POST("/voice/upload", controllers.UploadVoice)
 		protected.GET("/voices", controllers.ListVoices)
 		protected.DELETE("/voice/:id", controllers.DeleteVoice)
-		protected.GET("/voice/:id/download", controllers.DownloadVoice)
 
 		// TTS
 		protected.POST("/tts", controllers.CreateTTSTask)
 		protected.GET("/tts/:id", controllers.GetTTSTask)
 		protected.GET("/tts", controllers.ListTTSTasks)
 		protected.DELETE("/tts/:id", controllers.DeleteTTSTask)
-		protected.GET("/tts/:id/download", controllers.DownloadTTSOutput)
 
 		// 数字人
 		protected.POST("/digital-human", controllers.CreateDigitalHuman)
@@ -125,7 +124,6 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/digital-human/:id/progress", controllers.QueryDigitalHumanProgress)
 		protected.GET("/digital-human", controllers.ListDigitalHumans)
 		protected.DELETE("/digital-human/:id", controllers.DeleteDigitalHuman)
-		protected.GET("/digital-human/:id/download", controllers.DownloadDigitalHumanResult)
 
 		// 文件处理
 		protected.GET("/file/view", controllers.FileView)

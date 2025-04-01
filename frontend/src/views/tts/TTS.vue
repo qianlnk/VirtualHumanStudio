@@ -132,9 +132,9 @@
     </el-dialog>
   </div>
 </template>
-
 <script>
 import axios from 'axios'
+import { downloadFile, getAudioUrl } from '@/utils/fileAccess'
 
 export default {
   name: 'TTS',
@@ -330,46 +330,34 @@ export default {
         return
       }
       
-      try {
-        // 获取音频URL
-        const response = await axios.get(`${this.baseURL}/api/tts/${task.id}/download`, {
-          headers: { Authorization: `Bearer ${this.token}` },
-          responseType: 'blob'
-        })
-        
-        const audioBlob = new Blob([response.data], { type: 'audio/mpeg' })
-        const audioUrl = URL.createObjectURL(audioBlob)
-        
-        const audioPlayer = this.$refs.audioPlayer
-        audioPlayer.src = audioUrl
-        audioPlayer.play()
-      } catch (error) {
-        console.error('播放音频失败:', error)
-        this.$message.error('播放音频失败')
+      if (!task.output_file) {
+        this.$message.warning('没有可播放的音频文件')
+        return
       }
+      
+      const audioPlayer = this.$refs.audioPlayer
+      audioPlayer.src = await getAudioUrl(task.output_file)
+      await audioPlayer.play()
     },
     
     // 下载输出文件
-    async downloadOutput(id) {
+    async downloadOutput(taskId) {
       try {
-        const response = await axios.get(`${this.baseURL}/api/tts/${id}/download`, {
-          headers: { Authorization: `Bearer ${this.token}` },
-          responseType: 'blob'
-        })
-        
-        const blob = new Blob([response.data])
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.style.display = 'none'
-        a.href = url
-        a.download = `tts_output_${id}.mp3`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
+        const task = this.tasks.find(t => t.id === taskId)
+        const audioPath = await getAudioUrl(task.output_file)
+        const fileName = task && task.name ? `${task.name}.mp3` : `tts_output_${taskId}.mp3`
+        await downloadFile(audioPath, fileName)
       } catch (error) {
         console.error('下载文件失败:', error)
         this.$message.error('下载文件失败')
       }
+    },
+    
+    // 获取文件扩展名
+    getFileExtension(filePath) {
+      if (!filePath) return ''
+      const match = filePath.match(/\.[^.]+$/)
+      return match ? match[0] : ''
     },
     
     // 确认删除

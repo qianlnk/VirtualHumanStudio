@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +42,10 @@ func GetFileExtension(fileName string) string {
 
 // GetFileURL 生成文件访问URL
 func GetFileURL(filePath string) string {
+	if filePath == "" {
+		return ""
+	}
+
 	// 移除数据目录前缀，只保留相对路径
 	relativePath := filePath
 	if config.AppConfig.DataDir != "" {
@@ -74,4 +79,26 @@ func GetPaginationParams(c *gin.Context) (page, size int) {
 	}
 
 	return page, size
+}
+
+// Base64ToFile 将Base64编码的数据解码并保存为文件
+func Base64ToFile(base64Data, filePath string) ([]byte, error) {
+	// 解码Base64数据
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return nil, fmt.Errorf("解码Base64数据失败: %v", err)
+	}
+
+	// 确保目录存在
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("创建目录失败: %v", err)
+	}
+
+	// 写入文件
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return nil, fmt.Errorf("写入文件失败: %v", err)
+	}
+
+	return data, nil
 }

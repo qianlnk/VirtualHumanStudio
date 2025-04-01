@@ -13,21 +13,38 @@
       <el-empty v-if="voices.length === 0" description="暂无音色"></el-empty>
       
       <el-table v-else :data="voices" style="width: 100%">
-        <el-table-column prop="name" label="音色名称" width="180"></el-table-column>
+        <el-table-column prop="name" label="音色名称" width="150"></el-table-column>
+        <el-table-column prop="model_name" label="模型名称" width="150"></el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
           </template>
         </el-table-column>
         <el-table-column prop="description" label="描述" show-overflow-tooltip></el-table-column>
-        <el-table-column label="试听" width="120">
+        <el-table-column label="文件" width="180">
+          <template slot-scope="scope">
+            <el-button 
+              type="text" 
+              size="small" 
+              @click="downloadVoice(scope.row.id, 'model')">
+              <i class="el-icon-download"></i> 模型文件
+            </el-button>
+            <el-button 
+              v-if="scope.row.sample_file" 
+              type="text" 
+              size="small" 
+              @click="downloadVoice(scope.row.id, 'sample')">
+              <i class="el-icon-download"></i> 试听文件
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="试听" width="100">
           <template slot-scope="scope">
             <el-button 
               type="text" 
               size="small" 
               @click="playAudio(scope.row)" 
-              :disabled="!scope.row.sample_url"
-            >
+              :disabled="!scope.row.sample_file">
               <i class="el-icon-video-play"></i> 试听
             </el-button>
           </template>
@@ -64,17 +81,34 @@
         <el-form-item label="音色名称" prop="name">
           <el-input v-model="uploadForm.name" placeholder="请输入音色名称"></el-input>
         </el-form-item>
+
+        <el-form-item label="模型名称" prop="model_name">
+          <el-input v-model="uploadForm.model_name" placeholder="请输入模型名称"></el-input>
+        </el-form-item>
         
-        <el-form-item label="音频文件" prop="audio_file">
+        <el-form-item label="模型文件" prop="model_file">
           <el-upload
             class="upload-demo"
             action="#"
-            :http-request="uploadAudio"
+            :http-request="uploadModelFile"
             :limit="1"
-            :file-list="fileList"
-            :before-upload="beforeUpload">
+            :file-list="modelFileList"
+            :before-upload="beforeUploadModel">
             <el-button size="small" type="primary">点击上传</el-button>
-            <div slot="tip" class="el-upload__tip">只能上传mp3/wav文件，且不超过50MB</div>
+            <div slot="tip" class="el-upload__tip">请上传模型文件</div>
+          </el-upload>
+        </el-form-item>
+
+        <el-form-item label="试听音频" prop="sample_file">
+          <el-upload
+            class="upload-demo"
+            action="#"
+            :http-request="uploadSampleFile"
+            :limit="1"
+            :file-list="sampleFileList"
+            :before-upload="beforeUploadSample">
+            <el-button size="small" type="primary">点击上传</el-button>
+            <div slot="tip" class="el-upload__tip">可选，支持mp3/wav文件，不超过50MB</div>
           </el-upload>
         </el-form-item>
         
@@ -96,6 +130,8 @@
 </template>
 
 <script>
+import { downloadFile, getAudioUrl } from '@/utils/fileAccess'
+
 export default {
   name: 'VoiceLibrary',
   data() {
@@ -108,19 +144,26 @@ export default {
       total: 0,
       currentPlayingId: null,
       uploadDialogVisible: false,
-      fileList: [],
+      modelFileList: [],
+      sampleFileList: [],
       uploadForm: {
         name: '',
         description: '',
-        audio_file: null
+        model_name: '',
+        model_file: null,
+        sample_file: null
       },
       uploadRules: {
         name: [
           { required: true, message: '请输入音色名称', trigger: 'blur' },
           { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
         ],
-        audio_file: [
-          { required: true, message: '请上传音频文件', trigger: 'change' }
+        model_name: [
+          { required: true, message: '请输入模型名称', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+        ],
+        model_file: [
+          { required: true, message: '请上传模型文件', trigger: 'change' }
         ]
       }
     }
@@ -130,6 +173,7 @@ export default {
       return (process.env.VUE_APP_API_URL || '') + '/'
     }
   },
+
   created() {
     this.fetchVoices()
   },
@@ -159,13 +203,13 @@ export default {
     
     // 播放音频
     playAudio(voice) {
-      if (!voice.sample_url) {
+      if (!voice.sample_file) {
         this.$message.warning('该音色没有示例音频')
         return
       }
       
       const audioPlayer = this.$refs.audioPlayer
-      const audioUrl = this.baseUrl + voice.sample_url
+      const audioUrl = getAudioUrl(voice.sample_file)
       
       // 如果正在播放同一个音频，则暂停
       if (this.currentPlayingId === voice.id && !audioPlayer.paused) {
@@ -248,18 +292,27 @@ export default {
       this.uploadForm = {
         name: '',
         description: '',
-        audio_file: null
+        model_name: '',
+        model_file: null,
+        sample_file: null
       }
-      this.fileList = []
+      this.modelFileList = []
+      this.sampleFileList = []
     },
     
-    // 上传前检查音频文件
-    beforeUpload(file) {
+    // 上传前检查模型文件
+    beforeUploadModel(file) {
+      this.uploadForm.model_file = file
+      return false
+    },
+    
+    // 上传前检查试听音频文件
+    beforeUploadSample(file) {
       const isAudio = file.type.startsWith('audio/') || file.name.endsWith('.mp3') || file.name.endsWith('.wav')
       const isLt50M = file.size / 1024 / 1024 < 50
       
       if (!isAudio) {
-        this.$message.error('只能上传音频文件!')
+        this.$message.error('只能上传mp3/wav格式的音频文件!')
         return false
       }
       
@@ -268,14 +321,20 @@ export default {
         return false
       }
       
-      this.uploadForm.audio_file = file
+      this.uploadForm.sample_file = file
       return false
     },
     
-    // 上传音频文件
-    uploadAudio(options) {
-      this.uploadForm.audio_file = options.file
-      this.fileList = [{ name: options.file.name, url: '' }]
+    // 上传模型文件
+    uploadModelFile(options) {
+      this.uploadForm.model_file = options.file
+      this.modelFileList = [{ name: options.file.name, url: '' }]
+    },
+    
+    // 上传试听音频文件
+    uploadSampleFile(options) {
+      this.uploadForm.sample_file = options.file
+      this.sampleFileList = [{ name: options.file.name, url: '' }]
     },
     
     // 提交上传表单
@@ -285,16 +344,20 @@ export default {
           return false
         }
         
-        if (!this.uploadForm.audio_file) {
-          this.$message.error('请上传音频文件')
+        if (!this.uploadForm.model_file) {
+          this.$message.error('请上传模型文件')
           return false
         }
         
         // 创建FormData对象
         const formData = new FormData()
         formData.append('name', this.uploadForm.name)
+        formData.append('model_name', this.uploadForm.model_name)
         formData.append('description', this.uploadForm.description || '')
-        formData.append('file', this.uploadForm.audio_file)
+        formData.append('model_file', this.uploadForm.model_file)
+        if (this.uploadForm.sample_file) {
+          formData.append('sample_file', this.uploadForm.sample_file)
+        }
         
         this.uploading = true
         
@@ -319,9 +382,21 @@ export default {
       })
     },
     
-    // 下载音色
-    downloadVoice(id) {
-      window.open(`${this.baseUrl}api/voice/${id}/download`, '_blank')
+    // 获取文件扩展名
+    getFileExtension(filePath) {
+      if (!filePath) return ''
+      const match = filePath.match(/\.[^.]+$/)
+      return match ? match[0] : ''
+    },
+
+    // 下载音色文件
+    downloadVoice(id, type) {
+      const voice = this.voices.find(v => v.id === id)
+      if (!voice) return
+      
+      const filePath = type === 'model' ? voice.model_file : voice.sample_file
+      const fileName = type === 'model' ? `${voice.name}_model${this.getFileExtension(filePath)}` : `${voice.name}_sample${this.getFileExtension(filePath)}`
+      downloadFile(filePath, fileName)
     }
   }
 }
