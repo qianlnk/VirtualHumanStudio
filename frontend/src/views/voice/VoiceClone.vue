@@ -10,7 +10,12 @@
       <el-empty v-if="tasks.length === 0" description="暂无音色克隆任务"></el-empty>
       
       <el-table v-else :data="tasks" style="width: 100%">
-        <el-table-column prop="name" label="任务名称" width="180"></el-table-column>
+        <el-table-column prop="speaker_name" label="说话人名称" width="150"></el-table-column>
+        <el-table-column prop="prompt_text" label="提示词" show-overflow-tooltip>
+          <template slot-scope="scope">
+            <span>{{ scope.row.prompt_text || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
@@ -46,36 +51,35 @@
     <!-- 音色克隆创建表单 -->
     <el-dialog title="创建音色克隆任务" :visible.sync="dialogVisible" width="600px">
       <el-form :model="form" :rules="rules" ref="form" label-width="100px">
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入任务名称"></el-input>
+        <el-form-item label="说话人名称" prop="speaker_name">
+          <el-input v-model="form.speaker_name" placeholder="请输入说话人名称"></el-input>
         </el-form-item>
         
         <el-form-item label="音频文件" prop="audio_file">
-          <el-upload
-            class="upload-demo"
-            action="#"
-            :http-request="uploadAudio"
-            :limit="1"
-            :file-list="fileList"
-            :before-upload="beforeUpload">
-            <el-button size="small" type="primary">点击上传</el-button>
+          <div class="audio-upload-container">
+            <el-upload
+              class="upload-demo"
+              action="#"
+              :http-request="uploadAudio"
+              :limit="1"
+              :file-list="fileList"
+              :before-upload="beforeUpload">
+              <el-button size="small" type="primary">点击上传</el-button>
+            </el-upload>
+            <el-button size="small" type="success" @click="startRecording" v-if="!isRecording">录制</el-button>
+            <el-button size="small" type="danger" @click="stopRecording" v-if="isRecording">停止录制</el-button>
             <div slot="tip" class="el-upload__tip">只能上传mp3/wav文件，且不超过50MB</div>
-          </el-upload>
+          </div>
+          <!-- 录音预览 -->
+          <div v-if="recordedAudio" class="recorded-audio-preview">
+            <audio :src="recordedAudioUrl" controls></audio>
+            <div class="preview-actions">
+              <el-button size="small" type="primary" @click="useRecordedAudio">使用录制的音频</el-button>
+              <el-button size="small" @click="discardRecordedAudio">放弃</el-button>
+            </div>
+          </div>
         </el-form-item>
         
-        <el-form-item label="描述" prop="description">
-          <el-input 
-            type="textarea" 
-            v-model="form.description" 
-            placeholder="请输入任务描述"
-            :rows="3">
-          </el-input>
-        </el-form-item>
-
-        <el-form-item label="模型名称" prop="model_name">
-          <el-input v-model="form.model_name" placeholder="请选择模型名称"></el-input>
-        </el-form-item>
-
         <el-form-item label="提示文本" prop="prompt_text">
           <el-input 
             type="textarea" 
@@ -83,10 +87,6 @@
             placeholder="请输入提示文本"
             :rows="3">
           </el-input>
-        </el-form-item>
-
-        <el-form-item label="说话人名称" prop="speaker_name">
-          <el-input v-model="form.speaker_name" placeholder="请输入说话人名称"></el-input>
         </el-form-item>
       </el-form>
       <span slot="footer" class="dialog-footer">
@@ -111,29 +111,26 @@ export default {
       dialogVisible: false,
       fileList: [],
       form: {
-        name: '',
-        description: '',
+        speaker_name: '',
         audio_file: null,
-        model_name: '',
-        prompt_text: '',
-        speaker_name: ''
+        prompt_text: ''
       },
+      // 录音相关数据
+      isRecording: false,
+      mediaRecorder: null,
+      recordedChunks: [],
+      recordedAudio: null,
+      recordedAudioUrl: null,
       rules: {
-        name: [
-          { required: true, message: '请输入任务名称', trigger: 'blur' },
+        speaker_name: [
+          { required: true, message: '请输入说话人名称', trigger: 'blur' },
           { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
         ],
         audio_file: [
           { required: true, message: '请上传音频文件', trigger: 'change' }
         ],
-        model_name: [
-          { required: true, message: '请选择模型名称', trigger: 'change' }
-        ],
         prompt_text: [
           { required: true, message: '请输入提示文本', trigger: 'blur' }
-        ],
-        speaker_name: [
-          { required: true, message: '请输入说话人名称', trigger: 'blur' }
         ]
       }
     }
@@ -176,42 +173,25 @@ export default {
       return statusMap[status] || 'info'
     },
     
+    // 生成随机字符串
+    generateRandomString(length = 6) {
+      const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+      let result = ''
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+      return result
+    },
+    
     // 创建音色克隆任务
     createVoiceClone() {
       this.dialogVisible = true
       this.form = {
-        name: '',
-        description: '',
+        speaker_name: '',
         audio_file: null,
-        model_name: '',
-        prompt_text: '',
-        speaker_name: ''
+        prompt_text: ''
       }
       this.fileList = []
-    },
-    
-    // 上传前检查音频文件
-    beforeUpload(file) {
-      const isAudio = file.type.startsWith('audio/') || file.name.endsWith('.mp3') || file.name.endsWith('.wav')
-      const isLt50M = file.size / 1024 / 1024 < 50
-      
-      if (!isAudio) {
-        this.$message.error('只能上传音频文件!')
-        return false
-      }
-      if (!isLt50M) {
-        this.$message.error('音频文件大小不能超过 50MB!')
-        return false
-      }
-      
-      this.form.audio_file = file
-      return false
-    },
-    
-    // 上传音频文件
-    uploadAudio(options) {
-      this.form.audio_file = options.file
-      this.fileList = [{ name: options.file.name, url: '' }]
     },
     
     // 提交表单
@@ -225,10 +205,10 @@ export default {
           this.submitting = true
           
           const formData = new FormData()
-          formData.append('name', this.form.name)
-          formData.append('description', this.form.description)
+          // 生成任务名称：说话人名称 + 随机字符串
+          const taskName = `${this.form.speaker_name}_${this.generateRandomString()}`
+          formData.append('name', taskName)
           formData.append('prompt_file', this.form.audio_file)
-          formData.append('model_name', this.form.model_name)
           formData.append('prompt_text', this.form.prompt_text)
           formData.append('speaker_name', this.form.speaker_name)
           
@@ -300,7 +280,98 @@ export default {
       this.pageSize = size
       this.currentPage = 1
       this.fetchTasks()
-    }
+    },
+
+    // 上传前验证
+    beforeUpload(file) {
+      // 检查文件类型和扩展名
+      const validMimeTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav']
+      const isAudioType = validMimeTypes.includes(file.type)
+      const fileName = file.name.toLowerCase()
+      const isValidExtension = fileName.endsWith('.mp3') || fileName.endsWith('.wav')
+      const isLt50M = file.size / 1024 / 1024 < 50
+
+      if (!isAudioType || !isValidExtension) {
+        let errorMsg = '只能上传MP3/WAV格式的音频文件！'
+        if (!isAudioType) {
+          errorMsg += `\n检测到的文件类型: ${file.type || '未知'}`
+        }
+        this.$message.error(errorMsg)
+        return false
+      }
+      if (!isLt50M) {
+        this.$message.error('音频文件大小不能超过50MB！')
+        return false
+      }
+      return true
+    },
+
+    // 自定义上传
+    uploadAudio(params) {
+      const file = params.file
+      const isValid = this.beforeUpload(file)
+      if (isValid) {
+        this.form.audio_file = file
+        this.fileList = [{ name: file.name, url: URL.createObjectURL(file) }]
+      }
+    },
+    
+    // 开始录音
+    async startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        this.mediaRecorder = new MediaRecorder(stream)
+        this.recordedChunks = []
+        
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.recordedChunks.push(event.data)
+          }
+        }
+        
+        this.mediaRecorder.onstop = () => {
+          const blob = new Blob(this.recordedChunks, { type: 'audio/wav' })
+          this.recordedAudio = blob
+          this.recordedAudioUrl = URL.createObjectURL(blob)
+          // 停止所有音轨
+          stream.getTracks().forEach(track => track.stop())
+        }
+        
+        this.mediaRecorder.start()
+        this.isRecording = true
+      } catch (error) {
+        console.error('录音失败:', error)
+        this.$message.error('无法访问麦克风，请确保已授予麦克风权限')
+      }
+    },
+    
+    // 停止录音
+    stopRecording() {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.stop()
+        this.isRecording = false
+      }
+    },
+    
+    // 使用录制的音频
+    useRecordedAudio() {
+      if (this.recordedAudio) {
+        const file = new File([this.recordedAudio], 'recorded_audio.wav', { type: 'audio/wav' })
+        this.form.audio_file = file
+        this.fileList = [{ name: file.name, url: this.recordedAudioUrl }]
+        this.discardRecordedAudio()
+      }
+    },
+    
+    // 放弃录制的音频
+    discardRecordedAudio() {
+      if (this.recordedAudioUrl) {
+        URL.revokeObjectURL(this.recordedAudioUrl)
+      }
+      this.recordedAudio = null
+      this.recordedAudioUrl = null
+      this.recordedChunks = []
+    },
   }
 }
 </script>
@@ -330,5 +401,44 @@ export default {
 .pagination-container {
   margin-top: 20px;
   text-align: center;
+}
+
+.audio-file-info {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.audio-file-info p {
+  margin: 5px 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.audio-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.recorded-audio-preview {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f5f7fa;
+}
+
+.recorded-audio-preview audio {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 </style>

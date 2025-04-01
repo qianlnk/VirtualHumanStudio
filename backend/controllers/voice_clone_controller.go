@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,11 +24,15 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	exsample_text = "你好，我是你的朋友，我能克隆你的声音，也能合成数字人，让我们一起探索人工智能的无限可能！"
+)
+
 // VoiceCloneRequest 音色克隆请求
 type VoiceCloneRequest struct {
 	Name        string `form:"name" binding:"required"`
 	Description string `form:"description"`
-	ModelName   string `form:"model_name" binding:"required"`
+	ModelName   string `form:"model_name"`
 	PromptText  string `form:"prompt_text" binding:"required"`
 	SpeakerName string `form:"speaker_name" binding:"required"`
 	// 文件通过multipart/form-data上传
@@ -46,6 +51,7 @@ type VoiceCloneResponse struct {
 	Result      string    `json:"result"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	SampleFile  string    `json:"sample_file"`
 }
 
 // APIVoiceCloneRequest API音色克隆请求
@@ -70,6 +76,8 @@ func CreateVoiceClone(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数无效: " + err.Error()})
 		return
 	}
+
+	req.ModelName = "CosyVoice2-0.5B_1"
 
 	// 获取上传的文件
 	file, err := c.FormFile("prompt_file")
@@ -118,13 +126,14 @@ func CreateVoiceClone(c *gin.Context) {
 		return
 	}
 
+	ctx := context.WithValue(context.Background(), "user_id", userID)
 	// 调用音色克隆API
 	go func() {
 		// 更新状态为处理中
 		db.DB.Model(&voiceClone).Update("status", "processing")
 
 		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(&voiceClone)
+		handleVoiceCloneAPI(ctx, &voiceClone)
 	}()
 
 	// 返回响应
@@ -189,6 +198,7 @@ func GetVoiceClone(c *gin.Context) {
 			Result:      voiceClone.Result,
 			CreatedAt:   voiceClone.CreatedAt,
 			UpdatedAt:   voiceClone.UpdatedAt,
+			SampleFile:  utils.GetFileURL(voiceClone.SampleFile),
 		},
 	})
 }
@@ -231,6 +241,7 @@ func ListVoiceClones(c *gin.Context) {
 			Result:      vc.Result,
 			CreatedAt:   vc.CreatedAt,
 			UpdatedAt:   vc.UpdatedAt,
+			SampleFile:  utils.GetFileURL(vc.SampleFile),
 		}
 	}
 
@@ -366,7 +377,7 @@ func AddVoiceToLibrary(c *gin.Context) {
 }
 
 // handleVoiceCloneAPI 处理音色克隆API调用
-func handleVoiceCloneAPI(voiceClone *models.VoiceClone) {
+func handleVoiceCloneAPI(ctx context.Context, voiceClone *models.VoiceClone) {
 	// 1. 上传音频文件到音色克隆服务器
 	fullPromptPath := filepath.Join(config.AppConfig.DataDir, voiceClone.PromptFile)
 	file, err := os.Open(fullPromptPath)
@@ -546,10 +557,25 @@ func handleVoiceCloneAPI(voiceClone *models.VoiceClone) {
 		return
 	}
 
+	// 生产示例音频
+	sampleAudioReq := APITTSRequest{
+		Text:        exsample_text,
+		ModelName:   voiceClone.ModelName,
+		SpeakerName: voiceClone.SpeakerName,
+		Language:    "mandarin",
+		SpkRate:     1.0,
+	}
+
+	sampleAudioFile, err := ttsInvoke(ctx, &sampleAudioReq)
+	if err != nil {
+		log.Println("生成示例音频失败:", err)
+	}
+
 	// 更新任务状态
 	db.DB.Model(voiceClone).Updates(map[string]interface{}{
-		"status": "completed",
-		"result": resultFile,
+		"status":      "completed",
+		"result":      resultFile,
+		"sample_file": sampleAudioFile,
 	})
 
 	// 自动添加到音色库
@@ -562,6 +588,7 @@ func handleVoiceCloneAPI(voiceClone *models.VoiceClone) {
 		Type:        "cloned",
 		OwnerID:     voiceClone.UserID,
 		IsPublic:    false,
+		SampleFile:  sampleAudioFile,
 	}
 	result := db.DB.Create(&voiceLibrary)
 	if result.Error != nil {

@@ -44,6 +44,7 @@ type VoiceClone struct {
 	Result      string `json:"result" gorm:"size:255"`                  // 结果文件路径
 	TaskID      string `json:"task_id" gorm:"size:100"`                 // 外部API任务ID
 	ErrorMsg    string `json:"error_msg" gorm:"size:500"`
+	SampleFile  string `json:"sample_file" gorm:"size:255"` // 试听音频文件路径
 }
 
 // TTSTask TTS任务模型

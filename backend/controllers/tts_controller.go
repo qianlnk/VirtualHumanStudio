@@ -1,10 +1,8 @@
 package controllers
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -140,7 +138,8 @@ func CreateTTSTask(c *gin.Context) {
 	}
 
 	// 异步处理TTS任务
-	go processTTSTask(ttsTask)
+	ctx := context.WithValue(context.Background(), "user_id", userID)
+	go processTTSTask(ctx, ttsTask)
 
 	// 返回响应
 	c.JSON(http.StatusCreated, gin.H{
@@ -162,7 +161,7 @@ func CreateTTSTask(c *gin.Context) {
 }
 
 // processTTSTask 处理TTS任务
-func processTTSTask(task models.TTSTask) {
+func processTTSTask(ctx context.Context, task models.TTSTask) {
 	// 更新状态为处理中
 	db.DB.Model(&task).Update("status", "processing")
 
@@ -175,104 +174,19 @@ func processTTSTask(task models.TTSTask) {
 		SpkRate:     1.0,
 	}
 
-	// 序列化请求
-	reqData, err := json.Marshal(apiReq)
+	outputFilePath, err := ttsInvoke(ctx, &apiReq)
 	if err != nil {
 		db.DB.Model(&task).Updates(map[string]interface{}{
 			"status":    "failed",
-			"error_msg": "序列化请求失败: " + err.Error(),
+			"error_msg": err.Error(),
 		})
 		return
 	}
 
-	// 发送请求
-	resp, err := http.Post(config.AppConfig.TTSAPI, "application/json", bytes.NewBuffer(reqData))
-	if err != nil {
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":    "failed",
-			"error_msg": "调用API失败: " + err.Error(),
-		})
-		return
-	}
-	defer resp.Body.Close()
-
-	// 读取响应
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":    "failed",
-			"error_msg": "读取API响应失败: " + err.Error(),
-		})
-		return
-	}
-
-	// 解析响应
-	var apiResp map[string]interface{}
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":    "failed",
-			"error_msg": "解析API响应失败: " + err.Error(),
-		})
-		return
-	}
-
-	// 检查响应状态
-	if resp.StatusCode != http.StatusOK {
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":    "failed",
-			"error_msg": fmt.Sprintf("API返回错误: %d %s", resp.StatusCode, string(respBody)),
-		})
-		return
-	}
-
-	// 处理响应结果
-	switch task.Type {
-	case "text2speech":
-		// 文本转语音，保存输出文件
-		waveBase64, ok := apiResp["wave_base64"].(string)
-		if !ok {
-			db.DB.Model(&task).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "API响应中未包含音频数据",
-			})
-			return
-		}
-
-		// 生成唯一的输出文件名
-		outputFileName := fmt.Sprintf("%s.wav", uuid.New().String())
-		outputFilePath := utils.GetUserFilePath(task.UserID, config.AppConfig.AudioDir, outputFileName)
-		fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, outputFilePath)
-		// 将Base64音频数据解码并保存为文件
-		_, err := utils.Base64ToFile(waveBase64, fullOutputFilePath)
-		if err != nil {
-			db.DB.Model(&task).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "保存音频文件失败: " + err.Error(),
-			})
-			return
-		}
-
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":      "completed",
-			"output_file": outputFilePath,
-		})
-
-	case "speech2text":
-		// 语音转文本，保存输出文本
-		outputText, ok := apiResp["output_text"].(string)
-		if !ok {
-			db.DB.Model(&task).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "API响应中未包含输出文本",
-			})
-			return
-		}
-
-		db.DB.Model(&task).Updates(map[string]interface{}{
-			"status":     "completed",
-			"input_text": outputText, // 将识别结果保存到input_text字段
-		})
-	}
+	db.DB.Model(&task).Updates(map[string]interface{}{
+		"status":      "completed",
+		"output_file": outputFilePath,
+	})
 }
 
 // GetTTSTask 获取TTS任务

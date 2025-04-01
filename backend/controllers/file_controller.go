@@ -83,7 +83,7 @@ func checkFileAccess(userID uint, filePath string) bool {
 
 	// 检查文件是否属于用户的音色库
 	var voiceLibrary models.VoiceLibrary
-	result = db.DB.Where("user_id = ? AND (model_file = ? or sample_file = ?)", userID, filePath, filePath).First(&voiceLibrary)
+	result = db.DB.Where("owner_id = ? AND (model_file = ? or sample_file = ?)", userID, filePath, filePath).First(&voiceLibrary)
 	if result.Error == nil {
 		return true
 	}

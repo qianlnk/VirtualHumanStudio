@@ -202,14 +202,13 @@ export default {
     },
     
     // 播放音频
-    playAudio(voice) {
+    async playAudio(voice) {
       if (!voice.sample_file) {
         this.$message.warning('该音色没有示例音频')
         return
       }
       
       const audioPlayer = this.$refs.audioPlayer
-      const audioUrl = getAudioUrl(voice.sample_file)
       
       // 如果正在播放同一个音频，则暂停
       if (this.currentPlayingId === voice.id && !audioPlayer.paused) {
@@ -218,13 +217,26 @@ export default {
         return
       }
       
-      // 播放新的音频
-      audioPlayer.src = audioUrl
-      audioPlayer.play()
-      this.currentPlayingId = voice.id
-      
-      // 播放完成后重置状态
-      audioPlayer.onended = () => {
+      try {
+        // 获取带认证的音频URL
+        const audioUrl = await getAudioUrl(voice.sample_file)
+        
+        // 播放新的音频
+        audioPlayer.src = audioUrl
+        await audioPlayer.play()
+        this.currentPlayingId = voice.id
+        
+        // 播放完成后重置状态
+        audioPlayer.onended = () => {
+          this.currentPlayingId = null
+          // 释放URL对象
+          if (audioUrl) {
+            window.URL.revokeObjectURL(audioUrl)
+          }
+        }
+      } catch (error) {
+        console.error('音频播放失败:', error)
+        this.$message.error('音频加载失败，请稍后重试')
         this.currentPlayingId = null
       }
     },

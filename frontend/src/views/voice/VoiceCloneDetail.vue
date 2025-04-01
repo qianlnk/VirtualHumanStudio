@@ -3,7 +3,7 @@
     <div class="page-header">
       <div class="header-left">
         <el-button icon="el-icon-back" @click="goBack">返回</el-button>
-        <h2>{{ task.name }}</h2>
+        <h2>{{ task.speaker_name }}</h2>
       </div>
       <el-tag :type="getStatusType(task.status)">{{ task.status }}</el-tag>
     </div>
@@ -29,23 +29,10 @@
         </div>
         <div class="audio-info">
           <audio controls :src="audioUrlWithToken" style="width: 100%"></audio>
-          <p class="audio-info-text">音频时长: {{ task.audio_duration || '未知' }} 秒</p>
           <div v-if="task.prompt_text" class="prompt-text">
             <h4>提示文本</h4>
             <p>{{ task.prompt_text }}</p>
           </div>
-        </div>
-      </el-card>
-      
-      <!-- 进度信息 -->
-      <el-card class="detail-card" v-if="task.status === 'processing'">
-        <div slot="header" class="clearfix">
-          <span>处理进度</span>
-          <el-button style="float: right; padding: 3px 0" type="text" @click="refreshProgress">刷新</el-button>
-        </div>
-        <div class="progress-info">
-          <el-progress :percentage="progress" :status="progressStatus"></el-progress>
-          <p class="progress-text">{{ progressText }}</p>
         </div>
       </el-card>
       
@@ -55,14 +42,9 @@
           <span>克隆结果</span>
         </div>
         <div class="result-info">
-          <div class="sample-audio" v-if="task.sample_url">
+          <div class="sample-audio" v-if="task.sample_file">
             <h4>示例音频</h4>
             <audio controls :src="sampleUrlWithToken" style="width: 100%"></audio>
-          </div>
-          
-          <div class="action-buttons">
-            <el-button type="primary" @click="addToLibrary">添加到音色库</el-button>
-            <el-button type="success" @click="useForTTS">用于TTS</el-button>
           </div>
         </div>
       </el-card>
@@ -121,12 +103,9 @@ export default {
         audio_duration: 0,
         error_message: '',
         sample_url: '',
-        progress: 0,
         status_message: ''
       },
-      progress: 0,
-      progressText: '',
-      progressTimer: null,
+      refreshTimer: null,
       addToLibraryDialogVisible: false,
       libraryForm: {
         name: '',
@@ -186,26 +165,37 @@ export default {
         if (this.task.prompt_file) {
           await this.fetchAudioFile(this.task.prompt_file, 'audio')
         }
-        if (this.task.sample_url) {
-          await this.fetchAudioFile(this.task.sample_url, 'sample')
+        if (this.task.sample_file) {
+          await this.fetchAudioFile(this.task.sample_file, 'sample')
         }
         
-        // 如果任务正在处理中，获取进度
+        // 如果任务正在处理中，开始定时刷新
         if (this.task.status === 'processing') {
-          this.fetchProgress()
-          this.startProgressTimer()
-        }
-        
-        // 预填充音色库表单
-        if (this.task.name) {
-          this.libraryForm.name = this.task.name
-          this.libraryForm.description = this.task.description || ''
+          this.startRefreshTimer()
+        } else {
+          this.clearRefreshTimer()
         }
       } catch (error) {
         console.error('获取音色克隆任务详情失败', error)
         this.$message.error('获取音色克隆任务详情失败')
       } finally {
         this.loading = false
+      }
+    },
+    
+    // 开始定时刷新
+    startRefreshTimer() {
+      this.clearRefreshTimer()
+      this.refreshTimer = setInterval(() => {
+        this.fetchTaskDetail()
+      }, 5000) // 每5秒刷新一次
+    },
+    
+    // 清除定时刷新
+    clearRefreshTimer() {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer)
+        this.refreshTimer = null
       }
     },
     

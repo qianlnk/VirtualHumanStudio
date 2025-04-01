@@ -62,7 +62,7 @@ func RetryVoiceClone(c *gin.Context) {
 		db.DB.Model(&voiceClone).Update("status", "processing")
 
 		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(&voiceClone)
+		handleVoiceCloneAPI(c, &voiceClone)
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "任务已重新提交"})
