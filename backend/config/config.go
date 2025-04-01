@@ -42,6 +42,7 @@ type Config struct {
 	FileUploadAPI      string `json:"file_upload_api"`      // 文件上传服务API
 	FileDownloadAPI    string `json:"file_download_api"`    // 文件下载服务API
 	FileServerBaseURL  string `json:"file_server_base_url"` // 文件服务器基础URL
+	FileViewURL        string `json:"file_view_url"`        // 文件查看URL
 	VoiceCloneAPI      string `json:"voice_clone_api"`
 	TTSAPI             string `json:"tts_api"`
 	DigitalHumanAPI    string `json:"digital_human_api"`

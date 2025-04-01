@@ -69,21 +69,21 @@ func checkFileAccess(userID uint, filePath string) bool {
 
 	// 检查文件是否属于用户的TTS任务
 	var ttsTask models.TTSTask
-	result = db.DB.Where("user_id = ? AND output_file = ?", userID, filePath).First(&ttsTask)
+	result = db.DB.Where("user_id = ? AND (output_file = ? OR input_file = ?)", userID, filePath, filePath).First(&ttsTask)
 	if result.Error == nil {
 		return true
 	}
 
 	// 检查文件是否属于用户的数字人
 	var digitalHuman models.DigitalHuman
-	result = db.DB.Where("user_id = ? AND result_file = ?", userID, filePath).First(&digitalHuman)
+	result = db.DB.Where("user_id = ? AND (audio_url = ? OR video_url = ? OR result_url = ?)", userID, filePath, filePath, filePath).First(&digitalHuman)
 	if result.Error == nil {
 		return true
 	}
 
 	// 检查文件是否属于用户的音色库
 	var voiceLibrary models.VoiceLibrary
-	result = db.DB.Where("user_id = ? AND file_path = ?", userID, filePath).First(&voiceLibrary)
+	result = db.DB.Where("user_id = ? AND (model_file = ? or sample_file = ?)", userID, filePath, filePath).First(&voiceLibrary)
 	if result.Error == nil {
 		return true
 	}

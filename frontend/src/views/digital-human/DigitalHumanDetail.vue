@@ -122,7 +122,6 @@ export default {
   },
   created() {
     this.fetchDigitalHumanDetail()
-    this.loadMediaUrls()
   },
   mounted() {
     // 如果任务状态是pending或processing，设置定时刷新
@@ -145,6 +144,9 @@ export default {
         .then(response => {
           // 确保从response.data中获取正确的数据结构
           this.digitalHuman = response.data.digital_human || response.data
+          
+          // 加载媒体URL
+          this.loadMediaUrls()
           
           // 如果任务正在处理中，开始轮询进度
           if (this.digitalHuman && (this.digitalHuman.status === 'pending' || this.digitalHuman.status === 'processing')) {
@@ -217,16 +219,39 @@ export default {
 
     // 加载媒体URL
     async loadMediaUrls() {
-      if (this.digitalHuman) {
-        if (this.digitalHuman.audio_url) {
-          this.audioUrl = await getAudioUrl(this.digitalHuman.audio_url)
+      try {
+        if (this.digitalHuman) {
+          if (this.digitalHuman.audio_url) {
+            this.audioUrl = await getAudioUrl(this.digitalHuman.audio_url)
+            // 重新设置音频源
+            this.$nextTick(() => {
+              if (this.$refs.audioPlayer) {
+                this.$refs.audioPlayer.load()
+              }
+            })
+          }
+          if (this.digitalHuman.video_url) {
+            this.videoUrl = await getVideoUrl(this.digitalHuman.video_url)
+            // 重新设置视频源
+            this.$nextTick(() => {
+              if (this.$refs.videoPlayer) {
+                this.$refs.videoPlayer.load()
+              }
+            })
+          }
+          if (this.digitalHuman.result_url) {
+            this.resultUrl = await getVideoUrl(this.digitalHuman.result_url)
+            // 重新设置结果视频源
+            this.$nextTick(() => {
+              if (this.$refs.resultPlayer) {
+                this.$refs.resultPlayer.load()
+              }
+            })
+          }
         }
-        if (this.digitalHuman.video_url) {
-          this.videoUrl = await getVideoUrl(this.digitalHuman.video_url)
-        }
-        if (this.digitalHuman.result_url) {
-          this.resultUrl = await getVideoUrl(this.digitalHuman.result_url)
-        }
+      } catch (error) {
+        console.error('加载媒体URL失败:', error)
+        this.$message.error('加载媒体文件失败: ' + error.message)
       }
     },
     
