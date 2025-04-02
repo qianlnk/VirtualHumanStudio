@@ -10,18 +10,17 @@
       <el-empty v-if="digitalHumans.length === 0" description="暂无数字人合成任务"></el-empty>
       
       <el-table v-else :data="digitalHumans" style="width: 100%">
-        <el-table-column prop="name" label="任务名称" width="180"></el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
+        <el-table-column prop="name" label="任务名称" width="800"></el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="200">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态">
+        <el-table-column prop="status" label="状态" width="120">
           <template slot-scope="scope">
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="task_code" label="任务代码" width="150"></el-table-column>
         <el-table-column label="操作" width="250">
           <template slot-scope="scope">
             <el-button 
@@ -57,34 +56,6 @@
     <!-- 创建数字人任务对话框 -->
     <el-dialog title="创建数字人合成任务" :visible.sync="dialogVisible" width="600px">
       <el-form :model="form" :rules="rules" ref="form" label-width="100px">
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入任务名称"></el-input>
-        </el-form-item>
-        
-        <el-form-item label="任务描述" prop="description">
-          <el-input 
-            type="textarea" 
-            v-model="form.description" 
-            placeholder="请输入任务描述"
-            :rows="3">
-          </el-input>
-        </el-form-item>
-        
-        <el-form-item label="任务代码" prop="task_code">
-          <el-input v-model="form.task_code" placeholder="请输入任务代码"></el-input>
-        </el-form-item>
-        
-        <el-form-item label="超分" prop="chaofen">
-          <el-switch v-model="form.chaofen" :active-value="1" :inactive-value="0"></el-switch>
-        </el-form-item>
-        
-        <el-form-item label="水印" prop="watermark_switch">
-          <el-switch v-model="form.watermark_switch" :active-value="1" :inactive-value="0"></el-switch>
-        </el-form-item>
-        
-        <el-form-item label="PN值" prop="pn">
-          <el-slider v-model="form.pn" :min="0" :max="100" :step="1"></el-slider>
-        </el-form-item>
         
         <el-form-item label="音频文件" prop="audio_file">
           <el-upload
@@ -122,6 +93,7 @@
 
 <script>
 import axios from 'axios'
+import { v4 as uuidv4 } from 'uuid'
 
 export default {
   name: 'DigitalHuman',
@@ -140,18 +112,11 @@ export default {
         task_code: '',
         chaofen: 0,
         watermark_switch: 0,
-        pn: 50,
+        pn: 1,
         audio_file: null,
         video_file: null
       },
       rules: {
-        name: [
-          { required: true, message: '请输入任务名称', trigger: 'blur' },
-          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-        ],
-        task_code: [
-          { required: true, message: '请输入任务代码', trigger: 'blur' }
-        ],
         audio_file: [
           { required: true, message: '请上传音频文件', trigger: 'change' }
         ],
@@ -200,13 +165,14 @@ export default {
       if (this.$refs.form) {
         this.$refs.form.resetFields()
       }
+      const uuid = uuidv4()
       this.form = {
-        name: '',
+        name: uuid,
         description: '',
-        task_code: '',
+        task_code: uuid,
         chaofen: 0,
         watermark_switch: 0,
-        pn: 50,
+        pn: 1,
         audio_file: null,
         video_file: null
       }

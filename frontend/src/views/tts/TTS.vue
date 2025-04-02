@@ -10,18 +10,22 @@
       <el-empty v-if="tasks.length === 0" description="暂无语音合成任务"></el-empty>
       
       <el-table v-else :data="tasks" style="width: 100%">
-        <el-table-column prop="name" label="任务名称" width="180"></el-table-column>
+        <el-table-column prop="input_text" label="输入文本" show-overflow-tooltip>
+          <template slot-scope="scope">
+            <span>{{ scope.row.input_text || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态">
+        <el-table-column prop="status" label="状态" width="100">
           <template slot-scope="scope">
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="speaker_name" label="使用音色" width="150"></el-table-column>
+        <el-table-column prop="speaker_name" label="使用音色" width="120"></el-table-column>
         <el-table-column label="操作" width="250">
           <template slot-scope="scope">
             <el-button 
@@ -68,60 +72,23 @@
     <!-- 创建TTS任务对话框 -->
     <el-dialog title="创建语音合成任务" :visible.sync="dialogVisible" width="600px">
       <el-form :model="form" :rules="rules" ref="form" label-width="100px">
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入任务名称"></el-input>
+        <el-form-item label="选择音色" prop="speaker_name">
+          <el-select v-model="form.speaker_name" placeholder="请选择音色">
+            <el-option 
+              v-for="voice in voices" 
+              :key="voice.id" 
+              :label="voice.name" 
+              :value="voice.name">
+            </el-option>
+          </el-select>
         </el-form-item>
         
-        <el-form-item label="任务类型" prop="type">
-          <el-radio-group v-model="form.type">
-            <el-radio label="text2speech">文本转语音</el-radio>
-            <el-radio label="speech2text">语音转文本</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        
-        <template v-if="form.type === 'text2speech'">
-          <el-form-item label="输入文本" prop="input_text">
-            <el-input 
-              type="textarea" 
-              v-model="form.input_text" 
-              placeholder="请输入要转换的文本"
-              :rows="5">
-            </el-input>
-          </el-form-item>
-          
-          <el-form-item label="选择音色" prop="speaker_name">
-            <el-select v-model="form.speaker_name" placeholder="请选择音色">
-              <el-option 
-                v-for="voice in voices" 
-                :key="voice.id" 
-                :label="voice.name" 
-                :value="voice.name">
-              </el-option>
-            </el-select>
-          </el-form-item>
-        </template>
-        
-        <template v-else>
-          <el-form-item label="音频文件" prop="input_file">
-            <el-upload
-              class="upload-demo"
-              action="#"
-              :http-request="uploadAudio"
-              :limit="1"
-              :file-list="fileList"
-              :before-upload="beforeUpload">
-              <el-button size="small" type="primary">点击上传</el-button>
-              <div slot="tip" class="el-upload__tip">只能上传mp3/wav文件，且不超过50MB</div>
-            </el-upload>
-          </el-form-item>
-        </template>
-        
-        <el-form-item label="描述" prop="description">
+        <el-form-item label="输入文本" prop="input_text">
           <el-input 
             type="textarea" 
-            v-model="form.description" 
-            placeholder="请输入任务描述"
-            :rows="3">
+            v-model="form.input_text" 
+            placeholder="请输入要转换的文本"
+            :rows="5">
           </el-input>
         </el-form-item>
       </el-form>
@@ -135,6 +102,7 @@
 <script>
 import axios from 'axios'
 import { downloadFile, getAudioUrl } from '@/utils/fileAccess'
+import { v4 as uuidv4 } from 'uuid'
 
 export default {
   name: 'TTS',
@@ -151,20 +119,10 @@ export default {
       baseURL: process.env.VUE_APP_API_URL || '',
       token: localStorage.getItem('token') || '',
       form: {
-        name: '',
-        description: '',
-        type: 'text2speech',
         input_text: '',
         speaker_name: '',
       },
       rules: {
-        name: [
-          { required: true, message: '请输入任务名称', trigger: 'blur' },
-          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-        ],
-        type: [
-          { required: true, message: '请选择任务类型', trigger: 'change' }
-        ],
         input_text: [
           { required: true, message: '请输入要转换的文本', trigger: 'blur' }
         ],
@@ -245,14 +203,9 @@ export default {
     showCreateDialog() {
       this.dialogVisible = true
       this.form = {
-        name: '',
-        description: '',
-        type: 'text2speech',
         input_text: '',
         speaker_name: this.form.speaker_name || ''
       }
-      this.fileList = []
-      this.audioFile = null
       
       // 重置表单验证
       if (this.$refs.form) {
@@ -269,21 +222,10 @@ export default {
         
         try {
           const formData = new FormData()
-          formData.append('name', this.form.name)
-          formData.append('description', this.form.description)
-          formData.append('type', this.form.type)
-          
-          if (this.form.type === 'text2speech') {
-            formData.append('input_text', this.form.input_text)
-            formData.append('speaker_name', this.form.speaker_name)
-          } else {
-            if (!this.audioFile) {
-              this.$message.error('请上传音频文件')
-              this.submitting = false
-              return
-            }
-            formData.append('input_file', this.audioFile)
-          }
+          formData.append('name', uuidv4())
+          formData.append('type', 'text2speech')
+          formData.append('input_text', this.form.input_text)
+          formData.append('speaker_name', this.form.speaker_name)
           
           await axios.post(`${this.baseURL}/api/tts`, formData, {
             headers: { 
