@@ -57,6 +57,10 @@
     <el-dialog title="创建数字人合成任务" :visible.sync="dialogVisible" width="600px">
       <el-form :model="form" :rules="rules" ref="form" label-width="100px">
         
+        <el-form-item label="任务名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入任务名称"></el-input>
+        </el-form-item>
+        
         <el-form-item label="音频文件" prop="audio_file">
           <el-upload
             class="upload-demo"
@@ -117,6 +121,10 @@ export default {
         video_file: null
       },
       rules: {
+        name: [
+          { required: true, message: '请输入任务名称', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+        ],
         audio_file: [
           { required: true, message: '请上传音频文件', trigger: 'change' }
         ],
@@ -167,7 +175,7 @@ export default {
       }
       const uuid = uuidv4()
       this.form = {
-        name: uuid,
+        name: '',
         description: '',
         task_code: uuid,
         chaofen: 0,
