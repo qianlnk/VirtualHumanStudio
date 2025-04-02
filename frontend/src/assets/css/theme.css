@@ -1,0 +1,88 @@
+/* 全局主题样式 - 从Home.vue提取 */
+
+/* 背景渐变 */
+.theme-background {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #fff;
+    min-height: 100vh;
+}
+
+/* 玻璃卡片效果 */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* 文字渐变效果 */
+.gradient-text {
+    background: linear-gradient(120deg, #64b5f6, #1976d2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* 卡片内容样式 */
+.card-content h3 {
+    font-size: 1.4em;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.card-content p {
+    color: #b3e5fc;
+    line-height: 1.4;
+}
+
+/* 表格透明样式 */
+.theme-table {
+    background-color: transparent !important;
+}
+
+.theme-table::before {
+    display: none;
+}
+
+.theme-table tr {
+    background-color: transparent !important;
+}
+
+.theme-table td,
+.theme-table th {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 按钮样式 */
+.theme-button--text {
+    color: #64b5f6;
+}
+
+.theme-button--text:hover {
+    color: #1976d2;
+}
+
+/* 页面容器 */
+.page-container {
+    padding: 40px;
+    min-height: 100vh;
+}
+
+/* 页面标题 */
+.page-title {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+/* 页面描述 */
+.page-description {
+    font-size: 1.2em;
+    color: #b3e5fc;
+    margin-bottom: 30px;
+}

@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <router-view v-if="$route.path === '/login' || $route.path === '/register'"></router-view>
+    <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register'"></router-view>
     <el-container v-else-if="isAuthenticated">
         <!-- 左侧导航栏 -->
         <el-aside width="200px" class="app-aside">
@@ -14,9 +14,9 @@
             mode="vertical" 
             router 
             class="aside-menu"
-            background-color="#304156"
-            text-color="#bfcbd9"
-            active-text-color="#409EFF">
+            background-color="transparent"
+            text-color="#b3e5fc"
+            active-text-color="#64b5f6">
             <el-menu-item index="/">
               <i class="el-icon-s-home"></i>
               <span>首页</span>
@@ -111,7 +111,7 @@ export default {
       this.$store.dispatch('logout')
         .then(() => {
           this.$message.success('已成功退出登录')
-          this.$router.push('/login')
+          this.$router.push('/')
         })
         .catch(() => {
           this.$message.error('退出登录失败，请重试')
@@ -132,16 +132,20 @@ html, body {
 
 #app {
   height: 100vh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  color: #fff;
 }
 
 /* 左侧菜单样式 */
 .app-aside {
-  background-color: #304156;
+  background-color: rgba(48, 65, 86, 0.7);
+  backdrop-filter: blur(10px);
   height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
   z-index: 1001;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .aside-logo {
@@ -176,9 +180,10 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  border-bottom: 1px solid #ebeef5;
-  background-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   padding: 0 20px;
 }
 
@@ -187,7 +192,7 @@ html, body {
 }
 
 .el-dropdown-link {
-  color: #606266;
+  color: #fff;
   display: flex;
   align-items: center;
 }
@@ -198,18 +203,19 @@ html, body {
   margin-top: 50px;
   padding: 20px;
   min-height: calc(100vh - 100px);
-  background-color: #f5f7fa;
+  background-color: transparent;
 }
 
 /* 底部样式 */
 .app-footer {
   margin-left: 200px;
   text-align: center;
-  color: #909399;
+  color: #b3e5fc;
   font-size: 12px;
   padding: 15px 0;
-  border-top: 1px solid #ebeef5;
-  background-color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(5px);
 }
 
 /* 样式部分 */

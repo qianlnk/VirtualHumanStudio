@@ -5,12 +5,14 @@ import store from './store'
 import axios from 'axios'
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
+// 导入全局主题样式
+import './assets/css/theme.css'
 
 // 使用ElementUI
 Vue.use(ElementUI)
 
 // 配置axios
-axios.defaults.baseURL = process.env.VUE_APP_API_URL || 'http://localhost:8080'
+axios.defaults.baseURL = process.env.VUE_APP_API_URL || 'http://192.168.218.233:8080'
 
 // 如果有token，设置请求头
 const token = localStorage.getItem('token')

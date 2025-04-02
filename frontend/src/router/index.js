@@ -4,6 +4,7 @@ import store from '../store'
 
 // 导入视图组件
 import Home from '../views/Home.vue'
+import Landing from '../views/Landing.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 
@@ -23,6 +24,20 @@ Vue.use(VueRouter)
 const routes = [
     {
         path: '/',
+        name: 'Landing',
+        component: Landing,
+        beforeEnter: (to, from, next) => {
+            const token = localStorage.getItem('token')
+            if (token) {
+                next('/home')
+            } else {
+                next()
+            }
+        }
+    },
+    {
+        path: '/home',
+        name: 'Home',
         component: Home,
         meta: { requiresAuth: true }
     },

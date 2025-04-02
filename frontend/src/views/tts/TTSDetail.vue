@@ -81,7 +81,7 @@ export default {
       task: null,
       audioUrl: null,
       refreshInterval: null,
-      baseURL: process.env.VUE_APP_API_URL || 'http://localhost:8080'
+      baseURL: process.env.VUE_APP_API_URL || 'http://192.168.218.233:8080'
     }
   },
   computed: {
