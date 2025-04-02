@@ -14,28 +14,9 @@
       
       <el-table v-else :data="voices" style="width: 100%">
         <el-table-column prop="name" label="音色名称" width="150"></el-table-column>
-        <el-table-column prop="model_name" label="模型名称" width="150"></el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" show-overflow-tooltip></el-table-column>
-        <el-table-column label="文件" width="180">
-          <template slot-scope="scope">
-            <el-button 
-              type="text" 
-              size="small" 
-              @click="downloadVoice(scope.row.id, 'model')">
-              <i class="el-icon-download"></i> 模型文件
-            </el-button>
-            <el-button 
-              v-if="scope.row.sample_file" 
-              type="text" 
-              size="small" 
-              @click="downloadVoice(scope.row.id, 'sample')">
-              <i class="el-icon-download"></i> 试听文件
-            </el-button>
           </template>
         </el-table-column>
         <el-table-column label="试听" width="100">
@@ -49,10 +30,9 @@
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250">
+        <el-table-column label="操作" width="150">
           <template slot-scope="scope">
             <el-button type="text" size="small" @click="useForTTS(scope.row.id)">用于TTS</el-button>
-            <el-button type="text" size="small" @click="downloadVoice(scope.row.id)">下载</el-button>
             <el-button type="text" size="small" @click="confirmDelete(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
@@ -243,9 +223,21 @@ export default {
     
     // 用于TTS
     useForTTS(voiceId) {
-      this.$router.push({
+      const voice = this.voices.find(v => v.id === voiceId)
+      if (!voice) return
+      
+      this.loading = true
+      this.$router.replace({
         path: '/tts',
-        query: { voice_id: voiceId }
+        query: { 
+          voice_id: voiceId,
+          voice_name: voice.name
+        }
+      })
+      
+      // 使用nextTick确保DOM更新完成
+      this.$nextTick(() => {
+        this.loading = false
       })
     },
     

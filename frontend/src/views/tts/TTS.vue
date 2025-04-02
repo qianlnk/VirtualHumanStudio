@@ -180,8 +180,14 @@ export default {
     this.fetchTasks()
     this.fetchVoices()
     // 检查是否从音色库页面跳转过来
-    if (this.$route.query.voice_id) {
-      this.loadVoiceInfo(this.$route.query.voice_id)
+    if (this.$route.query.voice_id && this.$route.query.voice_name) {
+      this.loading = true
+      this.form.speaker_name = this.$route.query.voice_name
+      // 等待数据加载完成后再显示对话框
+      this.$nextTick(() => {
+        this.dialogVisible = true
+        this.loading = false
+      })
     }
   },
   methods: {
