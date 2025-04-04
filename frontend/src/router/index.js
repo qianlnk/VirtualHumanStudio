@@ -7,6 +7,7 @@ import Home from '../views/Home.vue'
 import Landing from '../views/Landing.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
+import Contact from '../views/Contact.vue'
 
 // 懒加载其他视图组件
 const VoiceClone = () => import('../views/voice/VoiceClone.vue')
@@ -95,6 +96,10 @@ const routes = [
         path: '/admin/users',
         component: AdminUsers,
         meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/contact',
+        component: Contact
     },
     {
         path: '*',

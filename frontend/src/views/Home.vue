@@ -89,6 +89,12 @@ export default {
           description: '管理您的音色资源',
           icon: 'el-icon-collection',
           route: '/voice-library'
+        },
+        {
+          title: '联系我们',
+          description: '获取技术支持和商务合作信息',
+          icon: 'el-icon-message',
+          route: '/contact'
         }
       ],
       stats: [

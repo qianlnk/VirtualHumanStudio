@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register'"></router-view>
+    <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register' || (!isAuthenticated && $route.path === '/contact')"></router-view>
     <el-container v-else-if="isAuthenticated">
         <!-- 左侧导航栏 -->
         <el-aside width="200px" class="app-aside">
@@ -40,6 +40,10 @@
             <el-menu-item v-if="isAdmin" index="/admin/users">
               <i class="el-icon-s-custom"></i>
               <span>用户管理</span>
+            </el-menu-item>
+            <el-menu-item index="/contact">
+              <i class="el-icon-phone"></i>
+              <span>联系我们</span>
             </el-menu-item>
           </el-menu>
         </el-aside>

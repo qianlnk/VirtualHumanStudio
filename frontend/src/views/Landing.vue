@@ -12,6 +12,7 @@
           <h1>Virtual Human Studio</h1>
         </div>
         <div class="nav-buttons">
+          <el-button type="text" @click="$router.push('/contact')">联系我们</el-button>
           <el-button type="text" @click="$router.push('/login')">登录</el-button>
           <el-button type="primary" @click="$router.push('/register')">注册</el-button>
         </div>

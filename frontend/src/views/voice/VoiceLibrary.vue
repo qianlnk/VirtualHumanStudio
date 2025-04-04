@@ -408,20 +408,24 @@ export default {
 
 <style scoped>
 .voice-library-container {
-  padding: 20px;
+  padding: 40px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  color: #fff;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
 }
 
 .page-header h2 {
-  margin: 0;
-  font-size: 22px;
-  color: #303133;
+  font-size: 2em;
+  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .voice-list {
