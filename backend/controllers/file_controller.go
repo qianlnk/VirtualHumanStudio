@@ -88,5 +88,12 @@ func checkFileAccess(userID uint, filePath string) bool {
 		return true
 	}
 
+	// 检查文件是否属于asr任务
+	var asrTask models.ASRTask
+	result = db.DB.Where("user_id =? AND input_file =?", userID, filePath).First(&asrTask)
+	if result.Error == nil {
+		return true
+	}
+
 	return false
 }

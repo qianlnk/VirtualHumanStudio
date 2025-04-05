@@ -2,7 +2,9 @@ package utils
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -101,4 +103,9 @@ func Base64ToFile(base64Data, filePath string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+// DecodeJSON 解析HTTP响应体为JSON
+func DecodeJSON(body io.Reader, v interface{}) error {
+	return json.NewDecoder(body).Decode(v)
 }

@@ -118,6 +118,12 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/tts", controllers.ListTTSTasks)
 		protected.DELETE("/tts/:id", controllers.DeleteTTSTask)
 
+		// ASR
+		protected.POST("/asr", controllers.CreateASRTask)
+		protected.GET("/asr/:id", controllers.GetASRTask)
+		protected.GET("/asr", controllers.ListASRTasks)
+		protected.DELETE("/asr/:id", controllers.DeleteASRTask)
+
 		// 数字人
 		protected.POST("/digital-human", controllers.CreateDigitalHuman)
 		protected.GET("/digital-human/:id", controllers.GetDigitalHuman)

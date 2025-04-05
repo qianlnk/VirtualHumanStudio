@@ -29,6 +29,7 @@
               <el-menu-item index="/voice-clone">音色克隆</el-menu-item>
               <el-menu-item index="/voice-library">音色库</el-menu-item>
               <el-menu-item index="/tts">文本转语音</el-menu-item>
+              <el-menu-item index="/speech2text">语音识别</el-menu-item>
             </el-submenu>
             <el-submenu index="digital-human">
               <template slot="title">

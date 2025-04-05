@@ -47,16 +47,14 @@ type VoiceClone struct {
 	SampleFile  string `json:"sample_file" gorm:"size:255"` // 试听音频文件路径
 }
 
-// TTSTask TTS任务模型
+// TTSTask 文本转语音任务模型
 type TTSTask struct {
 	BaseModel
 	UserID      uint   `json:"user_id" gorm:"index;not null"`
 	Name        string `json:"name" gorm:"size:100;not null"`
 	Description string `json:"description" gorm:"size:500"`
-	Type        string `json:"type" gorm:"size:20;not null"`            // text2speech, speech2text
 	InputText   string `json:"input_text" gorm:"type:text"`             // 输入文本
-	InputFile   string `json:"input_file" gorm:"size:255"`              // 输入文件路径
-	OutputFile  string `json:"output_file" gorm:"size:255"`             // 输出文件路径
+	OutputFile  string `json:"output_file" gorm:"size:255"`             // 输出音频文件路径
 	SpeakerName string `json:"speaker_name" gorm:"size:100"`            // 使用的音色名称
 	Status      string `json:"status" gorm:"size:20;default:'pending'"` // pending, processing, completed, failed
 	TaskID      string `json:"task_id" gorm:"size:100"`                 // 外部API任务ID

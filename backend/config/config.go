@@ -48,6 +48,7 @@ type Config struct {
 	DigitalHumanAPI    string `json:"digital_human_api"`
 	DigitalHumanQuery  string `json:"digital_human_query"`
 	DigitalHumanResult string `json:"digital_human_result"`
+	ASRAPI             string `json:"asr_api"` // 语音识别服务URL
 
 	// 域名
 	Domain string `json:"domain"` // 域名

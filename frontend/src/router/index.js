@@ -15,6 +15,8 @@ const VoiceCloneDetail = () => import('../views/voice/VoiceCloneDetail.vue')
 const VoiceLibrary = () => import('../views/voice/VoiceLibrary.vue')
 const TTS = () => import('../views/tts/TTS.vue')
 const TTSDetail = () => import('../views/tts/TTSDetail.vue')
+const ASR = () => import('../views/asr/ASR.vue')
+const ASRDetail = () => import('../views/asr/ASRDetail.vue')
 const DigitalHuman = () => import('../views/digital-human/DigitalHuman.vue')
 const DigitalHumanDetail = () => import('../views/digital-human/DigitalHumanDetail.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
@@ -75,6 +77,16 @@ const routes = [
     {
         path: '/tts/:id',
         component: TTSDetail,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/speech2text',
+        component: ASR,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/speech2text/:id',
+        component: ASRDetail,
         meta: { requiresAuth: true }
     },
     {

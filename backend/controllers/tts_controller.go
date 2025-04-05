@@ -2,10 +2,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"VirtualHumanStudio/backend/config"
@@ -14,7 +12,6 @@ import (
 	"VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,10 +19,8 @@ import (
 type TTSRequest struct {
 	Name        string `form:"name" binding:"required"`
 	Description string `form:"description"`
-	Type        string `form:"type" binding:"required,oneof=text2speech speech2text"` // 任务类型
-	InputText   string `form:"input_text"`                                            // 文本转语音时的输入文本
-	SpeakerName string `form:"speaker_name"`                                          // 使用的音色名称
-	// 语音转文本时，文件通过multipart/form-data上传
+	InputText   string `form:"input_text" binding:"required"`   // 输入文本
+	SpeakerName string `form:"speaker_name" binding:"required"` // 使用的音色名称
 }
 
 // TTSResponse TTS响应
@@ -33,11 +28,9 @@ type TTSResponse struct {
 	ID          uint      `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	Type        string    `json:"type"`
-	InputText   string    `json:"input_text,omitempty"`
-	InputFile   string    `json:"input_file,omitempty"`
+	InputText   string    `json:"input_text"`
 	OutputFile  string    `json:"output_file,omitempty"`
-	SpeakerName string    `json:"speaker_name,omitempty"`
+	SpeakerName string    `json:"speaker_name"`
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -72,68 +65,14 @@ func CreateTTSTask(c *gin.Context) {
 		UserID:      userID.(uint),
 		Name:        req.Name,
 		Description: req.Description,
-		Type:        req.Type,
+		InputText:   req.InputText,
+		SpeakerName: req.SpeakerName,
 		Status:      "pending",
 	}
 
-	// 根据任务类型处理不同的输入
-	switch req.Type {
-	case "text2speech":
-		// 文本转语音
-		if req.InputText == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "文本转语音任务需要提供输入文本"})
-			return
-		}
-		if req.SpeakerName == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "文本转语音任务需要提供音色名称"})
-			return
-		}
-
-		ttsTask.InputText = req.InputText
-		ttsTask.SpeakerName = req.SpeakerName
-
-	case "speech2text":
-		// 语音转文本
-		file, err := c.FormFile("input_file")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "语音转文本任务需要提供音频文件"})
-			return
-		}
-
-		// 检查文件类型
-		ext := filepath.Ext(file.Filename)
-		if ext != ".wav" && ext != ".mp3" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV或MP3格式的音频文件"})
-			return
-		}
-
-		// 生成唯一文件名
-		uniqueID := uuid.New().String()
-		fileName := fmt.Sprintf("%s%s", uniqueID, ext)
-		filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
-		fullFilePath := utils.GetFilePath(config.AppConfig.DataDir, fileName)
-
-		// 保存文件
-		if err := c.SaveUploadedFile(file, fullFilePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
-			return
-		}
-
-		ttsTask.InputFile = filePath
-
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的任务类型"})
-		return
-	}
-
-	// 保存任务记录
-	result := db.DB.Create(&ttsTask)
-	if result.Error != nil {
-		// 如果有上传的文件，删除它
-		if ttsTask.InputFile != "" {
-			os.Remove(ttsTask.InputFile)
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建TTS任务记录失败: " + result.Error.Error()})
+	// 保存到数据库
+	if err := db.DB.Create(&ttsTask).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建任务失败: " + err.Error()})
 		return
 	}
 
@@ -148,9 +87,7 @@ func CreateTTSTask(c *gin.Context) {
 			ID:          ttsTask.ID,
 			Name:        ttsTask.Name,
 			Description: ttsTask.Description,
-			Type:        ttsTask.Type,
 			InputText:   ttsTask.InputText,
-			InputFile:   utils.GetFileURL(ttsTask.InputFile),
 			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
 			SpeakerName: ttsTask.SpeakerName,
 			Status:      ttsTask.Status,
@@ -224,9 +161,7 @@ func GetTTSTask(c *gin.Context) {
 			ID:          ttsTask.ID,
 			Name:        ttsTask.Name,
 			Description: ttsTask.Description,
-			Type:        ttsTask.Type,
 			InputText:   ttsTask.InputText,
-			InputFile:   utils.GetFileURL(ttsTask.InputFile),
 			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
 			SpeakerName: ttsTask.SpeakerName,
 			Status:      ttsTask.Status,
@@ -266,9 +201,7 @@ func ListTTSTasks(c *gin.Context) {
 			ID:          task.ID,
 			Name:        task.Name,
 			Description: task.Description,
-			Type:        task.Type,
 			InputText:   task.InputText,
-			InputFile:   utils.GetFileURL(task.InputFile),
 			OutputFile:  utils.GetFileURL(task.OutputFile),
 			SpeakerName: task.SpeakerName,
 			Status:      task.Status,
@@ -315,10 +248,6 @@ func DeleteTTSTask(c *gin.Context) {
 	}
 
 	// 删除关联文件
-	if ttsTask.InputFile != "" {
-		fullInputFilePath := utils.GetFilePath(config.AppConfig.DataDir, ttsTask.InputFile)
-		os.Remove(fullInputFilePath)
-	}
 	if ttsTask.OutputFile != "" {
 		fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, ttsTask.OutputFile)
 		os.Remove(fullOutputFilePath)
