@@ -1,0 +1,108 @@
+{
+    "3": {
+        "inputs": {
+            "image": "4",
+            "mask": "5",
+            "grow_mask": 0,
+            "noise_mask_feather": 0
+        },
+        "class_type": "InpaintPreprocessor"
+    },
+    "4": {
+        "inputs": {
+            "image": "{{modelImageRef}}",
+            "upload": "image"
+        },
+        "class_type": "LoadImage"
+    },
+    "5": {
+        "inputs": {
+            "image": "{{maskImageRef}}",
+            "upload": "mask"
+        },
+        "class_type": "LoadImage"
+    },
+    "6": {
+        "inputs": {
+            "image": "{{itemImageRef}}",
+            "upload": "image"
+        },
+        "class_type": "LoadImage"
+    },
+    "7": {
+        "inputs": {
+            "seed": 123456789,
+            "steps": 20,
+            "cfg": 8.0,
+            "sampler_name": "euler",
+            "scheduler": "normal",
+            "denoise": 1.0,
+            "model": [
+                "10",
+                "0"
+            ],
+            "positive": [
+                "11",
+                "0"
+            ],
+            "negative": [
+                "12",
+                "0"
+            ],
+            "latent_image": [
+                "3",
+                "0"
+            ]
+        },
+        "class_type": "KSampler"
+    },
+    "8": {
+        "inputs": {
+            "samples": [
+                "7",
+                "0"
+            ],
+            "vae": [
+                "10",
+                "2"
+            ]
+        },
+        "class_type": "VAEDecode"
+    },
+    "9": {
+        "inputs": {
+            "filename_prefix": "accessory_result",
+            "images": [
+                "8",
+                "0"
+            ]
+        },
+        "class_type": "SaveImage"
+    },
+    "10": {
+        "inputs": {
+            "ckpt_name": "{{defaultModel}}"
+        },
+        "class_type": "CheckpointLoaderSimple"
+    },
+    "11": {
+        "inputs": {
+            "text": "high quality, detailed, realistic, 8k",
+            "clip": [
+                "10",
+                1
+            ]
+        },
+        "class_type": "CLIPTextEncode"
+    },
+    "12": {
+        "inputs": {
+            "text": "low quality, blurry, distorted, deformed",
+            "clip": [
+                "10",
+                1
+            ]
+        },
+        "class_type": "CLIPTextEncode"
+    }
+}

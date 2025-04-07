@@ -95,5 +95,12 @@ func checkFileAccess(userID uint, filePath string) bool {
 		return true
 	}
 
+	// 检查文件是否属于饰品替换任务
+	var accessory models.Accessory
+	result = db.DB.Where("user_id =? AND (item_image =? OR model_image =? OR mask_image =? OR result_image=?)", userID, filePath, filePath, filePath, filePath).First(&accessory)
+	if result.Error == nil {
+		return true
+	}
+
 	return false
 }

@@ -19,6 +19,7 @@ const ASR = () => import('../views/asr/ASR.vue')
 const ASRDetail = () => import('../views/asr/ASRDetail.vue')
 const DigitalHuman = () => import('../views/digital-human/DigitalHuman.vue')
 const DigitalHumanDetail = () => import('../views/digital-human/DigitalHumanDetail.vue')
+const Accessory = () => import('../views/accessory/Accessory.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
 const AdminUsers = () => import('../views/admin/Users.vue')
 
@@ -97,6 +98,16 @@ const routes = [
     {
         path: '/digital-human/:id',
         component: DigitalHumanDetail,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/accessory',
+        component: Accessory,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/accessory/:id',
+        component: () => import('../views/accessory/AccessoryDetail.vue'),
         meta: { requiresAuth: true }
     },
     {

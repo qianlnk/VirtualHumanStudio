@@ -18,6 +18,29 @@ export function getFileAccessUrl(path) {
 export async function downloadFile(path, filename) {
     if (!path) return
     try {
+        // 清理URL，处理可能的URL拼接错误
+        // 检查是否包含blob:，如果包含但不是以blob:开头，则提取blob:部分
+        const blobIndex = path.indexOf('blob:')
+        if (blobIndex > 0) {
+            path = path.substring(blobIndex)
+        }
+
+        // 检查是否为blob URL，如果是则直接使用，不需要再次fetch
+        if (path.startsWith('blob:')) {
+            const link = document.createElement('a')
+            link.href = path
+            link.download = filename || ''
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            return
+        }
+
+        // 确保URL格式正确
+        if (!path.startsWith('http://') && !path.startsWith('https://') && !path.startsWith('/')) {
+            throw new Error(`无效的URL格式: ${path}`)
+        }
+
         const token = localStorage.getItem('token')
         const response = await fetch(path, {
             headers: {
@@ -90,6 +113,34 @@ export async function getVideoUrl(path) {
         return window.URL.createObjectURL(blob)
     } catch (error) {
         console.error('视频加载失败:', error)
+        throw error
+    }
+}
+
+/**
+ * 获取图片URL
+ * @param {string} path - 图片文件路径
+ * @returns {string} 图片访问URL（通过请求头认证获取）
+ */
+export async function getImageUrl(path) {
+    if (!path) return ''
+    try {
+        const token = localStorage.getItem('token')
+        // 使用axios发送带有Authorization头的请求获取图片
+        const response = await fetch(path, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+
+        if (!response.ok) {
+            throw new Error(`图片加载失败: ${response.statusText}`)
+        }
+
+        const blob = await response.blob()
+        return window.URL.createObjectURL(blob)
+    } catch (error) {
+        console.error('图片URL处理失败:', error)
         throw error
     }
 }

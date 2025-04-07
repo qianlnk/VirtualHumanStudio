@@ -50,6 +50,9 @@ type Config struct {
 	DigitalHumanResult string `json:"digital_human_result"`
 	ASRAPI             string `json:"asr_api"` // 语音识别服务URL
 
+	// ComfyUI配置
+	ComfyUIConf ComfyUIConfig `json:"comfyui"`
+
 	// 域名
 	Domain string `json:"domain"` // 域名
 }
@@ -92,6 +95,17 @@ func LoadConfig(configPath string) error {
 		DigitalHumanAPI:    "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/submit",
 		DigitalHumanQuery:  "https://aigc-ops-test.skyengine.com.cn/v1/model/proxy/heygem-f2f:8383/easy/query",
 		DigitalHumanResult: "http://10.64.24.249:8383/easy/result", // 假设的结果获取API
+
+		ComfyUIConf: ComfyUIConfig{
+			ServerURL:      "https://aigc-ops-test.skyengine.com.cn/v1/model/comfyui/workflow-comfyui",
+			UploadImageAPI: "/api/upload/image",
+			UploadMaskAPI:  "/api/upload/mask",
+			PromptAPI:      "/api/prompt",
+			HistoryAPI:     "/api/history",
+			InterruptAPI:   "/api/interrupt",
+			ClientID:       "virtual_human_studio",
+			DefaultModel:   "ghostxl_v10BakedVAE.safetensors",
+		},
 	}
 
 	// 如果配置文件存在，则从文件加载配置

@@ -40,6 +40,8 @@ func main() {
 		&models.TTSTask{},
 		&models.DigitalHuman{},
 		&models.VoiceLibrary{},
+		&models.ComfyUITask{},
+		&models.Accessory{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
@@ -133,6 +135,16 @@ func registerRoutes(router *gin.Engine) {
 
 		// 文件处理
 		protected.GET("/file/view", controllers.FileView)
+
+		// comfyui相关功能
+		// 饰品替换，输入白底图片和模特物品图片，蒙版图，输出替换后的图片
+		protected.POST("/accessory", controllers.CreateAccessory)
+		protected.GET("/accessory/:id", controllers.GetAccessory)
+		protected.GET("/accessory", controllers.ListAccessories)
+		protected.DELETE("/accessory/:id", controllers.DeleteAccessory)
+
+		// comfyui模特换装，输入模特图片，蒙版图，输出换装后的图片
+		// protected.POST("/comfyui/clothes", controllers.ComfyUIClothes)
 	}
 
 	// 管理员路由

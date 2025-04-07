@@ -24,7 +24,7 @@
     
     <!-- 统计数据区域 -->
     <el-row :gutter="30" class="stats-section">
-      <el-col :span="8" v-for="(stat, index) in stats" :key="index">
+      <el-col :span="4" v-for="(stat, index) in stats" :key="index">
         <div class="glass-card stat-card">
           <div class="stat-value">{{ stat.value }}</div>
           <div class="stat-label">{{ stat.label }}</div>
@@ -40,10 +40,18 @@
       <el-table 
         :data="recentActivities" 
         style="width: 100%"
-        :header-cell-style="{background: 'transparent', color: '#fff'}"
-        :cell-style="{background: 'transparent', color: '#fff'}">
-        <el-table-column prop="type" label="类型" width="180"></el-table-column>
-        <el-table-column prop="name" label="名称" width="180"></el-table-column>
+        :header-cell-style="{background: 'transparent', color: '#333'}"
+        :cell-style="{background: 'transparent', color: '#333'}">
+        <el-table-column prop="type" label="类型" width="180">
+          <template slot-scope="scope">
+            <span>{{ scope.row.type }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" width="180">
+          <template slot-scope="scope">
+            <span>{{ scope.row.name }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态">
           <template slot-scope="scope">
             <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
@@ -100,7 +108,9 @@ export default {
       stats: [
         { label: '音色克隆任务', value: 0 },
         { label: 'TTS任务', value: 0 },
-        { label: '数字人任务', value: 0 }
+        { label: '数字人任务', value: 0 },
+        { label: '语音识别任务', value: 0 },
+        { label: '图像处理任务', value: 0 }
       ],
       recentActivities: []
     }
@@ -129,18 +139,42 @@ export default {
         this.$router.push(`/tts/${row.id}`)
       } else if (row.type === '数字人') {
         this.$router.push(`/digital-human/${row.id}`)
+      } else if (row.type === '语音识别') {
+        this.$router.push(`/speech2text/${row.id}`)
+      } else if (row.type === '图像处理') {
+        this.$router.push(`/accessory/${row.id}`)
       }
     },
     fetchStats() {
       Promise.all([
         this.$http.get('/api/voice/clones?size=1'),
         this.$http.get('/api/tts?size=1'),
-        this.$http.get('/api/digital-human?size=1')
+        this.$http.get('/api/digital-human?size=1'),
+        this.$http.get('/api/asr?size=1'),
+        this.$http.get('/api/accessory?size=1')
       ])
-        .then(([voiceCloneRes, ttsRes, digitalHumanRes]) => {
+        .then(([voiceCloneRes, ttsRes, digitalHumanRes, asrRes, comfyuiRes]) => {
           this.stats[0].value = voiceCloneRes.data.total || 0
           this.stats[1].value = ttsRes.data.total || 0
           this.stats[2].value = digitalHumanRes.data.total || 0
+          
+          // 更新统计数据数组，添加语音识别和图像处理任务的统计
+          if (this.stats.length === 3) {
+            this.stats.push({ label: '语音识别任务', value: asrRes.data.total || 0 })
+            this.stats.push({ label: '图像处理任务', value: comfyuiRes.data.total || 0 })
+          } else {
+            // 如果已经有这些统计项，则更新它们的值
+            const asrIndex = this.stats.findIndex(stat => stat.label === '语音识别任务')
+            const comfyuiIndex = this.stats.findIndex(stat => stat.label === '图像处理任务')
+            
+            if (asrIndex !== -1) {
+              this.stats[asrIndex].value = asrRes.data.total || 0
+            }
+            
+            if (comfyuiIndex !== -1) {
+              this.stats[comfyuiIndex].value = comfyuiRes.data.total || 0
+            }
+          }
         })
         .catch(error => {
           console.error('获取统计数据失败', error)
@@ -150,34 +184,72 @@ export default {
       Promise.all([
         this.$http.get('/api/voice/clones?size=5'),
         this.$http.get('/api/tts?size=5'),
-        this.$http.get('/api/digital-human?size=5')
+        this.$http.get('/api/digital-human?size=5'),
+        this.$http.get('/api/asr?size=5'),
+        this.$http.get('/api/accessory?size=5')
       ])
-        .then(([voiceCloneRes, ttsRes, digitalHumanRes]) => {
-          const voiceClones = (voiceCloneRes.data.voice_clones || []).map(item => ({
-            id: item.id,
-            type: '音色克隆',
-            name: item.name,
-            status: item.status,
-            created_at: new Date(item.created_at).toLocaleString()
-          }))
+        .then(([voiceCloneRes, ttsRes, digitalHumanRes, asrRes, comfyuiRes]) => {
+          // 处理音色克隆数据，确保type和name字段正确设置
+          const voiceClones = (voiceCloneRes.data.voice_clones || []).map(item => {
+            console.log('音色克隆项:', item) // 调试日志
+            return {
+              id: item.id,
+              type: '音色克隆', // 显式设置类型
+              name: item.name || '未命名音色', // 提供默认名称
+              status: item.status,
+              created_at: new Date(item.created_at).toLocaleString()
+            }
+          })
           
-          const ttsTasks = (ttsRes.data.tts_tasks || []).map(item => ({
-            id: item.id,
-            type: 'TTS',
-            name: item.name,
-            status: item.status,
-            created_at: new Date(item.created_at).toLocaleString()
-          }))
+          // 处理TTS任务数据
+          const ttsTasks = (ttsRes.data.tts_tasks || []).map(item => {
+            console.log('TTS项:', item) // 调试日志
+            return {
+              id: item.id,
+              type: 'TTS', // 显式设置类型
+              name: item.name || '未命名TTS任务', // 提供默认名称
+              status: item.status,
+              created_at: new Date(item.created_at).toLocaleString()
+            }
+          })
           
-          const digitalHumans = (digitalHumanRes.data.digital_humans || []).map(item => ({
-            id: item.id,
-            type: '数字人',
-            name: item.name,
-            status: item.status,
-            created_at: new Date(item.created_at).toLocaleString()
-          }))
+          // 处理数字人数据
+          const digitalHumans = (digitalHumanRes.data.digital_humans || []).map(item => {
+            console.log('数字人项:', item) // 调试日志
+            return {
+              id: item.id,
+              type: '数字人', // 显式设置类型
+              name: item.name || '未命名数字人', // 提供默认名称
+              status: item.status,
+              created_at: new Date(item.created_at).toLocaleString()
+            }
+          })
           
-          this.recentActivities = [...voiceClones, ...ttsTasks, ...digitalHumans]
+          // 处理语音识别数据
+          const asrTasks = (asrRes.data.asr_tasks || []).map(item => {
+            console.log('语音识别项:', item) // 调试日志
+            return {
+              id: item.id,
+              type: '语音识别', // 显式设置类型
+              name: item.name || '未命名识别任务', // 提供默认名称
+              status: item.status,
+              created_at: new Date(item.created_at).toLocaleString()
+            }
+          })
+          
+          // 处理图像处理数据
+          const comfyuiTasks = (comfyuiRes.data.accessories || []).map(item => {
+            console.log('图像处理项:', item) // 调试日志
+            return {
+              id: item.id,
+              type: '图像处理', // 显式设置类型
+              name: item.name || '未命名图像任务', // 提供默认名称
+              status: item.status,
+              created_at: new Date(item.created_at).toLocaleString()
+            }
+          })
+          
+          this.recentActivities = [...voiceClones, ...ttsTasks, ...digitalHumans, ...asrTasks, ...comfyuiTasks]
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .slice(0, 10)
         })

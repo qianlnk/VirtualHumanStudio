@@ -38,6 +38,13 @@
               </template>
               <el-menu-item index="/digital-human">数字人制作</el-menu-item>
             </el-submenu>
+            <el-submenu index="image-processing">
+              <template slot="title">
+                <i class="el-icon-picture"></i>
+                <span class="submenu-title">图像处理</span>
+              </template>
+              <el-menu-item index="/accessory">饰品替换</el-menu-item>
+            </el-submenu>
             <el-menu-item v-if="isAdmin" index="/admin/users">
               <i class="el-icon-s-custom"></i>
               <span>用户管理</span>
