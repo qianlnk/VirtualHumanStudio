@@ -10,9 +10,19 @@
       <el-empty v-if="tasks.length === 0" description="暂无语音合成任务"></el-empty>
       
       <el-table v-else :data="tasks" style="width: 100%">
-        <el-table-column prop="input_text" label="输入文本" show-overflow-tooltip>
+        <el-table-column prop="input_text" label="输入文本" min-width="300" show-overflow-tooltip>
           <template slot-scope="scope">
-            <span>{{ scope.row.input_text || '-' }}</span>
+            <div class="text-with-copy">
+              <span class="text-content">{{ scope.row.input_text || '-' }}</span>
+              <el-button 
+                v-if="scope.row.input_text" 
+                type="primary" 
+                size="mini" 
+                icon="el-icon-document-copy" 
+                class="copy-btn" 
+                @click.stop="copyText(scope.row.input_text)">
+              </el-button>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
@@ -25,7 +35,14 @@
             <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="speaker_name" label="使用音色" width="120"></el-table-column>
+        <el-table-column label="使用音色" width="200">
+          <template slot-scope="scope">
+            <div>
+              <div>{{ scope.row.speaker_name }}</div>
+              <div v-if="scope.row.alias" style="color: #909399; font-size: 12px;">{{ scope.row.alias }}</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="250">
           <template slot-scope="scope">
             <el-button 
@@ -72,13 +89,16 @@
     <!-- 创建TTS任务对话框 -->
     <el-dialog title="创建语音合成任务" :visible.sync="dialogVisible" width="600px">
       <el-form :model="form" :rules="rules" ref="form" label-width="100px">
-        <el-form-item label="选择音色" prop="speaker_name">
-          <el-select v-model="form.speaker_name" placeholder="请选择音色">
+        <el-form-item label="选择音色" prop="speaker_names">
+          <el-select v-model="form.speaker_names" multiple placeholder="请选择音色（可多选）" style="width: 100%;">
             <el-option 
               v-for="voice in voices" 
               :key="voice.id" 
-              :label="voice.name" 
+              :label="voice.name + (voice.alias ? ` (${voice.alias})` : '') + (voice.gender ? ` [${voice.gender}]` : '')" 
               :value="voice.name">
+              <span>{{ voice.name }}</span>
+              <span v-if="voice.alias" style="color: #909399; font-size: 12px;"> ({{ voice.alias }})</span>
+              <span v-if="voice.gender" :style="{ color: voice.gender === '男' ? '#409EFF' : '#E6A23C', marginLeft: '8px' }">[{{ voice.gender }}]</span>
             </el-option>
           </el-select>
         </el-form-item>
@@ -120,14 +140,15 @@ export default {
       token: localStorage.getItem('token') || '',
       form: {
         input_text: '',
-        speaker_name: '',
+        speaker_names: [],
       },
       rules: {
         input_text: [
           { required: true, message: '请输入要转换的文本', trigger: 'blur' }
         ],
-        speaker_name: [
-          { required: true, message: '请选择音色', trigger: 'change' }
+        speaker_names: [
+          { required: true, message: '请选择音色', trigger: 'change' },
+          { type: 'array', min: 1, message: '请至少选择一个音色', trigger: 'change' }
         ]
       },
       fileList: [],
@@ -175,6 +196,9 @@ export default {
     async fetchVoices() {
       try {
         const response = await axios.get(`${this.baseURL}/api/voices`, {
+          params: {
+            size: 999 // 设置一个足够大的数值以获取所有音色
+          },
           headers: { Authorization: `Bearer ${this.token}` }
         })
         
@@ -219,27 +243,50 @@ export default {
         if (!valid) return
         
         this.submitting = true
+        const totalTasks = this.form.speaker_names.length
+        let completedTasks = 0
+        let failedTasks = 0
         
         try {
-          const formData = new FormData()
-          formData.append('name', uuidv4())
-          formData.append('type', 'text2speech')
-          formData.append('input_text', this.form.input_text)
-          formData.append('speaker_name', this.form.speaker_name)
-          
-          await axios.post(`${this.baseURL}/api/tts`, formData, {
-            headers: { 
-              Authorization: `Bearer ${this.token}`,
-              'Content-Type': 'multipart/form-data'
+          const createTaskPromises = this.form.speaker_names.map(async (speakerName) => {
+            try {
+              const formData = new FormData()
+              formData.append('name', uuidv4())
+              formData.append('type', 'text2speech')
+              formData.append('input_text', this.form.input_text)
+              formData.append('speaker_name', speakerName)
+              
+              await axios.post(`${this.baseURL}/api/tts`, formData, {
+                headers: { 
+                  Authorization: `Bearer ${this.token}`,
+                  'Content-Type': 'multipart/form-data'
+                }
+              })
+              completedTasks++
+              this.$message.success(`音色 ${speakerName} 的任务创建成功 (${completedTasks}/${totalTasks})`)
+            } catch (error) {
+              failedTasks++
+              console.error(`音色 ${speakerName} 的任务创建失败:`, error)
+              this.$message.error(`音色 ${speakerName} 的任务创建失败: ${(error.response && error.response.data && error.response.data.error) || '创建任务失败'}`)
             }
           })
           
-          this.$message.success('创建TTS任务成功')
-          this.dialogVisible = false
-          this.fetchTasks()
+          await Promise.all(createTaskPromises)
+          
+          if (completedTasks === totalTasks) {
+            this.$message.success('所有TTS任务创建完成')
+            this.dialogVisible = false
+            this.fetchTasks()
+          } else if (completedTasks > 0) {
+            this.$message.warning(`部分任务创建成功 (${completedTasks}/${totalTasks}), 失败 ${failedTasks} 个`)
+            this.dialogVisible = false
+            this.fetchTasks()
+          } else {
+            this.$message.error('所有任务创建失败')
+          }
         } catch (error) {
-          console.error('创建TTS任务失败:', error)
-          this.$message.error((error.response && error.response.data && error.response.data.error) || '创建任务失败')
+          console.error('批量创建TTS任务失败:', error)
+          this.$message.error('批量创建任务失败')
         } finally {
           this.submitting = false
         }
@@ -299,6 +346,20 @@ export default {
         console.error('下载文件失败:', error)
         this.$message.error('下载文件失败')
       }
+    },
+    
+    // 复制文本到剪贴板
+    copyText(text) {
+      if (!text) return
+      
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          this.$message.success('文本已复制到剪贴板')
+        })
+        .catch(err => {
+          console.error('复制失败:', err)
+          this.$message.error('复制失败')
+        })
     },
     
     // 获取文件扩展名
@@ -417,5 +478,49 @@ export default {
 
 .el-upload__tip {
   line-height: 1.2;
+}
+
+.text-with-copy {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: 4px 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.text-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  flex: 0 0 auto;
+  padding: 2px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-width: auto;
+  width: 24px;
+  height: 24px;
+}
+
+.copy-btn i {
+  margin-right: 0;
+}
+
+.copy-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 </style>

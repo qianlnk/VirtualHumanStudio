@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/models"
-	"VirtualHumanStudio/backend/utils"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

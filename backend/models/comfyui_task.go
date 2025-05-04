@@ -1,9 +1,5 @@
 package models
 
-import (
-	"time"
-)
-
 // ComfyUITask ComfyUI任务基础模型
 type ComfyUITask struct {
 	BaseModel
@@ -14,8 +10,6 @@ type ComfyUITask struct {
 	Status      string `json:"status" gorm:"size:20;default:'pending'"` // pending, processing, completed, failed
 	TaskID      string `json:"task_id" gorm:"size:100"`                 // ComfyUI任务ID
 	ErrorMsg    string `json:"error_msg" gorm:"size:500"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
 }
 
 // Accessory 物品替换任务模型

@@ -20,12 +20,15 @@ const ASRDetail = () => import('../views/asr/ASRDetail.vue')
 const DigitalHuman = () => import('../views/digital-human/DigitalHuman.vue')
 const DigitalHumanDetail = () => import('../views/digital-human/DigitalHumanDetail.vue')
 const Accessory = () => import('../views/accessory/Accessory.vue')
+const ImageProcessingTask = () => import('../views/workflow/ImageProcessingTask.vue')
+const ImageProcessingTaskDetail = () => import('../views/workflow/ImageProcessingTaskDetail.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
 const AdminUsers = () => import('../views/admin/Users.vue')
 
 Vue.use(VueRouter)
 
-const routes = [
+// 基础路由配置
+const baseRoutes = [
     {
         path: '/',
         name: 'Landing',
@@ -101,16 +104,6 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
-        path: '/accessory',
-        component: Accessory,
-        meta: { requiresAuth: true }
-    },
-    {
-        path: '/accessory/:id',
-        component: () => import('../views/accessory/AccessoryDetail.vue'),
-        meta: { requiresAuth: true }
-    },
-    {
         path: '/profile',
         component: UserProfile,
         meta: { requiresAuth: true }
@@ -130,11 +123,56 @@ const routes = [
     }
 ]
 
+// 动态生成图像处理模块路由
+const generateImageProcessingRoutes = (modules) => {
+    const routes = []
+    if (modules && modules.length > 0) {
+        modules.forEach(module => {
+            // 添加模块列表页路由
+            routes.push({
+                path: module.route,
+                component: ImageProcessingTask,
+                props: { moduleId: module.id },
+                meta: { requiresAuth: true }
+            })
+            // 添加模块详情页路由
+            routes.push({
+                path: `${module.route}/task/:id`,
+                component: ImageProcessingTaskDetail,
+                meta: { requiresAuth: true }
+            })
+        })
+    }
+    return routes
+}
+
+// 添加配饰路由
+const AccessoryDetail = () => import('../views/accessory/AccessoryDetail.vue')
+baseRoutes.push({
+    path: '/accessory',
+    component: Accessory,
+    meta: { requiresAuth: true }
+})
+baseRoutes.push({
+    path: '/accessory/:id',
+    component: AccessoryDetail,
+    meta: { requiresAuth: true }
+})
+
+// 合并基础路由和动态路由
+const routes = baseRoutes.concat(generateImageProcessingRoutes([{
+    id: 'image-processing',
+    route: '/image-processing'
+}]))
+
 const router = new VueRouter({
     mode: 'history',
     base: process.env.BASE_URL,
     routes
 })
+
+// 添加generateImageProcessingRoutes方法到router实例
+router.options.generateImageProcessingRoutes = generateImageProcessingRoutes
 
 // 导航守卫
 router.beforeEach((to, from, next) => {

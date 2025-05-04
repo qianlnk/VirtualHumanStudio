@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 )
 
 func TestCallASRService(t *testing.T) {

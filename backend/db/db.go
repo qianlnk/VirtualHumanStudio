@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
@@ -56,7 +56,8 @@ func InitDB() error {
 			&models.VoiceClone{},
 			&models.TTSTask{},
 			&models.DigitalHuman{},
-			&models.ASRTask{}, // 添加ASR任务表迁移
+			&models.ASRTask{},             // 添加ASR任务表迁移
+			&models.ComfyUIWorkflowTask{}, // 添加通用工作流任务表迁移
 		)
 		if err != nil {
 			return fmt.Errorf("数据库迁移失败: %v", err)

@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -98,6 +98,14 @@ func checkFileAccess(userID uint, filePath string) bool {
 	// 检查文件是否属于饰品替换任务
 	var accessory models.Accessory
 	result = db.DB.Where("user_id =? AND (item_image =? OR model_image =? OR mask_image =? OR result_image=?)", userID, filePath, filePath, filePath, filePath).First(&accessory)
+	if result.Error == nil {
+		return true
+	}
+
+	// 检查文件是否属于通用图片处理任务
+	var imageProcessingTask models.ComfyUIWorkflowTask
+	likeFilePath := "%" + filePath + "%"
+	result = db.DB.Where("user_id =? AND (input_params like ? OR output_params like ?)", userID, likeFilePath, likeFilePath).First(&imageProcessingTask)
 	if result.Error == nil {
 		return true
 	}

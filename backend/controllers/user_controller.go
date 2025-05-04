@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"time"
 
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/middleware"
-	"VirtualHumanStudio/backend/models"
-	"VirtualHumanStudio/backend/utils"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 // RegisterRequest 用户注册请求

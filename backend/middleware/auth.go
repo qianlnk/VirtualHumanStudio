@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"

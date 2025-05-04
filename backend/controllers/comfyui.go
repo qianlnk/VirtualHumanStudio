@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
-	"VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 )
 
 // ComfyUIUploadImageResponse ComfyUI上传图片响应
@@ -198,6 +201,17 @@ func BuildAccessoryPrompt(itemImageRef, modelImageRef, maskImageRef string) stri
 		promptStr = strings.ReplaceAll(promptStr, k, v)
 	}
 
+	rand.NewSource(int64(time.Now().UnixNano()))
+	seed := rand.Int63n(1000000000000)
+	replaceVariables = map[string]string{
+		"{{seed}}": strconv.FormatInt(seed, 10),
+	}
+
+	for k, v := range replaceVariables {
+		workflowStr = strings.ReplaceAll(workflowStr, k, v)
+		promptStr = strings.ReplaceAll(promptStr, k, v)
+	}
+
 	err = json.Unmarshal([]byte(workflowStr), &workflow)
 	if err != nil {
 		fmt.Printf("变量替换后解析工作流失败: %v\n", err)
@@ -263,147 +277,102 @@ func SubmitPromptToComfyUI(prompt string) (string, error) {
 
 // QueryComfyUITaskStatus 查询任务进度
 func QueryComfyUITaskStatus(promptID string) (string, map[string]interface{}, error) {
+	// 检查任务状态
+	status := "processing"
 	// 发送请求
 	url := fmt.Sprintf("%s%s/%s", config.AppConfig.ComfyUIConf.ServerURL, config.AppConfig.ComfyUIConf.HistoryAPI, promptID)
 	fmt.Println("#####", url)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", nil, fmt.Errorf("发送请求失败: %v", err)
+		return status, nil, fmt.Errorf("发送请求失败: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态码
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("查询任务进度失败，状态码: %d", resp.StatusCode)
+		return status, nil, fmt.Errorf("查询任务进度失败，状态码: %d", resp.StatusCode)
 	}
 
 	// 解析响应
 	var response map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return "", nil, fmt.Errorf("解析响应失败: %v", err)
+		return status, nil, fmt.Errorf("解析响应失败: %v", err)
 	}
 
 	// 检查响应是否为空
 	if response == nil || len(response) == 0 {
-		return "failed", nil, fmt.Errorf("响应数据为空")
+		return status, nil, fmt.Errorf("响应数据为空")
 	}
-
-	// 检查任务状态
-	status := "processing"
 
 	// 尝试获取任务数据
 	data, ok := response[promptID].(map[string]interface{})
 	if !ok {
-		// 记录响应内容以便调试
-		respBytes, _ := json.Marshal(response)
-		fmt.Printf("响应数据结构异常: %s\n", string(respBytes))
-
-		// 检查是否有其他可用的数据
-		if len(response) > 0 {
-			// 尝试使用第一个可用的键
-			for key, value := range response {
-				if mapData, mapOk := value.(map[string]interface{}); mapOk {
-					fmt.Printf("使用替代键: %s\n", key)
-					data = mapData
-					ok = true
-					break
-				}
-			}
-		}
-
-		// 如果仍然没有找到有效数据
-		if !ok {
-			return "failed", nil, fmt.Errorf("任务数据格式错误: 响应中不包含有效的任务数据")
-		}
+		return "failed", nil, fmt.Errorf("任务数据格式错误: 响应中不包含有效的任务数据")
 	}
 
-	// 检查是否有输出节点的数据
-	outputs, ok := data["outputs"].(map[string]interface{})
-	if ok && len(outputs) > 0 {
-		// 检查SaveImage节点的输出
-		if nodeOutput, ok := outputs["9"].(map[string]interface{}); ok {
-			if images, ok := nodeOutput["images"].([]interface{}); ok && len(images) > 0 {
-				status = "completed"
-			}
-		} else {
-			// 尝试查找任何包含images的节点
-			for nodeID, nodeData := range outputs {
-				if nodeMap, ok := nodeData.(map[string]interface{}); ok {
-					if images, ok := nodeMap["images"].([]interface{}); ok && len(images) > 0 {
-						fmt.Printf("找到替代输出节点: %s\n", nodeID)
-						status = "completed"
-						break
-					}
-				}
-			}
-		}
-	} else if execInfo, ok := data["exec_info"].(map[string]interface{}); ok {
-		// 检查执行信息
-		if execStatus, ok := execInfo["status"].(string); ok {
-			if execStatus == "error" || execStatus == "failed" {
-				status = "failed"
-			} else if execStatus == "success" || execStatus == "completed" {
-				status = "completed"
-			}
-		}
+	statuses := data["status"].(map[string]interface{})
+	fmt.Println("#####", statuses)
+	if statuses["status_str"].(string) == "success" {
+		status = "completed"
+	} else {
+		status = "failed"
+	}
+
+	if status == "failed" {
+		return status, nil, fmt.Errorf("任务执行失败")
 	}
 
 	return status, data, nil
 }
 
+func getNodeIDAndIndex(key string) (string, int) {
+	parts := strings.Split(key, "_")
+	if len(parts) == 2 {
+		nodeID := parts[0]
+		index, err := strconv.Atoi(parts[1])
+		if err == nil {
+			return nodeID, index
+		}
+	}
+
+	return key, 0
+}
+
 // DownloadComfyUIResult 下载ComfyUI任务结果图片
-func DownloadComfyUIResult(data map[string]interface{}, savePath string, nodeID string) error {
+func DownloadComfyUIResult(data map[string]interface{}, ext string, savePath string, nodeID string) error {
 	// 从输出数据中获取结果图片信息
 	outputs, ok := data["outputs"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("输出数据格式错误")
 	}
 
-	// 首先尝试获取SaveImage节点的输出（节点ID为"9"）
+	nodeID, idx := getNodeIDAndIndex(nodeID)
+
+	// 首先尝试获取节点的输出
 	nodeOutput, ok := outputs[nodeID].(map[string]interface{})
-
-	// 如果节点ID为"9"的输出不存在，则尝试查找任何包含images的节点
 	if !ok {
-		fmt.Println("未找到节点ID为9的SaveImage节点，尝试查找其他输出节点...")
+		return fmt.Errorf("未找到节点ID为%s的输出节点", nodeID)
+	}
 
-		// 遍历所有输出节点，查找包含images的节点
-		var foundNode bool
-		for nodeID, nodeData := range outputs {
-			if nodeMap, nodeOk := nodeData.(map[string]interface{}); nodeOk {
-				if images, imagesOk := nodeMap["images"].([]interface{}); imagesOk && len(images) > 0 {
-					fmt.Printf("找到替代输出节点: %s\n", nodeID)
-					nodeOutput = nodeMap
-					ok = true
-					foundNode = true
-					break
-				}
-			}
-		}
-
-		// 如果仍然没有找到包含images的节点
-		if !foundNode {
-			// 记录所有可用的节点ID，以便调试
-			nodeIDs := make([]string, 0, len(outputs))
-			for nodeID := range outputs {
-				nodeIDs = append(nodeIDs, nodeID)
-			}
-			fmt.Printf("未找到包含images的输出节点，可用节点ID: %v\n", nodeIDs)
-			return fmt.Errorf("未找到包含图片的输出节点")
-		}
+	format := "images"
+	if ext == ".mp4" {
+		format = "gifs"
 	}
 
 	// 获取图片信息
-	images, ok := nodeOutput["images"].([]interface{})
+	images, ok := nodeOutput[format].([]interface{})
 	if !ok || len(images) == 0 {
 		return fmt.Errorf("结果图片不存在")
 	}
 
-	// 获取第一张图片信息
-	imageInfo, ok := images[0].(map[string]interface{})
+	// 获取第idx张图片信息
+	imageInfo, ok := images[idx].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("图片信息格式错误")
 	}
+
+	fmt.Println("=======", imageInfo)
 
 	// 获取图片文件名
 	filename, ok := imageInfo["filename"].(string)
@@ -417,11 +386,20 @@ func DownloadComfyUIResult(data map[string]interface{}, savePath string, nodeID 
 		subfolder = subfolder
 	}
 
+	typ := "temp"
+	fmt.Println("=======", imageInfo["type"])
+	if mytyp, typOk := imageInfo["type"].(string); typOk {
+		typ = mytyp
+	}
+	fmt.Println("1111=======", typ)
+
 	// 获取图片URL
-	imageURL := fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=temp",
+	imageURL := fmt.Sprintf("%s/view?filename=%s&subfolder=%s&type=%s",
 		config.AppConfig.ComfyUIConf.ServerURL,
 		filename,
-		subfolder)
+		subfolder,
+		typ,
+	)
 
 	fmt.Printf("正在下载图片: %s\n", imageURL)
 

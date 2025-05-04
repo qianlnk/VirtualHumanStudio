@@ -1,0 +1,253 @@
+{
+    "modules": [
+        {
+            "id": "all_replace",
+            "name": "万物替换",
+            "description": "替换图像中的饰品，如眼镜、帽子等",
+            "icon": "el-icon-picture",
+            "route": "/all_replace",
+            "inputParams": [
+                {
+                    "key": "whiteImage",
+                    "alias": "白底图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "白底图片，用于提取饰品"
+                },
+                {
+                    "key": "modelImage",
+                    "alias": "模特图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "模特图片，用于替换饰品"
+                },
+                {
+                    "key": "modelImageMask",
+                    "alias": "遮罩图片",
+                    "type": "mask",
+                    "required": true,
+                    "description": "遮罩图片，指定替换区域"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "54",
+                    "alias": "结果图片",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        },
+        {
+            "id": "q_version_blind_box",
+            "name": "人物Q版盲盒",
+            "description": "上传人物图片，一键生成人物Q版盲盒",
+            "icon": "el-icon-picture",
+            "route": "/q_version_blind_box",
+            "inputParams": [
+                {
+                    "key": "peopleImage",
+                    "alias": "人物图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "人物图片，用于生成人物Q版盲盒"
+                },
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "提示词，用于生成人物Q版盲盒",
+                    "default": "The cute Q-version doll character, man, C4D, wears cool streetwear, full-length portrait, the character is rendered in ultra high definition against a light purple background with soft lighting, emphasizing the character's lively personality and bold fashion sense."
+                },
+                {
+                    "key": "negativePrompt",
+                    "alias": "负面提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "负面提示词，用于生成人物Q版盲盒",
+                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs,"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "9_0",
+                    "alias": "结果图片1",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "9_1",
+                    "alias": "结果图片2",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        },
+        {
+            "id": "dance",
+            "name": "一键跳舞",
+            "description": "上传人物图片，一键生成跳舞视频",
+            "icon": "el-icon-picture",
+            "route": "/dance",
+            "inputParams": [
+                {
+                    "key": "peopleImage",
+                    "alias": "人物图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "人物图片，一键生成跳舞视频"
+                },
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "提示词，跳舞动作描述",
+                    "default": "Dance, the movements are smooth, first twist the waist on the left, then twist the waist on the right, and finally make your hands to the heart. Documentary style, close-up of the whole body dance in the middle scene, full of dynamics."
+                },
+                {
+                    "key": "negativePrompt",
+                    "alias": "负面提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "负面提示词，用于生成人物Q版盲盒",
+                    "default": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "30",
+                    "alias": "结果视频",
+                    "type": "video",
+                    "description": "处理后的结果视频"
+                }
+            ]
+        },
+        {
+            "id": "mini_world",
+            "name": "微型世界",
+            "description": "生成微型世界图片，创意拉满",
+            "icon": "el-icon-picture",
+            "route": "/mini_world",
+            "inputParams": [
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "提示词，用于生成微型世界图片",
+                    "default": "Miniature world, This is a photograph of a detailed, miniature scene featuring tiny figurines of workers harvesting watermelons. The figurines wear straw hats and beige overalls, shown lifting large green watermelons into wooden carts. The watermelons are realistically detailed with dark green stripes and some cut open to reveal bright red flesh with black seeds. The background is a blurred summer field with distant sunflowers and a clear sky. The ground is textured with dry soil and scattered hay to enhance the rural vibe."
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "22_0",
+                    "alias": "结果图片1",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "22_1",
+                    "alias": "结果图片2",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "22_2",
+                    "alias": "结果图片3",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "22_3",
+                    "alias": "结果图片4",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        },
+        {
+            "id": "replace_background",
+            "name": "替换背景",
+            "description": "上传商品图片，一键替换背景",
+            "icon": "el-icon-picture",
+            "route": "/replace_background",
+            "inputParams": [
+                {
+                    "key": "whiteImage",
+                    "alias": "商品图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "商品图片，用于替换背景"
+                },
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "提示词，用于商品背景替换",
+                    "default": "Jewelry display, still life, background with flowers, light and shadow art, 8K, master's work, realistic,"
+                },
+                {
+                    "key": "negativePrompt",
+                    "alias": "负面提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "负面提示词，用于商品背景替换",
+                    "default": "(worst quality:2),(low quality:2),(normal quality:2),lowres,bad anatomy,bad hands,((monochrome)),((grayscale)) watermark,moles,large breast,big breast,"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "57_0",
+                    "alias": "结果图片1",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_1",
+                    "alias": "结果图片2",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_2",
+                    "alias": "结果图片3",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_3",
+                    "alias": "结果图片4",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_4",
+                    "alias": "结果图片5",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_5",
+                    "alias": "结果图片6",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_6",
+                    "alias": "结果图片7",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "57_7",
+                    "alias": "结果图片8",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        }
+    ]
+}

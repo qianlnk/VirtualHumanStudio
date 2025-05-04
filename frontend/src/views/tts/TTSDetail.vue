@@ -33,9 +33,12 @@
           </div>
         </div>
         
-        <div class="content-section" v-if="task.type === 'text2speech' && task.input_text">
+        <div class="content-section" v-if="task.input_text">
           <h3>输入文本</h3>
-          <div class="text-content">{{ task.input_text }}</div>
+          <div class="text-content-wrapper">
+            <div class="text-content">{{ task.input_text }}</div>
+            <el-button class="copy-btn" type="text" icon="el-icon-document-copy" @click="copyInputText"></el-button>
+          </div>
         </div>
         
         <div class="audio-section" v-if="task.status === 'completed'">
@@ -215,6 +218,20 @@ export default {
         'speech2text': '语音转文本'
       }
       return typeTextMap[type] || type
+    },
+    
+    // 复制输入文本到剪贴板
+    copyInputText() {
+      if (this.task && this.task.input_text) {
+        navigator.clipboard.writeText(this.task.input_text)
+          .then(() => {
+            this.$message.success('文本已复制到剪贴板')
+          })
+          .catch(err => {
+            console.error('复制失败:', err)
+            this.$message.error('复制失败')
+          })
+      }
     }
   }
 }
@@ -269,12 +286,32 @@ export default {
   border-top: 1px solid #ebeef5;
 }
 
+.text-content-wrapper {
+  position: relative;
+}
+
 .text-content {
   padding: 10px;
   background-color: #f8f8f8;
   border-radius: 4px;
   white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 16px;
+  padding: 5px;
+  color: #606266;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
+
+.copy-btn:hover {
+  color: #409EFF;
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .audio-player {

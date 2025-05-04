@@ -14,6 +14,16 @@
       
       <el-table v-else :data="voices" style="width: 100%">
         <el-table-column prop="name" label="音色名称" width="150"></el-table-column>
+        <el-table-column prop="alias" label="别名" width="150">
+          <template slot-scope="scope">
+            {{ scope.row.alias || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="gender" label="性别" width="80">
+          <template slot-scope="scope">
+            {{ scope.row.gender || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}

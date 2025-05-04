@@ -34,6 +34,7 @@
             <el-submenu index="digital-human">
               <template slot="title">
                 <i class="el-icon-user"></i>
+
                 <span class="submenu-title">数字人合成</span>
               </template>
               <el-menu-item index="/digital-human">数字人制作</el-menu-item>
@@ -43,7 +44,13 @@
                 <i class="el-icon-picture"></i>
                 <span class="submenu-title">图像处理</span>
               </template>
-              <el-menu-item index="/accessory">饰品替换</el-menu-item>
+              <el-menu-item v-for="module in imageProcessingModules" :key="module.id" :index="module.route">
+                <i :class="module.icon" v-if="module.icon"></i>
+                <span>{{ module.name }}</span>
+                <el-tooltip v-if="module.description" :content="module.description" placement="right">
+                  <i class="el-icon-info" style="margin-left: 5px;"></i>
+                </el-tooltip>
+              </el-menu-item>
             </el-submenu>
             <el-menu-item v-if="isAdmin" index="/admin/users">
               <i class="el-icon-s-custom"></i>
@@ -88,12 +95,14 @@
 
 <script>
 import { mapGetters } from 'vuex'
+import { getImageProcessingModules } from './api/modules'
 
 export default {
   name: 'App',
   data() {
     return {
-      activeIndex: this.$route.path
+      activeIndex: this.$route.path,
+      imageProcessingModules: []
     }
   },
   computed: {
@@ -105,7 +114,37 @@ export default {
       this.activeIndex = newPath
     }
   },
+  created() {
+    // 获取图像处理模块列表
+    this.fetchImageProcessingModules()
+  },
   methods: {
+    // 获取图像处理模块列表
+    async fetchImageProcessingModules() {
+      try {
+        const response = await getImageProcessingModules()
+        if (response.success) {
+          // 合并本地和远程模块
+          const localModules = [{
+            id: 'accessory',
+            name: '饰品替换',
+            route: '/accessory',
+            icon: 'el-icon-magic-stick',
+            description: '智能替换人物饰品'
+          }]
+          this.imageProcessingModules = [...localModules, ...response.modules]
+          // 动态添加模块路由
+          const moduleRoutes = this.$router.options.generateImageProcessingRoutes(this.imageProcessingModules)
+          // 逐个添加模块路由
+          moduleRoutes.forEach(route => {
+            this.$router.addRoute(route)
+          })
+        }
+      } catch (error) {
+        console.error('获取图像处理模块列表失败:', error)
+        this.$message.error('获取图像处理模块列表失败')
+      }
+    },
     // 处理用户下拉菜单命令
     handleCommand(command) {
       if (command === 'logout') {

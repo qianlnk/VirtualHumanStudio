@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/utils"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,12 +9,34 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/qianlnk/VirtualHumanStudio/backend/client/promptt"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
+
 	"github.com/google/uuid"
 )
 
-func ttsInvoke(context context.Context, req *APITTSRequest) (string, error) {
+func ttsInvoke(context context.Context, req *APITTSRequest, official bool) (string, error) {
 	userID := context.Value("user_id").(uint)
-	req.SpeakerName = fmt.Sprintf("%d_%s", userID, req.SpeakerName)
+
+	// 生成唯一的输出文件名
+	outputFileName := fmt.Sprintf("%s.wav", uuid.New().String())
+	outputFilePath := utils.GetUserFilePath(userID, config.AppConfig.AudioDir, outputFileName)
+	fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, outputFilePath)
+
+	if official {
+		// 调用官方API
+		_, err := PrompttCli.DoTTS(&promptt.TTSRequest{
+			Model: req.ModelName,
+			Input: req.Text,
+			Voice: req.SpeakerName,
+		}, fullOutputFilePath)
+		if err != nil {
+			return "", err
+		}
+
+		return outputFilePath, nil
+	}
 
 	// 序列化请求
 	reqData, err := json.Marshal(req)
@@ -54,10 +74,6 @@ func ttsInvoke(context context.Context, req *APITTSRequest) (string, error) {
 		return "", errors.New("API响应中未包含音频数据")
 	}
 
-	// 生成唯一的输出文件名
-	outputFileName := fmt.Sprintf("%s.wav", uuid.New().String())
-	outputFilePath := utils.GetUserFilePath(userID, config.AppConfig.AudioDir, outputFileName)
-	fullOutputFilePath := utils.GetFilePath(config.AppConfig.DataDir, outputFilePath)
 	// 将Base64音频数据解码并保存为文件
 	_, err = utils.Base64ToFile(waveBase64, fullOutputFilePath)
 	if err != nil {

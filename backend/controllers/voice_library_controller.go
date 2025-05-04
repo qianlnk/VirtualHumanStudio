@@ -1,18 +1,20 @@
 package controllers
 
 import (
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/models"
-	"VirtualHumanStudio/backend/utils"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/jinzhu/gorm"
 )
 
 // UploadVoice 上传音色文件到音色库
@@ -154,9 +156,11 @@ func ListVoices(c *gin.Context) {
 	var count int64
 	query.Model(&models.VoiceLibrary{}).Count(&count)
 
+	count += int64(len(config.AppConfig.OfficialVoices))
+
 	// 查询列表
 	var voices []models.VoiceLibrary
-	result := query.Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&voices)
+	result := query.Order("created_at DESC").Find(&voices)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
 		return
@@ -168,6 +172,7 @@ func ListVoices(c *gin.Context) {
 		responses[i] = map[string]interface{}{
 			"id":          v.ID,
 			"name":        v.Name,
+			"alias":       v.Name, // 别名字段，用于前端显示，例如 "官方音色"
 			"description": v.Description,
 			"model_name":  v.ModelName,
 			"model_file":  utils.GetFileURL(v.ModelFile),
@@ -179,6 +184,35 @@ func ListVoices(c *gin.Context) {
 			"is_owner":    v.OwnerID == userID.(uint),
 		}
 	}
+
+	// 添加官方音色
+	layout := "2006-01-02 15:04:05"
+	createdAt, _ := time.Parse(layout, "2025-01-02 15:04:05")
+	for _, officialVoice := range config.AppConfig.OfficialVoices {
+		responses = append(responses, map[string]interface{}{
+			"id":          officialVoice.ID,
+			"name":        officialVoice.ID,
+			"alias":       officialVoice.Alias, // 别名字段，用于前端显示，例如 "官方音色
+			"description": officialVoice.Description,
+			"type":        "official",
+			"owner_id":    0,
+			"is_public":   true,
+			"is_owner":    false,
+			"gender":      officialVoice.Gender,
+			"created_at":  createdAt,
+			"sample_file": utils.GetFileURL(officialVoice.SampleFile),
+		})
+	}
+
+	start := (page - 1) * size
+	end := start + size
+	if start >= len(responses) {
+		responses = []map[string]interface{}{}
+	} else if end > len(responses) {
+		end = len(responses)
+	}
+
+	responses = responses[start:end]
 
 	c.JSON(http.StatusOK, gin.H{
 		"total":  count,

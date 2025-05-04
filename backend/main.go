@@ -5,11 +5,11 @@ import (
 	"log"
 	"os"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/controllers"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/middleware"
-	"VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/controllers"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -49,6 +49,9 @@ func main() {
 
 	// 初始化Redis
 	middleware.InitRedis()
+
+	// 初始化Promptt
+	controllers.InitPromptt()
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode)
@@ -143,8 +146,13 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/accessory", controllers.ListAccessories)
 		protected.DELETE("/accessory/:id", controllers.DeleteAccessory)
 
-		// comfyui模特换装，输入模特图片，蒙版图，输出换装后的图片
-		// protected.POST("/comfyui/clothes", controllers.ComfyUIClothes)
+		// 图像处理API
+		protected.GET("/image-processing/modules", controllers.GetImageProcessingModules)
+		protected.GET("/image-processing/tasks/:moduleId", controllers.GetImageProcessingTasks)
+		protected.POST("/image-processing/tasks/:moduleId", controllers.CreateImageProcessingTask)
+		protected.GET("/image-processing/tasks/:moduleId/:taskId", controllers.GetImageProcessingTask)
+		protected.DELETE("/image-processing/tasks/:moduleId/:taskId", controllers.DeleteImageProcessingTask)
+		protected.POST("/image-processing/tasks/:moduleId/:taskId/retry", controllers.RetryImageProcessingTask)
 	}
 
 	// 管理员路由

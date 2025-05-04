@@ -2,17 +2,18 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/models"
-	"VirtualHumanStudio/backend/utils"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
+	"github.com/jinzhu/gorm"
 )
 
 // TTSRequest TTS请求
@@ -102,16 +103,29 @@ func processTTSTask(ctx context.Context, task models.TTSTask) {
 	// 更新状态为处理中
 	db.DB.Model(&task).Update("status", "processing")
 
+	modelName := "CosyVoice2-0.5B_1"
+	language := "mandarin"
+	speakerName := task.SpeakerName
+	official := false
+	if v, ok := config.AppConfig.OfficialVoices[task.SpeakerName]; ok {
+		modelName = v.Model
+		language = "auto"
+		official = true
+		speakerName = v.TimbreID
+	} else {
+		speakerName = fmt.Sprintf("%d_%s", task.UserID, task.SpeakerName)
+	}
+
 	// 构建API请求
 	apiReq := APITTSRequest{
-		ModelName:   "CosyVoice2-0.5B_1",
-		SpeakerName: task.SpeakerName,
+		ModelName:   modelName,
+		SpeakerName: speakerName,
 		Text:        task.InputText,
-		Language:    "mandarin",
+		Language:    language,
 		SpkRate:     1.0,
 	}
 
-	outputFilePath, err := ttsInvoke(ctx, &apiReq)
+	outputFilePath, err := ttsInvoke(ctx, &apiReq, official)
 	if err != nil {
 		db.DB.Model(&task).Updates(map[string]interface{}{
 			"status":    "failed",

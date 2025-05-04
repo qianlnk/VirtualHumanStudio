@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -76,7 +76,7 @@ func GetPaginationParams(c *gin.Context) (page, size int) {
 	}
 
 	size, err = strconv.Atoi(sizeStr)
-	if err != nil || size < 1 || size > 100 {
+	if err != nil || size < 1 || size > 1000 {
 		size = 10
 	}
 
