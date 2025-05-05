@@ -5,7 +5,7 @@
         <h2>音色库</h2>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="showUploadDialog">上传音色</el-button>
+        <!-- <el-button type="primary" @click="showUploadDialog">上传音色</el-button> -->
         <el-button type="primary" @click="refreshVoices">刷新</el-button>
         <el-button type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
@@ -273,6 +273,21 @@ export default {
     // 辅助方法: 调试日志
     debug(...args) {
       console.log('[VoiceLibrary]', ...args)
+    },
+    
+    // 显示上传对话框
+    showUploadDialog() {
+      // 重置表单
+      this.uploadForm = {
+        name: '',
+        description: '',
+        model_name: '',
+        model_file: null,
+        sample_file: null
+      }
+      this.modelFileList = []
+      this.sampleFileList = []
+      this.uploadDialogVisible = true
     },
     
     // 初始加载数据

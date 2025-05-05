@@ -46,11 +46,14 @@
               <el-form-item label="邮箱" prop="email">
                 <el-input v-model="messageForm.email" placeholder="请输入您的邮箱"></el-input>
               </el-form-item>
-              <el-form-item label="留言内容" prop="message">
-                <el-input type="textarea" v-model="messageForm.message" :rows="4" placeholder="请输入您的留言内容"></el-input>
+              <el-form-item label="主题" prop="subject">
+                <el-input v-model="messageForm.subject" placeholder="请输入留言主题"></el-input>
+              </el-form-item>
+              <el-form-item label="留言内容" prop="content">
+                <el-input type="textarea" v-model="messageForm.content" :rows="4" placeholder="请输入您的留言内容"></el-input>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="submitMessage">提交留言</el-button>
+                <el-button type="primary" @click="submitMessage" :loading="submitting">提交留言</el-button>
               </el-form-item>
             </el-form>
           </el-card>
@@ -163,15 +166,19 @@
 </template>
 
 <script>
+import { createMessage } from '@/api/message'
+
 export default {
   name: 'Contact',
   data() {
     return {
+      submitting: false,
       messageForm: {
         name: '',
         phone: '',
         email: '',
-        message: ''
+        subject: '',
+        content: ''
       },
       rules: {
         name: [
@@ -186,7 +193,11 @@ export default {
           { required: true, message: '请输入您的邮箱', trigger: 'blur' },
           { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
         ],
-        message: [
+        subject: [
+          { required: true, message: '请输入留言主题', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+        ],
+        content: [
           { required: true, message: '请输入留言内容', trigger: 'blur' },
           { min: 5, max: 500, message: '长度在 5 到 500 个字符', trigger: 'blur' }
         ]
@@ -195,13 +206,25 @@ export default {
   },
   methods: {
     submitMessage() {
-      this.$refs.messageForm.validate((valid) => {
+      this.$refs.messageForm.validate(async (valid) => {
         if (valid) {
-          // 这里可以添加提交留言的API调用
-          // 由于目前没有实际的后端API，我们只显示一个成功消息
-          this.$message.success('留言提交成功，我们将尽快与您联系！')
-          // 重置表单
-          this.$refs.messageForm.resetFields()
+          try {
+            this.submitting = true
+            const result = await createMessage(this.messageForm)
+            
+            if (result.success) {
+              this.$message.success('留言提交成功，我们将尽快与您联系！')
+              // 重置表单
+              this.$refs.messageForm.resetFields()
+            } else {
+              this.$message.error(result.error || '留言提交失败，请稍后再试')
+            }
+          } catch (error) {
+            console.error('提交留言出错:', error)
+            this.$message.error('系统错误，请稍后再试')
+          } finally {
+            this.submitting = false
+          }
         } else {
           this.$message.error('请正确填写表单信息')
           return false

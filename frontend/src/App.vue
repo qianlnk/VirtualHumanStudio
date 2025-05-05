@@ -57,10 +57,24 @@
                 </el-tooltip>
               </el-menu-item>
             </el-submenu>
-            <el-menu-item v-if="isAdmin" index="/admin/users">
-              <i class="el-icon-s-custom"></i>
-              <span>用户管理</span>
-            </el-menu-item>
+            <el-submenu v-if="isAdmin" index="admin">
+              <template slot="title">
+                <i class="el-icon-s-tools"></i>
+                <span class="submenu-title">后台管理</span>
+              </template>
+              <el-menu-item index="/admin/statistics">
+                <i class="el-icon-data-analysis"></i>
+                <span>数据统计</span>
+              </el-menu-item>
+              <el-menu-item index="/admin/users">
+                <i class="el-icon-s-custom"></i>
+                <span>用户管理</span>
+              </el-menu-item>
+              <el-menu-item index="/admin/messages">
+                <i class="el-icon-message"></i>
+                <span>留言管理</span>
+              </el-menu-item>
+            </el-submenu>
             <el-menu-item index="/contact">
               <i class="el-icon-phone"></i>
               <span>联系我们</span>

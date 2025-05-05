@@ -42,6 +42,10 @@ func main() {
 		&models.VoiceLibrary{},
 		&models.ComfyUITask{},
 		&models.Accessory{},
+		&models.Message{},
+		&models.UserLoginLog{},
+		&models.ModuleUsageLog{},
+		&models.DailyStatistics{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
@@ -85,6 +89,13 @@ func main() {
 func registerRoutes(router *gin.Engine) {
 	// API路由组
 	api := router.Group("/api")
+	api.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// 公开路由
 	public := api.Group("/")
@@ -98,6 +109,8 @@ func registerRoutes(router *gin.Engine) {
 	// 需要认证的路由
 	protected := api.Group("/")
 	protected.Use(middleware.JWTAuth())
+	// 添加统计中间件
+	protected.Use(middleware.StatisticsMiddleware())
 	{
 		// 用户相关
 		protected.GET("/user", controllers.GetUserInfo)
@@ -154,6 +167,12 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/image-processing/tasks/:moduleId/:taskId", controllers.GetImageProcessingTask)
 		protected.DELETE("/image-processing/tasks/:moduleId/:taskId", controllers.DeleteImageProcessingTask)
 		protected.POST("/image-processing/tasks/:moduleId/:taskId/retry", controllers.RetryImageProcessingTask)
+
+		// 留言
+		protected.POST("/message", controllers.CreateMessage)
+		protected.GET("/message/:id", controllers.GetMessage)
+		protected.GET("/messages", controllers.ListMessages)
+		protected.DELETE("/message/:id", controllers.DeleteMessage)
 	}
 
 	// 管理员路由
@@ -163,5 +182,14 @@ func registerRoutes(router *gin.Engine) {
 		// 用户管理
 		admin.GET("/users", controllers.ListUsers)
 		admin.PUT("/user/:id/status", controllers.UpdateUserStatus)
+
+		// 留言管理
+		admin.PUT("/message/:id/read", controllers.MarkMessageAsRead)
+		admin.PUT("/message/:id/reply", controllers.ReplyMessage)
+
+		// 统计数据API
+		admin.GET("/statistics/users", controllers.GetUserStatistics)
+		admin.GET("/statistics/modules", controllers.GetModuleUsageStatistics)
+		admin.GET("/statistics/login-logs", controllers.GetUserLoginLogs)
 	}
 }

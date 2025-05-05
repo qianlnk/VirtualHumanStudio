@@ -24,6 +24,8 @@ const ImageProcessingTask = () => import('../views/workflow/ImageProcessingTask.
 const ImageProcessingTaskDetail = () => import('../views/workflow/ImageProcessingTaskDetail.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
 const AdminUsers = () => import('../views/admin/Users.vue')
+const AdminMessages = () => import('../views/admin/Messages.vue')
+const AdminStatistics = () => import('../views/admin/Statistics.vue')
 
 Vue.use(VueRouter)
 
@@ -111,6 +113,16 @@ const baseRoutes = [
     {
         path: '/admin/users',
         component: AdminUsers,
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/messages',
+        component: AdminMessages,
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/statistics',
+        component: AdminStatistics,
         meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
