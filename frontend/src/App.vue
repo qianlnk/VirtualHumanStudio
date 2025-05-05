@@ -3,16 +3,21 @@
     <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register' || (!isAuthenticated && $route.path === '/contact')"></router-view>
     <el-container v-else-if="isAuthenticated">
         <!-- 左侧导航栏 -->
-        <el-aside width="200px" class="app-aside">
+        <el-aside :width="isCollapse ? '64px' : '200px'" class="app-aside">
           <div class="aside-logo">
             <router-link to="/">
-              <h1>Virtual Human Studio</h1>
+              <h1 v-if="!isCollapse">Virtual Human Studio</h1>
+              <h1 v-else>VHS</h1>
             </router-link>
+          </div>
+          <div class="collapse-btn" @click="toggleCollapse">
+            <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
           </div>
           <el-menu 
             :default-active="activeIndex" 
             mode="vertical" 
             router 
+            :collapse="isCollapse"
             class="aside-menu"
             background-color="transparent"
             text-color="#b3e5fc"
@@ -66,6 +71,9 @@
         <el-container>
           <!-- 顶部用户信息 -->
           <el-header height="50px" class="app-header">
+            <div class="mobile-menu-btn" @click="toggleCollapse">
+              <i class="el-icon-s-operation"></i>
+            </div>
             <div class="header-user">
               <el-dropdown trigger="click" @command="handleCommand">
                 <span class="el-dropdown-link">
@@ -102,7 +110,8 @@ export default {
   data() {
     return {
       activeIndex: this.$route.path,
-      imageProcessingModules: []
+      imageProcessingModules: [],
+      isCollapse: window.innerWidth <= 768
     }
   },
   computed: {
@@ -117,6 +126,12 @@ export default {
   created() {
     // 获取图像处理模块列表
     this.fetchImageProcessingModules()
+    // 监听窗口大小变化
+    window.addEventListener('resize', this.handleResize)
+  },
+  beforeDestroy() {
+    // 移除事件监听
+    window.removeEventListener('resize', this.handleResize)
   },
   methods: {
     // 获取图像处理模块列表
@@ -167,6 +182,14 @@ export default {
         .catch(() => {
           this.$message.error('退出登录失败，请重试')
         })
+    },
+    // 切换侧边栏折叠状态
+    toggleCollapse() {
+      this.isCollapse = !this.isCollapse
+    },
+    // 处理窗口大小变化
+    handleResize() {
+      this.isCollapse = window.innerWidth <= 768
     }
   }
 }
@@ -179,12 +202,15 @@ html, body {
   padding: 0;
   height: 100%;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app {
   height: 100vh;
   background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
   color: #fff;
+  overflow-x: hidden;
 }
 
 /* 左侧菜单样式 */
@@ -197,6 +223,7 @@ html, body {
   top: 0;
   z-index: 1001;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  transition: width 0.3s ease;
 }
 
 .aside-logo {
@@ -205,6 +232,31 @@ html, body {
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid #1f2d3d;
+  overflow: hidden;
+}
+
+.collapse-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #b3e5fc;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  z-index: 1002;
+}
+
+.mobile-menu-btn {
+  display: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #fff;
 }
 
 .aside-logo h1 {
@@ -236,6 +288,7 @@ html, body {
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   padding: 0 20px;
+  transition: margin-left 0.3s ease;
 }
 
 .header-user {
@@ -255,6 +308,7 @@ html, body {
   padding: 20px;
   min-height: calc(100vh - 100px);
   background-color: transparent;
+  transition: margin-left 0.3s ease;
 }
 
 /* 底部样式 */
@@ -267,6 +321,7 @@ html, body {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background-color: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(5px);
+  transition: margin-left 0.3s ease;
 }
 
 /* 样式部分 */
@@ -276,5 +331,95 @@ html, body {
 
 .aside-menu .el-menu-item {
   font-size: 14px;
+}
+
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
+    margin-right: auto;
+  }
+  
+  .collapse-btn {
+    display: none;
+  }
+  
+  .app-aside {
+    transform: translateX(0);
+    transition: transform 0.3s ease, width 0.3s ease;
+  }
+  
+  .app-aside.is-collapsed {
+    transform: translateX(-100%);
+  }
+  
+  .app-main {
+    margin-left: 0;
+    padding: 15px;
+  }
+  
+  .app-footer {
+    margin-left: 0;
+    padding: 10px 0;
+  }
+  
+  .app-header {
+    padding: 0 15px;
+  }
+  
+  /* 折叠时的样式 */
+  [class*="el-col-"] {
+    width: 100%;
+  }
+  
+  .el-form-item {
+    margin-bottom: 15px;
+  }
+  
+  .el-form-item__label {
+    padding: 0 0 8px;
+    display: block;
+    text-align: left;
+    width: 100% !important;
+  }
+  
+  .el-form-item__content {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+  
+  .el-input {
+    width: 100%;
+  }
+  
+  .el-button {
+    display: block;
+    width: 100%;
+    margin-left: 0 !important;
+    margin-top: 8px;
+  }
+  
+  .el-button + .el-button {
+    margin-left: 0 !important;
+  }
+}
+
+/* 侧边栏折叠时的样式 */
+.el-menu--collapse .el-submenu__title span,
+.el-menu--collapse .el-menu-item span {
+  display: none;
+}
+
+.el-menu--collapse .el-tooltip {
+  display: none;
+}
+
+/* 当侧边栏折叠时，调整主内容区域和底部的边距 */
+.app-main {
+  margin-left: v-bind('isCollapse ? "64px" : "200px"');
+}
+
+.app-footer {
+  margin-left: v-bind('isCollapse ? "64px" : "200px"');
 }
 </style>

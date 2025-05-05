@@ -1,12 +1,20 @@
 <template>
   <div class="asr-container">
     <div class="page-header">
-      <h2>语音识别</h2>
-      <el-button type="primary" @click="handleUpload">创建语音识别任务</el-button>
+      <div class="header-left">
+        <h2>语音识别</h2>
+      </div>
+      <div class="header-right">
+        <el-button type="primary" @click="handleUpload" icon="el-icon-plus">创建语音识别任务</el-button>
+        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+          <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
+          <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
+        </el-button>
+      </div>
     </div>
 
-    <!-- 任务列表 -->
-    <div v-loading="loading" class="task-list">
+    <!-- 任务列表（表格视图） -->
+    <div v-loading="loading" class="task-list" v-show="!isCardView">
       <el-empty v-if="tasks.length === 0" description="暂无语音识别任务"></el-empty>
       
       <el-table v-else :data="tasks" style="width: 100%">
@@ -68,6 +76,78 @@
         </el-pagination>
       </div>
     </div>
+    
+    <!-- 卡片视图（瀑布流） -->
+    <div v-show="isCardView" class="card-list" v-loading="loading">
+      <el-empty v-if="tasks.length === 0" description="暂无语音识别任务"></el-empty>
+      
+      <div v-else class="card-view-content">
+        <div class="waterfall-container" ref="cardContainer">
+          <div class="task-card" v-for="item in tasks" :key="item.id">
+            <div class="task-card-header">
+              <h3 class="task-card-title">{{ item.name }}</h3>
+              <el-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+            </div>
+            <div class="task-card-content">
+              <div class="task-card-info">
+                <p v-if="item.output_text" class="text-ellipsis">
+                  <span class="info-label">识别结果:</span> {{ item.output_text }}
+                </p>
+                <p><span class="info-label">创建时间:</span> {{ formatDate(item.created_at) }}</p>
+              </div>
+            </div>
+            <div class="task-card-footer">
+              <el-button 
+                type="text" 
+                size="small" 
+                class="action-btn"
+                @click="viewDetail(item.id)"
+              >
+                <i class="el-icon-view"></i> 查看
+              </el-button>
+              <el-button 
+                type="text" 
+                size="small" 
+                class="action-btn"
+                @click="playAudio(item)" 
+                :disabled="!item.input_file || item.status !== 'completed'"
+              >
+                <i class="el-icon-video-play"></i> 播放
+              </el-button>
+              <el-button 
+                v-if="item.status === 'failed'" 
+                type="text" 
+                size="small" 
+                class="action-btn"
+                @click="handleRetry(item)"
+              >重试</el-button>
+              <el-button 
+                type="text" 
+                size="small" 
+                class="action-btn"
+                @click="handleDelete(item)"
+              >删除</el-button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 加载状态区域 -->
+        <div class="load-more-container" ref="loadMoreTrigger">
+          <template v-if="loadingMore">
+            <div class="loading-indicator">
+              <i class="el-icon-loading"></i>
+              <p>加载中...</p>
+            </div>
+          </template>
+          <template v-else-if="hasMoreData">
+            <p>向下滚动加载更多</p>
+          </template>
+          <template v-else>
+            <p>没有更多数据了</p>
+          </template>
+        </div>
+      </div>
+    </div>
 
     <!-- 音频播放器 -->
     <audio ref="audioPlayer" style="display: none"></audio>
@@ -122,6 +202,7 @@
 
 <script>
 import { getAudioUrl } from '@/utils/fileAccess'
+import '@/assets/styles/card-view.css'
 
 export default {
   name: 'ASR',
@@ -131,6 +212,7 @@ export default {
       tasks: [],
       currentPage: 1,
       pageSize: 10,
+      cardPageSize: 10,
       total: 0,
       uploadDialogVisible: false,
       uploadHeaders: {
@@ -166,44 +248,207 @@ export default {
             }
           }
         }]
-      }
+      },
+      isCardView: false,
+      loadingMore: false,
+      hasMoreData: true,
+      initialLoaded: false,
+      observer: null
     }
   },
+  
   created() {
-    this.fetchTasks()
+    // 从本地存储中读取用户偏好的视图模式
+    const savedViewMode = localStorage.getItem('asr_view_mode')
+    if (savedViewMode) {
+      this.isCardView = savedViewMode === 'card'
+    }
+    
+    // 初始加载数据
+    this.loadInitialData()
   },
+  
+  mounted() {
+    // 添加滚动事件监听器用于卡片视图加载更多
+    window.addEventListener('scroll', this.handleWindowScroll)
+  },
+  
+  beforeDestroy() {
+    // 移除滚动事件监听器
+    window.removeEventListener('scroll', this.handleWindowScroll)
+    
+    // 清除IntersectionObserver
+    if (this.observer) {
+      this.observer.disconnect()
+      this.observer = null
+    }
+  },
+  
   methods: {
+    // 辅助方法: 调试日志
+    debug(...args) {
+      console.log('[ASR]', ...args)
+    },
+    
+    // 初始加载数据
+    loadInitialData() {
+      if (this.initialLoaded) {
+        this.debug('已加载初始数据，跳过')
+        return
+      }
+      
+      this.debug('加载初始数据')
+      this.currentPage = 1
+      this.tasks = []
+      this.hasMoreData = true
+      this.fetchTasks()
+      this.initialLoaded = true
+    },
+    
     // 获取任务列表
-    async fetchTasks() {
-      this.loading = true
+    async fetchTasks(loadMore = false) {
+      if (this.loading || (loadMore && this.loadingMore)) {
+        this.debug('已有请求进行中，跳过')
+        return
+      }
+      
+      if (!loadMore) {
+        this.loading = true
+      } else {
+        this.loadingMore = true
+      }
+      
+      this.debug('请求数据:', '页码=', this.currentPage, '每页数量=', this.isCardView ? this.cardPageSize : this.pageSize)
+      
       try {
         const response = await this.$http.get('/api/asr', {
           params: {
             page: this.currentPage,
-            size: this.pageSize
+            size: this.isCardView ? this.cardPageSize : this.pageSize
           }
         })
-        console.log('ASR任务列表响应:', response.data)
         
-        if (response.data && response.data.items) {
-          this.tasks = response.data.items
-          this.total = response.data.total
-          console.log('ASR任务列表:', this.tasks)
+        const newTasks = response.data.items || []
+        this.total = response.data.total || 0
+        
+        this.debug('获取到新数据:', newTasks.length, '总数:', this.total)
+        
+        if (loadMore) {
+          // 追加新数据
+          this.tasks = [...this.tasks, ...newTasks]
         } else {
-          console.error('ASR任务列表数据格式不正确:', response.data)
-          this.$message.warning('获取任务列表数据格式不正确')
-          this.tasks = []
-          this.total = 0
+          // 重置数据
+          this.tasks = newTasks
         }
+        
+        // 判断是否还有更多数据
+        this.hasMoreData = this.tasks.length < this.total
+        this.debug('当前数据量：', this.tasks.length, '总数：', this.total, '是否还有更多：', this.hasMoreData)
+        
       } catch (error) {
         console.error('获取ASR任务列表失败:', error)
         this.$message.error('获取任务列表失败: ' + (error.message || '未知错误'))
       } finally {
         this.loading = false
+        this.loadingMore = false
+        
+        // 在数据加载完成后重新设置观察者
+        if (this.isCardView) {
+          this.$nextTick(() => {
+            this.setupIntersectionObserver()
+          })
+        }
       }
     },
     
-
+    // 加载更多数据
+    loadMoreTasks() {
+      if (this.loadingMore || !this.hasMoreData) {
+        this.debug('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData)
+        return
+      }
+      
+      this.debug('开始加载更多数据，当前页码：', this.currentPage)
+      this.currentPage++
+      this.fetchTasks(true)
+    },
+    
+    // 处理滚动事件
+    handleWindowScroll() {
+      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = Math.max(
+        document.body.scrollHeight, document.documentElement.scrollHeight,
+        document.body.offsetHeight, document.documentElement.offsetHeight,
+        document.body.clientHeight, document.documentElement.clientHeight
+      )
+      
+      // 当滚动到距离底部200px时触发加载
+      if (documentHeight - scrollTop - windowHeight < 200) {
+        this.debug('窗口滚动触发加载更多')
+        this.loadMoreTasks()
+      }
+    },
+    
+    // 设置IntersectionObserver
+    setupIntersectionObserver() {
+      // 如果已经有observer，先断开连接
+      if (this.observer) {
+        this.observer.disconnect()
+        this.observer = null
+      }
+      
+      this.$nextTick(() => {
+        // 获取加载更多的触发元素
+        const triggerElement = this.$refs.loadMoreTrigger
+        if (!triggerElement) {
+          this.debug('未找到加载更多触发元素')
+          return
+        }
+        
+        this.debug('设置观察者')
+        
+        // 创建新的IntersectionObserver
+        this.observer = new IntersectionObserver((entries) => {
+          const entry = entries[0]
+          this.debug('intersection事件:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
+            this.debug('观察者触发加载更多')
+            this.loadMoreTasks()
+          }
+        }, {
+          root: null,
+          threshold: 0,
+          rootMargin: '50px'
+        })
+        
+        // 开始观察
+        this.observer.observe(triggerElement)
+      })
+    },
+    
+    // 切换视图模式（列表/卡片）
+    toggleView() {
+      this.isCardView = !this.isCardView
+      localStorage.setItem('asr_view_mode', this.isCardView ? 'card' : 'list')
+      
+      // 重置状态
+      this.currentPage = 1
+      this.tasks = []
+      this.hasMoreData = true
+      
+      // 重新加载第一页数据
+      this.fetchTasks()
+      
+      // 如果切换到卡片视图，设置IntersectionObserver用于无限滚动
+      if (this.isCardView) {
+        this.$nextTick(() => {
+          this.setupIntersectionObserver()
+        })
+      }
+    },
 
     // 状态类型
     getStatusType(status) {
@@ -379,14 +624,15 @@ export default {
     },
 
     // 分页大小改变
-    handleSizeChange(val) {
-      this.pageSize = val
+    handleSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1
       this.fetchTasks()
     },
 
     // 当前页改变
-    handleCurrentChange(val) {
-      this.currentPage = val
+    handleCurrentChange(page) {
+      this.currentPage = page
       this.fetchTasks()
     },
     async handleFileChange(file) {
@@ -455,7 +701,7 @@ export default {
 
 <style scoped>
 .asr-container {
-  padding: 40px;
+  padding: 15px;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
   color: #fff;
@@ -465,105 +711,251 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 15px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  gap: 10px;
 }
 
 .page-header h2 {
-  font-size: 2em;
+  font-size: 1.4em;
+  margin: 0;
   background: linear-gradient(120deg, #64b5f6, #1976d2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
+.view-toggle {
+  margin-left: 10px;
+}
+
 .task-list {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  padding: 20px;
+  padding: 15px;
   border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-/* 移除自定义result-text样式，使用Element UI的show-overflow-tooltip属性处理长文本 */
-
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
+/* 卡片视图相关样式 */
+.card-list {
+  position: relative;
+  min-height: 300px;
 }
 
-/* 自定义上传组件样式 */
-.upload-demo {
+.card-view-content {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  min-height: 300px;
 }
 
-.el-upload__tip {
+.waterfall-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap:15px;
+  margin-bottom: 30px;
+  width: 100%;
+}
+
+@media screen and (min-width: 768px) {
+  .waterfall-container {
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  .waterfall-container {
+    grid-template-columns: repeat(3, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  .waterfall-container {
+    grid-template-columns: repeat(4, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+.task-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: auto;
+  margin-bottom: 0;
+}
+
+.task-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.task-card-header {
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.task-card-title {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  max-width: 65%;
+}
+
+.task-card-content {
+  padding: 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 90px;
+}
+
+.task-card-info {
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.task-card-info p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #ddd;
+}
+
+.text-ellipsis {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  max-height: 60px;
+}
+
+.info-label {
+  color: #aaa;
+  margin-right: 5px;
+}
+
+.task-card-footer {
+  padding: 10px;
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
+  margin-top: auto;
+}
+
+.action-btn {
+  padding: 4px 8px;
+  margin: 0 2px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  font-size: 13px;
+  color: #1890ff;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.load-more-container {
   text-align: center;
-}
-
-.asr-form {
-  padding: 20px;
-}
-
-.asr-form .el-form-item {
-  margin-bottom: 22px;
-}
-
-.asr-form .el-upload {
-  width: 100%;
-}
-
-.asr-form .el-upload-dragger {
-  width: 100%;
-  height: 180px;
-}
-
-.asr-form .el-radio-group {
-  width: 100%;
-}
-
-/* 音频上传容器样式 */
-.audio-upload-container {
+  padding: 20px 0;
+  margin: 20px 0;
+  color: #909399;
+  font-size: 14px;
+  height: 80px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.recorded-audio-preview {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  background-color: #f5f7fa;
-}
-
-.recorded-audio-preview audio {
+  justify-content: center;
   width: 100%;
-  margin-bottom: 10px;
+  clear: both;
+  order: 999;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
 }
 
-.preview-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+.load-more-container p {
+  margin: 0;
+  padding: 15px 30px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  backdrop-filter: blur(5px);
 }
 
-/* 音频播放器样式 */
-.audio-player {
+.loading-indicator {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 10px;
+}
+
+.loading-indicator i {
+  font-size: 24px;
+  color: #409EFF;
+}
+
+.loading-indicator p {
+  margin: 0;
+  background: transparent;
   padding: 5px 0;
 }
 
-.audio-player audio {
-  width: 100%;
-  margin-bottom: 5px;
+.pagination-container {
+  margin-top: 20px;
+  text-align: right;
 }
 
-.audio-player .el-button {
-  margin-top: 5px;
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-right {
+    margin-top: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .toggle-text {
+    display: none;
+  }
 }
 </style>

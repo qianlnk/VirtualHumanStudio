@@ -7,6 +7,8 @@ import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 // 导入全局主题样式
 import './assets/css/theme.css'
+// 导入布局优化样式
+import './assets/css/layout.css'
 
 // 使用ElementUI
 Vue.use(ElementUI)

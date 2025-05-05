@@ -133,9 +133,15 @@ func GetImageProcessingTasks(c *gin.Context) {
 		return
 	}
 
+	// 分页参数
+	page, size := utils.GetPaginationParams(c)
+
+	var count int64
+	db.DB.Model(&models.ComfyUIWorkflowTask{}).Where("user_id = ? AND task_type = ?", userID, moduleId).Count(&count)
+
 	// 查询任务列表
 	var tasks []models.ComfyUIWorkflowTask
-	result := db.DB.Where("user_id = ? AND task_type = ?", userID, moduleId).Find(&tasks)
+	result := db.DB.Where("user_id = ? AND task_type = ?", userID, moduleId).Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&tasks)
 	if result.Error != nil {
 		c.JSON(500, gin.H{"error": "获取任务列表失败"})
 		return
@@ -165,6 +171,9 @@ func GetImageProcessingTasks(c *gin.Context) {
 	// 返回任务列表
 	c.JSON(200, gin.H{
 		"success": true,
+		"total":   count,
+		"page":    page,
+		"size":    size,
 		"tasks":   tasks,
 	})
 }

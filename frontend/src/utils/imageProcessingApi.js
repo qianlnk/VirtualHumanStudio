@@ -52,11 +52,17 @@ export async function createImageProcessingTask(moduleId, formData) {
 /**
  * 获取图像处理任务列表
  * @param {string} moduleId - 模块ID
+ * @param {Object} options - 查询选项
+ * @param {number} options.page - 当前页码
+ * @param {number} options.size - 每页大小
  * @returns {Promise} 任务列表
  */
-export async function getImageProcessingTasks(moduleId) {
+export async function getImageProcessingTasks(moduleId, options = {}) {
     try {
-        const response = await axios.get(`/api/image-processing/tasks/${moduleId}`)
+        const { page = 1, size = 10 } = options
+        const response = await axios.get(`/api/image-processing/tasks/${moduleId}`, {
+            params: { page, size }
+        })
         return response.data
     } catch (error) {
         console.error('获取图像处理任务列表失败:', error)

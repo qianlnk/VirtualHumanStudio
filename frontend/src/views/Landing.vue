@@ -11,7 +11,10 @@
         <div class="logo">
           <h1>Virtual Human Studio</h1>
         </div>
-        <div class="nav-buttons">
+        <div class="mobile-menu" @click="showMobileMenu = !showMobileMenu">
+          <i class="el-icon-menu"></i>
+        </div>
+        <div class="nav-buttons" :class="{'mobile-nav-active': showMobileMenu}">
           <el-button type="text" @click="$router.push('/contact')">联系我们</el-button>
           <el-button type="text" @click="$router.push('/login')">登录</el-button>
           <el-button type="primary" @click="$router.push('/register')">注册</el-button>
@@ -60,6 +63,7 @@ export default {
   name: 'Landing',
   data() {
     return {
+      showMobileMenu: false,
       features: [
         {
           icon: 'el-icon-microphone',
@@ -201,6 +205,8 @@ export default {
   position: relative;
   z-index: 2;
   padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .landing-header {
@@ -208,6 +214,14 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.mobile-menu {
+  display: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #00ffff;
 }
 
 .logo h1 {
@@ -328,6 +342,43 @@ h3 {
 }
 
 @media (max-width: 768px) {
+  .content-wrapper {
+    padding: 1rem;
+  }
+  
+  .landing-header {
+    margin-bottom: 2rem;
+  }
+  
+  .mobile-menu {
+    display: block;
+    order: 2;
+  }
+  
+  .logo {
+    order: 1;
+  }
+  
+  .nav-buttons {
+    order: 3;
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  
+  .nav-buttons.mobile-nav-active {
+    display: flex;
+  }
+  
+  .nav-buttons .el-button {
+    margin-left: 0;
+    margin-bottom: 0.5rem;
+    width: 100%;
+    text-align: center;
+  }
+  
   .hero-section h2 {
     font-size: 2.5rem;
   }
@@ -342,6 +393,18 @@ h3 {
   
   .tech-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .main-content {
+    padding: 2rem 0;
+  }
+  
+  .hero-section {
+    margin-bottom: 3rem;
+  }
+  
+  .tech-section {
+    margin-top: 3rem;
   }
 }
 </style>

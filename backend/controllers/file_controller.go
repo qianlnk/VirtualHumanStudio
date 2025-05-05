@@ -30,12 +30,12 @@ func FileView(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "未提供文件路径"})
 		return
 	}
-	// 获取用户ID
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
-		return
-	}
+	// // 获取用户ID
+	// userID, exists := c.Get("user_id")
+	// if !exists {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+	// 	return
+	// }
 
 	// 构建完整文件路径
 	fullPath := filepath.Join(config.AppConfig.DataDir, filePath)
@@ -45,11 +45,11 @@ func FileView(c *gin.Context) {
 		return
 	}
 
-	// 检查文件访问权限
-	if !checkFileAccess(uint(userID.(uint)), filePath) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该文件"})
-		return
-	}
+	// // 检查文件访问权限
+	// if !checkFileAccess(uint(userID.(uint)), filePath) {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该文件"})
+	// 	return
+	// }
 
 	// 设置响应头
 	c.Header("Content-Type", "application/octet-stream")

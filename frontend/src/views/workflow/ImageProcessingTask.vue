@@ -1,19 +1,28 @@
 <template>
   <div class="workflow-container">
     <div class="page-header">
-      <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
-      <el-button type="primary" @click="showCreateDialog" :disabled="!currentModule">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
+      <div class="header-left">
+        <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
+      </div>
+      <div class="header-right">
+        <el-button type="primary" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
+        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+          <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
+          <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
+        </el-button>
+      </div>
     </div>
 
     <!-- 任务列表 -->
-    <el-card class="task-list">
+    <el-card class="task-list" v-show="!isCardView">
+      <!-- 桌面端表格视图 -->
       <el-table
         v-loading="loading"
         :data="tasks"
         style="width: 100%"
         :empty-text="'暂无数据'"
       >
-        <el-table-column prop="name" label="任务名称" width="400" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="name" label="任务名称" min-width="250" show-overflow-tooltip></el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
@@ -26,18 +35,91 @@
         </el-table-column>
         <el-table-column label="操作" width="180">
           <template slot-scope="scope">
-            <el-button
-              type="text"
-              size="small"
-              @click="viewDetail(scope.row.id)">查看</el-button>
-            <el-button
-              type="text"
-              size="small"
-              @click="deleteTask(scope.row)">删除</el-button>
+            <div class="action-buttons">
+              <el-button
+                type="text"
+                size="small"
+                class="action-btn"
+                @click="viewDetail(scope.row.id)">查看</el-button>
+              <el-button
+                type="text"
+                size="small"
+                class="action-btn"
+                @click="deleteTask(scope.row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页 -->
+      <div class="pagination-container" v-if="total > pageSize">
+        <el-pagination
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30, 50]"
+          :page-size="pageSize"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total">
+        </el-pagination>
+      </div>
     </el-card>
+    
+    <!-- 卡片视图（瀑布流） -->
+    <div v-show="isCardView" class="card-list" v-loading="loading">
+      <el-empty v-if="tasks.length === 0" description="暂无处理任务"></el-empty>
+      
+      <div v-else class="card-view-content">
+        <div class="waterfall-container" ref="cardContainer">
+          <div class="task-card" v-for="item in tasks" :key="item.id">
+            <div class="task-card-header">
+              <h3 class="task-card-title">{{ item.name }}</h3>
+              <el-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+            </div>
+            <div class="task-card-content">
+              <div class="task-card-info">
+                <p><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
+              </div>
+            </div>
+            <div class="task-card-footer">
+              <el-button type="text" size="small" class="action-btn" @click="viewDetail(item.id)">查看</el-button>
+              <el-button type="text" size="small" class="action-btn" @click="deleteTask(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+
+        <div class="load-more-container" ref="loadMoreTrigger">
+          <template v-if="loadingMore">
+            <div class="loading-indicator">
+              <i class="el-icon-loading"></i>
+              <p>加载中...</p>
+            </div>
+          </template>
+          <template v-else-if="hasMoreData">
+            <p>向下滚动加载更多</p>
+          </template>
+          <template v-else>
+            <p>没有更多数据了</p>
+          </template>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 移动端底部菜单 -->
+    <div class="mobile-footer-menu">
+      <div class="menu-item" @click="isCardView = false">
+        <i class="el-icon-menu"></i>
+        <span>列表</span>
+      </div>
+      <div class="menu-item" @click="isCardView = true">
+        <i class="el-icon-s-grid"></i>
+        <span>卡片</span>
+      </div>
+      <div class="menu-item" @click="showCreateDialog">
+        <i class="el-icon-plus"></i>
+        <span>创建</span>
+      </div>
+    </div>
 
     <!-- 结果预览对话框 -->
     <el-dialog title="处理结果" :visible.sync="previewDialogVisible" width="50%">
@@ -121,8 +203,8 @@
           ></el-input>
         </el-form-item>
         <!-- 动态表单，根据模块配置生成不同的表单项 -->
-        <template v-for="(param, index) in currentModule.inputParams">
-          <el-form-item :key="index" :label="param.alias" :prop="`params.${param.key}`">
+        <div v-for="(param, index) in currentModule.inputParams" :key="index">
+          <el-form-item :label="param.alias" :prop="`params.${param.key}`">
             <!-- 文本类型参数 -->
             <el-input 
               v-if="param.type === 'text'" 
@@ -173,7 +255,7 @@
               </div>
             </template>
           </el-form-item>
-        </template>
+        </div>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -184,7 +266,8 @@
 </template>
 
 <script>
-import { getImageProcessingModules, createImageProcessingTask, getImageProcessingTasks, deleteImageProcessingTask, getImageProcessingTaskDetail } from '@/utils/imageProcessingApi'
+import { getImageProcessingModules, createImageProcessingTask, deleteImageProcessingTask, getImageProcessingTaskDetail, getImageProcessingTasks } from '@/utils/imageProcessingApi'
+import '@/assets/styles/card-view.css'
 
 export default {
   name: 'ImageProcessingTask',
@@ -198,6 +281,7 @@ export default {
     return {
       loading: false,
       submitting: false,
+      isMobile: false,
       tasks: [],
       dialogVisible: false,
       previewDialogVisible: false,
@@ -225,40 +309,60 @@ export default {
       maskCanvas: null,
       isDrawing: false,
       lastX: 0,
-      lastY: 0
+      lastY: 0,
+      // 视图和分页相关
+      isCardView: false,
+      total: 0,
+      currentPage: 1,
+      pageSize: 10,
+      cardPageSize: 10,
+      loadingMore: false,
+      hasMoreData: true,
+      initialLoaded: false,
+      scrollThreshold: 200
     }
   },
   created() {
     console.log('组件创建，当前路由参数:', this.$route.params)
-    const moduleId = this.moduleId || this.$route.params.moduleId
-    if (!moduleId) {
-      this.showModuleList = true
-      this.fetchModules()
-    } else {
-      console.log('初始化模块ID:', moduleId)
+    // 从本地存储中读取用户偏好的视图模式
+    const savedViewMode = localStorage.getItem('image_processing_view_mode')
+    if (savedViewMode) {
+      this.isCardView = savedViewMode === 'card'
     }
-    // 模块的初始化和任务列表获取由watch处理
+    
+    // 检测设备类型
+    this.checkDeviceType()
   },
   watch: {
     '$route.params.moduleId': {
       immediate: true,
       deep: true,
-      async handler() {
-          console.log('重新初始化模块数据')
+      async handler(newVal) {
+          console.log('监听到模块ID变化:', newVal)
           // 重置状态
           this.tasks = []
-          this.loading = true
+          this.loading = false // 先重置loading状态，避免影响fetchTasks的执行
           this.currentModule = null
+          this.initialLoaded = false // 重置初始加载标记
           this.form = {
             taskName: '',
             params: {}
           }
           this.previewUrls = {}
           
+          // 重置分页参数
+          this.currentPage = 1
+          this.total = 0
+          this.hasMoreData = true
+          
           try {
             const moduleInitialized = await this.initModule()
             if (moduleInitialized && this.currentModule) {
+              console.log('模块初始化成功，开始加载任务列表')
+              // 确保这里直接调用fetchTasks，不依赖其他地方的loading状态
+              this.loading = false // 再次确保loading为false
               await this.fetchTasks()
+              this.initialLoaded = true // 只有在成功获取数据后才标记为已加载
             }
           } catch (error) {
             console.error('模块初始化失败:', error)
@@ -269,7 +373,50 @@ export default {
       }
     }
   },
+  mounted() {
+    console.log('组件挂载')
+    
+    // 监听窗口大小变化，更新设备类型
+    window.addEventListener('resize', this.checkDeviceType)
+    
+    // 添加滚动事件监听器
+    window.addEventListener('scroll', this.handleWindowScroll)
+    
+    // 组件挂载后，如果模块已初始化但数据未加载，主动加载数据
+    this.$nextTick(() => {
+      // 延迟执行，确保其他操作完成
+      setTimeout(() => {
+        this.ensureDataLoaded()
+      }, 100)
+    })
+  },
+  
+  updated() {
+    // 避免频繁检查，使用防抖处理
+    clearTimeout(this._dataLoadTimer)
+    this._dataLoadTimer = setTimeout(() => {
+      this.ensureDataLoaded()
+    }, 100)
+  },
+  
+  beforeDestroy() {
+    // 移除事件监听器
+    window.removeEventListener('resize', this.checkDeviceType)
+    window.removeEventListener('scroll', this.handleWindowScroll)
+    window.onscroll = null
+    
+    // 清除IntersectionObserver
+    if (this.observer) {
+      this.observer.disconnect()
+      this.observer = null
+    }
+  },
+  
   methods: {
+    // 检测设备类型
+    checkDeviceType() {
+      this.isMobile = window.innerWidth <= 768
+    },
     // 获取所有模块
     async fetchModules() {
       this.moduleLoading = true
@@ -290,31 +437,53 @@ export default {
       this.moduleLoading = true
       try {
         if (!this.modules.length) {
+          console.log('模块列表为空，开始获取模块列表')
           await this.fetchModules()
+          console.log('获取到模块列表:', this.modules.length, '个模块')
         }
-        // 根据路由参数找到当前模块
+        
+        // 尝试从路由参数或组件属性获取模块ID
         const moduleId = this.moduleId || this.$route.params.moduleId
+        console.log('尝试获取模块ID:', moduleId)
+        
         if (moduleId) {
-          // 如果有moduleId参数，查找对应模块
+          // 如果有指定模块ID，查找对应模块
           this.currentModule = this.modules.find(m => m.id === moduleId)
           if (this.currentModule) {
+            console.log('找到指定模块:', this.currentModule.id, this.currentModule.name)
             // 初始化表单验证规则
             this.initFormRules()
             this.showModuleList = false
             return true
           } else {
+            console.error('未找到指定的处理模块:', moduleId)
             this.$message.error('未找到指定的处理模块，即将返回模块列表页面')
             // 重定向到模块列表页面
             this.$router.push('/home')
             return false
           }
+        } else if (this.modules.length > 0) {
+          // 如果没有指定模块ID但有可用模块，使用第一个模块
+          console.log('没有指定模块ID，使用第一个可用模块:', this.modules[0].id)
+          this.currentModule = this.modules[0]
+          this.initFormRules()
+          this.showModuleList = false
+          // 更新路由（可选）
+          // this.$router.replace(`/image-processing/${this.currentModule.id}`)
+          return true
+        }
+        
+        if (!this.currentModule) {
+          console.error('初始化失败：无法确定当前模块')
         }
         return false
       } catch (error) {
+        console.error('初始化模块失败:', error)
         this.$message.error('初始化模块失败：' + error.message)
         return false
       } finally {
         this.moduleLoading = false
+        console.log('模块初始化完成, 当前模块:', this.currentModule ? this.currentModule.id : '无')
       }
     },
 
@@ -341,19 +510,89 @@ export default {
     },
 
     // 获取任务列表
-    async fetchTasks() {
-      if (!this.currentModule) return
+    async fetchTasks(loadMore = false) {
+      if (!this.currentModule) {
+        console.log('没有当前模块，无法获取任务列表')
+        return
+      }
       
-      this.loading = true
+      // 记录当前的调用状态
+      console.log('准备获取任务列表，当前状态:', 
+        '加载中=', this.loading, 
+        '加载更多中=', this.loadingMore, 
+        '模块ID=', this.currentModule.id, 
+        '页码=', this.currentPage,
+        '总数=', this.total)
+      
+      // 防止无限请求：如果已知总数为0且不是首次加载，无需再请求
+      if (this.initialLoaded && this.total === 0 && !loadMore) {
+        console.log('已知总数为0，跳过请求')
+        return
+      }
+      
+      // 如果当前页已超过总页数，重置为第一页
+      const totalPages = Math.ceil(this.total / (this.isCardView ? this.cardPageSize : this.pageSize)) || 1
+      if (this.currentPage > totalPages && this.initialLoaded) {
+        console.log('当前页码超出范围，重置为第1页', '当前页=', this.currentPage, '总页数=', totalPages)
+        this.currentPage = 1
+      }
+      
+      if (loadMore && this.loadingMore) {
+        console.log('已经在加载更多任务，跳过此次请求')
+        return
+      } else if (!loadMore && this.loading) {
+        console.log('已经在加载初始任务列表，跳过此次请求')
+        return
+      }
+      
+      // 设置加载状态
+      if (loadMore) {
+        this.loadingMore = true 
+      } else {
+        this.loading = true
+      }
+      
       try {
-        const response = await getImageProcessingTasks(this.currentModule.id)
+        console.log('发起API请求:', '页码=', this.currentPage, '每页数量=', this.isCardView ? this.cardPageSize : this.pageSize)
+        const response = await getImageProcessingTasks(this.currentModule.id, {
+          page: this.currentPage,
+          size: this.isCardView ? this.cardPageSize : this.pageSize
+        })
+        
         if (response.success) {
-          this.tasks = response.tasks
+          const newTasks = response.tasks || []
+          this.total = response.total || 0
+          
+          console.log('获取到任务数据成功:', '新任务数量=', newTasks.length, '总数=', this.total)
+          
+          if (loadMore) {
+            // 追加新数据
+            this.tasks = [...this.tasks, ...newTasks]
+          } else {
+            // 重置数据
+            this.tasks = newTasks
+          }
+          
+          // 判断是否还有更多数据
+          this.hasMoreData = this.tasks.length < this.total
+          console.log('更新后的任务列表:', '当前列表长度=', this.tasks.length, '是否还有更多=', this.hasMoreData)
+        } else {
+          console.error('获取任务列表失败, 服务器返回错误:', response)
+          this.$message.error('获取任务列表失败: ' + (response.message || '未知错误'))
         }
       } catch (error) {
+        console.error('获取任务列表失败:', error)
         this.$message.error('获取任务列表失败：' + error.message)
       } finally {
         this.loading = false
+        this.loadingMore = false
+        
+        // 在数据加载完成后重新设置观察者
+        if (this.isCardView) {
+          this.$nextTick(() => {
+            this.setupIntersectionObserver()
+          })
+        }
       }
     },
 
@@ -832,14 +1071,178 @@ export default {
         failed: '失败'
       }
       return statusMap[status] || status
-    }
+    },
+
+    // 切换视图
+    toggleView() {
+      this.isCardView = !this.isCardView
+      localStorage.setItem('image_processing_view_mode', this.isCardView ? 'card' : 'list')
+      
+      // 重置状态
+      this.currentPage = 1
+      this.tasks = []
+      this.hasMoreData = true
+      this.loadingMore = false
+      
+      // 重新加载第一页数据
+      this.fetchTasks()
+      
+      // 如果切换到卡片视图，设置IntersectionObserver用于无限滚动
+      if (this.isCardView) {
+        this.$nextTick(() => {
+          this.setupIntersectionObserver()
+        })
+      }
+    },
+
+    // 处理分页
+    handleSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1 // 改变每页条数后重置为第一页
+      this.tasks = [] // 清空任务列表
+      this.fetchTasks()
+    },
+
+    handleCurrentChange(page) {
+      if (page === this.currentPage) {
+        console.log('页码未变化，跳过请求')
+        return
+      }
+      this.currentPage = page
+      this.tasks = [] // 切换页码时清空任务列表
+      this.fetchTasks()
+    },
+
+    // 确保数据加载
+    ensureDataLoaded() {
+      console.log('检查是否需要加载数据:', 
+        'initialLoaded=', this.initialLoaded, 
+        'currentModule=', !!this.currentModule, 
+        'tasks.length=', this.tasks.length,
+        'loading=', this.loading)
+      
+      // 如果没有当前模块，跳过
+      if (!this.currentModule) {
+        console.log('没有当前模块，跳过数据加载')
+        return
+      }
+      
+      // 如果任务列表为空且未在加载中且未标记为已加载，则加载数据
+      if (this.tasks.length === 0 && !this.loading && !this.initialLoaded) {
+        console.log('满足加载条件，开始强制加载任务列表')
+        this.currentPage = 1
+        this.loading = false // 确保loading状态重置
+        // 使用setTimeout避免可能的状态冲突
+        setTimeout(() => {
+          this.fetchTasks().then(() => {
+            console.log('强制加载任务列表完成')
+            this.initialLoaded = true
+          }).catch(err => {
+            console.error('强制加载任务列表失败:', err)
+          })
+        }, 0)
+      }
+    },
+    
+    // 处理窗口滚动事件
+    handleWindowScroll() {
+      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = Math.max(
+        document.body.scrollHeight, document.documentElement.scrollHeight,
+        document.body.offsetHeight, document.documentElement.offsetHeight,
+        document.body.clientHeight, document.documentElement.clientHeight
+      )
+      
+      // 当滚动到距离底部阈值距离时触发加载
+      if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
+        console.log('窗口滚动触发加载更多')
+        this.loadMoreTasks()
+      }
+    },
+    
+    // 加载更多数据
+    loadMoreTasks() {
+      if (this.loadingMore || !this.hasMoreData) {
+        console.log('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData)
+        return
+      }
+      
+      // 计算总页数
+      const totalPages = Math.ceil(this.total / this.cardPageSize) || 1
+      
+      // 防止页码超出范围
+      if (this.currentPage >= totalPages) {
+        console.log('已达到最后一页，不再加载更多', '当前页=', this.currentPage, '总页数=', totalPages)
+        this.hasMoreData = false
+        return
+      }
+      
+      console.log('开始加载更多数据，当前页码：', this.currentPage, '总页数：', totalPages)
+      this.currentPage++
+      this.fetchTasks(true)
+    },
+    
+    // 设置IntersectionObserver
+    setupIntersectionObserver() {
+      // 如果已经有observer，先断开连接
+      if (this.observer) {
+        this.observer.disconnect()
+        this.observer = null
+      }
+      
+      this.$nextTick(() => {
+        // 获取加载更多的触发元素
+        const triggerElement = this.$refs.loadMoreTrigger
+        if (!triggerElement) {
+          console.log('未找到加载更多触发元素')
+          return
+        }
+        
+        console.log('设置观察者')
+        
+        // 创建新的IntersectionObserver
+        this.observer = new IntersectionObserver((entries) => {
+          const entry = entries[0]
+          console.log('intersection事件:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
+            console.log('观察者触发加载更多')
+            this.loadMoreTasks()
+          }
+        }, {
+          root: null,
+          threshold: 0,
+          rootMargin: '50px'
+        })
+        
+        // 开始观察
+        this.observer.observe(triggerElement)
+      })
+    },
+
+    // 初始加载数据
+    loadInitialData() {
+      if (this.initialLoaded) {
+        console.log('已加载初始数据，跳过')
+        return
+      }
+      
+      console.log('加载初始数据')
+      this.currentPage = 1
+      this.tasks = []
+      this.hasMoreData = true
+      this.fetchTasks()
+      this.initialLoaded = true
+    },
   }
 }
 </script>
 
 <style scoped>
 .workflow-container {
-  padding: 40px;
+  padding: 15px;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
   color: #fff;
@@ -849,153 +1252,37 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 15px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
 }
 
-.preview-container {
-  text-align: center;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 500px;
-}
-
-.upload-item {
-  display: inline-block;
+.header-right {
+  gap: 10px;
 }
 
 .page-header h2 {
-  font-size: 2em;
+  font-size: 1.4em;
+  margin: 0;
   background: linear-gradient(120deg, #64b5f6, #1976d2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.image-preview {
-  margin-top: 10px;
-}
-
-.preview-thumbnail {
-  max-width: 200px;
-  max-height: 200px;
-  border-radius: 4px;
-}
-
-.module-list {
-  margin-top: 20px;
-}
-
-.module-card {
-  cursor: pointer;
-  transition: all 0.3s;
-  height: 100%;
-}
-
-.module-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
-}
-
-.module-card h3 {
-  margin: 0 0 10px 0;
-}
-
-.module-card p {
-  color: #666;
-  margin: 0;
-  font-size: 14px;
-}
-
-.mask-editor-container {
-  padding: 20px;
-}
-
-.editor-tools {
-  margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  align-items: center;
-}
-
-.tool-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.tool-label {
-  font-weight: bold;
-  min-width: 70px;
-}
-
-.canvas-container {
-  position: relative;
-  margin: 20px 0;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  overflow: hidden;
-  width: 100%;
-  min-height: 400px;
-  background-color: #f5f5f5;
-  height: 600px;
-}
-
-.canvas-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.editor-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-}
-
-.base-canvas {
-  z-index: 1;
-}
-
-.draw-canvas {
-  z-index: 2;
-}
-
-.editor-actions {
-  margin-top: 20px;
-  text-align: right;
-}
-</style>
-
-<style scoped>
-.workflow-container {
-  padding: 20px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
 .task-list {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
 }
 
@@ -1022,31 +1309,28 @@ export default {
   border-radius: 4px;
 }
 
-.module-list {
+.pagination-container {
   margin-top: 20px;
+  text-align: right;
 }
 
-.module-card {
-  cursor: pointer;
-  transition: all 0.3s;
-  height: 100%;
+.action-buttons {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: nowrap;
 }
 
-.module-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+.action-buttons .action-btn {
+  margin: 0 3px;
+  transition: all 0.2s;
 }
 
-.module-card h3 {
-  margin: 0 0 10px 0;
+.action-buttons .action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
-.module-card p {
-  color: #666;
-  margin: 0;
-  font-size: 14px;
-}
-
+/* 蒙版编辑器样式 */
 .mask-editor-container {
   padding: 20px;
 }
@@ -1122,60 +1406,37 @@ export default {
   font-size: 14px;
 }
 
-/* 任务详情样式 */
-.task-detail-dialog {
-  max-width: 800px !important;
-}
-
-.task-detail {
-  padding: 20px;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.task-detail p {
-  margin: 10px 0;
-}
-
-.params-list {
-  margin: 10px 0;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-}
-
-.param-item {
-  margin: 10px 0;
-}
-
-.param-image {
-  max-width: 200px;
-  max-height: 200px;
-  margin-top: 5px;
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-}
-
-.result-preview {
-  margin: 10px 0;
-}
-
-.output-item {
-  margin: 10px 0;
-}
-
-.output-image {
-  max-width: 100%;
-  max-height: 400px;
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-}
-
-.error-msg {
-  color: #f56c6c;
-  margin: 10px 0;
-  padding: 10px;
-  background-color: #fef0f0;
-  border-radius: 4px;
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+  .workflow-container {
+    padding: 10px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-right {
+    margin-top: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .toggle-text {
+    display: none;
+  }
+  
+  .page-header h2 {
+    margin-bottom: 10px;
+  }
+  
+  .page-header .el-button {
+    margin-top: 10px;
+  }
+  
+  .task-list {
+    margin-top: 15px;
+  }
 }
 </style>

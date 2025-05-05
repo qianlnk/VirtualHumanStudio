@@ -92,6 +92,7 @@ func registerRoutes(router *gin.Engine) {
 		// 用户认证
 		public.POST("/register", controllers.Register)
 		public.POST("/login", controllers.Login)
+		public.GET("/file/view", controllers.FileView)
 	}
 
 	// 需要认证的路由
@@ -137,7 +138,7 @@ func registerRoutes(router *gin.Engine) {
 		protected.DELETE("/digital-human/:id", controllers.DeleteDigitalHuman)
 
 		// 文件处理
-		protected.GET("/file/view", controllers.FileView)
+		// protected.GET("/file/view", controllers.FileView)
 
 		// comfyui相关功能
 		// 饰品替换，输入白底图片和模特物品图片，蒙版图，输出替换后的图片

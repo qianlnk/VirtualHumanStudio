@@ -53,7 +53,8 @@ func Register(c *gin.Context) {
 	if result.Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
 		return
-	} else if result.Error != gorm.ErrRecordNotFound {
+	} else if result.Error.Error() != gorm.ErrRecordNotFound.Error() {
+		fmt.Println(result.Error, "====", gorm.ErrRecordNotFound)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询错误"})
 		return
 	}
