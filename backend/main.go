@@ -46,6 +46,9 @@ func main() {
 		&models.UserLoginLog{},
 		&models.ModuleUsageLog{},
 		&models.DailyStatistics{},
+		&models.Membership{},
+		&models.MembershipPlan{},
+		&controllers.UserUsage{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)

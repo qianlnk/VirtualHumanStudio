@@ -14,6 +14,30 @@ type BaseModel struct {
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
 
+// MembershipLevel 会员等级
+type MembershipLevel string
+
+const (
+	MembershipFree    MembershipLevel = "free"    // 免费用户
+	MembershipMonthly MembershipLevel = "monthly" // 月会员
+	MembershipQuarter MembershipLevel = "quarter" // 季会员
+	MembershipYearly  MembershipLevel = "yearly"  // 年会员
+)
+
+// Membership 会员模型
+type Membership struct {
+	BaseModel
+	UserID       uint            `json:"user_id" gorm:"uniqueIndex;not null"`
+	Level        MembershipLevel `json:"level" gorm:"size:20;default:'free'"`
+	StartDate    time.Time       `json:"start_date"`                             // 会员开始时间
+	ExpireDate   time.Time       `json:"expire_date"`                            // 会员过期时间
+	AutoRenew    bool            `json:"auto_renew" gorm:"default:false"`        // 是否自动续费
+	PaymentID    string          `json:"payment_id" gorm:"size:100"`             // 支付ID
+	Status       string          `json:"status" gorm:"size:20;default:'active'"` // active, expired
+	TaskPriority int             `json:"task_priority" gorm:"default:0"`         // 任务优先级，数字越大优先级越高
+	DailyLimit   int             `json:"daily_limit"`                            // 每日使用次数限制，-1表示无限制
+}
+
 // User 用户模型
 type User struct {
 	BaseModel
@@ -25,6 +49,7 @@ type User struct {
 	Status        int            `json:"status" gorm:"default:1"`            // 0: 禁用, 1: 正常
 	LastLoginAt   time.Time      `json:"last_login_at"`
 	LastLoginIP   string         `json:"last_login_ip" gorm:"size:50"`
+	Membership    Membership     `json:"membership,omitempty" gorm:"foreignKey:UserID"`
 	VoiceClones   []VoiceClone   `json:"voice_clones,omitempty" gorm:"foreignKey:UserID"`
 	TTSTasks      []TTSTask      `json:"tts_tasks,omitempty" gorm:"foreignKey:UserID"`
 	DigitalHumans []DigitalHuman `json:"digital_humans,omitempty" gorm:"foreignKey:UserID"`
@@ -90,4 +115,18 @@ type VoiceLibrary struct {
 	Type        string `json:"type" gorm:"size:20;not null"`        // original, cloned
 	OwnerID     uint   `json:"owner_id" gorm:"index"`               // 所有者ID，如果是克隆音色
 	IsPublic    bool   `json:"is_public" gorm:"default:false"`      // 是否公开
+}
+
+// MembershipPlan 会员计划模型
+type MembershipPlan struct {
+	BaseModel
+	Name         string          `json:"name" gorm:"size:50;not null"`   // 计划名称
+	Level        MembershipLevel `json:"level" gorm:"size:20;not null"`  // 会员等级
+	Price        float64         `json:"price"`                          // 价格
+	Duration     int             `json:"duration"`                       // 持续时间(天)
+	TaskPriority int             `json:"task_priority" gorm:"default:0"` // 任务优先级
+	DailyLimit   int             `json:"daily_limit"`                    // 每日使用次数限制
+	Description  string          `json:"description" gorm:"size:500"`    // 描述
+	Features     string          `json:"features" gorm:"type:text"`      // 功能特性(JSON格式)
+	IsActive     bool            `json:"is_active" gorm:"default:true"`  // 是否激活
 }
