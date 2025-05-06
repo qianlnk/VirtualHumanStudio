@@ -74,10 +74,20 @@
                 <i class="el-icon-message"></i>
                 <span>留言管理</span>
               </el-menu-item>
+              <el-menu-item index="/admin/membership-orders">
+                <i class="el-icon-s-order"></i>
+                <span>会员订单</span>
+              </el-menu-item>
             </el-submenu>
             <el-menu-item index="/contact">
               <i class="el-icon-phone"></i>
               <span>联系我们</span>
+            </el-menu-item>
+            
+            <!-- 添加会员中心菜单项 -->
+            <el-menu-item index="/membership">
+              <i class="el-icon-medal"></i>
+              <span>会员中心</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -142,6 +152,12 @@ export default {
     this.fetchImageProcessingModules()
     // 监听窗口大小变化
     window.addEventListener('resize', this.handleResize)
+    // 如果用户已登录，刷新用户信息
+    if (this.$store.getters.isAuthenticated) {
+      this.$store.dispatch('refreshUserInfo').catch(err => {
+        console.error('刷新用户信息失败:', err)
+      })
+    }
   },
   beforeDestroy() {
     // 移除事件监听

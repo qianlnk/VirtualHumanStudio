@@ -10,10 +10,14 @@ import (
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
 	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// 全局变量
+var membershipController *controllers.MembershipController
 
 func main() {
 	// 加载配置
@@ -48,6 +52,7 @@ func main() {
 		&models.DailyStatistics{},
 		&models.Membership{},
 		&models.MembershipPlan{},
+		&models.MembershipOrder{},
 		&controllers.UserUsage{},
 	)
 	if err != nil {
@@ -59,6 +64,13 @@ func main() {
 
 	// 初始化Promptt
 	controllers.InitPromptt()
+
+	// 初始化会员控制器
+	membershipController = controllers.NewMembershipController(db.GetDB())
+
+	// 初始化会员服务
+	membershipService := services.NewMembershipService(db.GetDB())
+	middleware.SetMembershipService(membershipService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode)
@@ -178,6 +190,17 @@ func registerRoutes(router *gin.Engine) {
 		protected.DELETE("/message/:id", controllers.DeleteMessage)
 	}
 
+	// 会员中心路由
+	membershipAPI := api.Group("/membership")
+	{
+		membershipAPI.GET("/plans", membershipController.GetMembershipPlans)
+		membershipAPI.GET("/user", middleware.JWTAuth(), membershipController.GetUserMembership)
+		membershipAPI.POST("/purchase", middleware.JWTAuth(), membershipController.PurchaseMembership)
+		membershipAPI.POST("/cancel", middleware.JWTAuth(), membershipController.CancelAutoRenew)
+		membershipAPI.GET("/daily-usage", middleware.JWTAuth(), membershipController.GetDailyUsage)
+		membershipAPI.GET("/pending-orders", middleware.JWTAuth(), membershipController.GetUserPendingOrders)
+	}
+
 	// 管理员路由
 	admin := api.Group("/admin")
 	admin.Use(middleware.AdminAuth())
@@ -194,5 +217,10 @@ func registerRoutes(router *gin.Engine) {
 		admin.GET("/statistics/users", controllers.GetUserStatistics)
 		admin.GET("/statistics/modules", controllers.GetModuleUsageStatistics)
 		admin.GET("/statistics/login-logs", controllers.GetUserLoginLogs)
+
+		// 会员订单管理
+		admin.GET("/membership/orders/pending", membershipController.GetAllPendingOrders)
+		admin.POST("/membership/orders/:id/approve", membershipController.ApproveOrder)
+		admin.POST("/membership/orders/:id/reject", membershipController.RejectOrder)
 	}
 }

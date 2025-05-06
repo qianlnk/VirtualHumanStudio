@@ -129,4 +129,6 @@ type MembershipPlan struct {
 	Description  string          `json:"description" gorm:"size:500"`    // 描述
 	Features     string          `json:"features" gorm:"type:text"`      // 功能特性(JSON格式)
 	IsActive     bool            `json:"is_active" gorm:"default:true"`  // 是否激活
+	WechatQRCode string          `json:"wechat_qr_code" gorm:"size:255"` // 微信支付二维码图片URL
+	AlipayQRCode string          `json:"alipay_qr_code" gorm:"size:255"` // 支付宝支付二维码图片URL
 }

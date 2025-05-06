@@ -102,3 +102,8 @@ func MigrateDB(models ...interface{}) error {
 	fmt.Println("数据库迁移成功")
 	return nil
 }
+
+// GetDB 返回数据库连接
+func GetDB() *gorm.DB {
+	return DB
+}

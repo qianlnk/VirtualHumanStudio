@@ -23,9 +23,11 @@ const Accessory = () => import('../views/accessory/Accessory.vue')
 const ImageProcessingTask = () => import('../views/workflow/ImageProcessingTask.vue')
 const ImageProcessingTaskDetail = () => import('../views/workflow/ImageProcessingTaskDetail.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
+const Membership = () => import('../views/user/Membership.vue')
 const AdminUsers = () => import('../views/admin/Users.vue')
 const AdminMessages = () => import('../views/admin/Messages.vue')
 const AdminStatistics = () => import('../views/admin/Statistics.vue')
+const AdminMembershipOrders = () => import('../views/admin/MembershipOrders.vue')
 
 Vue.use(VueRouter)
 
@@ -111,6 +113,11 @@ const baseRoutes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/membership',
+        component: Membership,
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/admin/users',
         component: AdminUsers,
         meta: { requiresAuth: true, requiresAdmin: true }
@@ -123,6 +130,11 @@ const baseRoutes = [
     {
         path: '/admin/statistics',
         component: AdminStatistics,
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/membership-orders',
+        component: AdminMembershipOrders,
         meta: { requiresAuth: true, requiresAdmin: true }
     },
     {

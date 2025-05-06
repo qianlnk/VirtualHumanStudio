@@ -16,6 +16,15 @@
               <h3>{{ user.username }}</h3>
               <p class="user-role">{{ userRole }}</p>
               <p class="user-since">注册时间: {{ formatDate(user.created_at) }}</p>
+              
+              <!-- 添加会员中心入口 -->
+              <div class="membership-entry">
+                <router-link to="/membership" class="membership-link">
+                  <el-button type="primary" size="small" icon="el-icon-medal">
+                    会员中心
+                  </el-button>
+                </router-link>
+              </div>
             </div>
             <div class="user-stats">
               <div class="stat-item">
@@ -168,3 +177,14 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+/* 添加会员中心入口样式 */
+.membership-entry {
+  margin-top: 15px;
+}
+
+.membership-link {
+  text-decoration: none;
+}
+</style>
