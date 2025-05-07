@@ -1,11 +1,11 @@
 <template>
   <div class="workflow-container">
-    <div class="page-header">
+    <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
+        <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
         <el-button type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -70,7 +70,7 @@
       <el-empty v-if="tasks.length === 0" description="暂无处理任务"></el-empty>
       
       <div v-else class="card-view-content">
-        <div class="waterfall-container" ref="cardContainer">
+        <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
           <div class="task-card" v-for="item in tasks" :key="item.id">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.name }}</h3>
@@ -262,6 +262,14 @@
         <el-button type="primary" @click="submitForm" :loading="submitting">创建</el-button>
       </div>
     </el-dialog>
+
+    <!-- 移动端悬浮添加按钮 -->
+    <div v-if="isMobile" class="floating-add-btn" @click="showCreateDialog" :disabled="!currentModule">
+      <i class="el-icon-plus"></i>
+    </div>
+
+    <!-- 移动端头部占位 -->
+    <div v-if="isMobile" class="mobile-header-placeholder"></div>
   </div>
 </template>
 
@@ -319,7 +327,8 @@ export default {
       loadingMore: false,
       hasMoreData: true,
       initialLoaded: false,
-      scrollThreshold: 200
+      scrollThreshold: 200,
+      lastScrollTop: 0 // 记录上次滚动位置
     }
   },
   created() {
@@ -383,12 +392,15 @@ export default {
     window.addEventListener('scroll', this.handleWindowScroll)
     
     // 组件挂载后，如果模块已初始化但数据未加载，主动加载数据
-    this.$nextTick(() => {
-      // 延迟执行，确保其他操作完成
-      setTimeout(() => {
-        this.ensureDataLoaded()
-      }, 100)
-    })
+    if (this.currentModule && !this.initialLoaded) {
+      console.log('模块已初始化，自动加载数据')
+      this.loadInitialData()
+    }
+    
+    // 如果是移动端，默认使用卡片视图
+    if (this.isMobile) {
+      this.isCardView = true
+    }
   },
   
   updated() {
@@ -399,19 +411,17 @@ export default {
     }, 100)
   },
   
-  beforeDestroy() {
-    // 移除事件监听器
+  destroyed() {
+    // 移除事件监听
     window.removeEventListener('resize', this.checkDeviceType)
     window.removeEventListener('scroll', this.handleWindowScroll)
     window.onscroll = null
     
-    // 清除IntersectionObserver
-    if (this.observer) {
-      this.observer.disconnect()
-      this.observer = null
+    // 清除定时器
+    if (this.loadingTimer) {
+      clearTimeout(this.loadingTimer)
     }
   },
-  
   methods: {
     // 检测设备类型
     checkDeviceType() {
@@ -1146,20 +1156,26 @@ export default {
     
     // 处理窗口滚动事件
     handleWindowScroll() {
-      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
       
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const windowHeight = window.innerHeight
-      const documentHeight = Math.max(
-        document.body.scrollHeight, document.documentElement.scrollHeight,
-        document.body.offsetHeight, document.documentElement.offsetHeight,
-        document.body.clientHeight, document.documentElement.clientHeight
-      )
-      
-      // 当滚动到距离底部阈值距离时触发加载
-      if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
-        console.log('窗口滚动触发加载更多')
-        this.loadMoreTasks()
+      // 加载更多数据条件
+      if (this.isCardView && scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
+          console.log('窗口滚动触发加载更多');
+          this.loadMoreTasks();
+        }
       }
     },
     
@@ -1241,202 +1257,269 @@ export default {
 </script>
 
 <style scoped>
-.workflow-container {
-  padding: 15px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.header-left, .header-right {
-  display: flex;
-  align-items: center;
-}
-
-.header-right {
-  gap: 10px;
-}
-
-.page-header h2 {
-  font-size: 1.4em;
-  margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.preview-container {
-  text-align: center;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 500px;
-}
-
-.upload-item {
-  margin-bottom: 10px;
-}
-
-.image-preview {
-  margin-top: 10px;
-}
-
-.preview-thumbnail {
-  max-width: 200px;
-  max-height: 200px;
-  border-radius: 4px;
-}
-
-.pagination-container {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: nowrap;
-}
-
-.action-buttons .action-btn {
-  margin: 0 3px;
-  transition: all 0.2s;
-}
-
-.action-buttons .action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-/* 蒙版编辑器样式 */
-.mask-editor-container {
-  padding: 20px;
-}
-
-.editor-tools {
-  margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  align-items: center;
-}
-
-.tool-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.tool-label {
-  font-weight: bold;
-  min-width: 70px;
-}
-
-.canvas-container {
-  position: relative;
-  margin: 20px 0;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  overflow: hidden;
-  width: 100%;
-  min-height: 400px;
-  background-color: #f5f5f5;
-  height: 600px;
-}
-
-.canvas-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.editor-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.base-canvas {
-  z-index: 1;
-}
-
-.draw-canvas {
-  z-index: 2;
-}
-
-.editor-actions {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.brush-size-label {
-  margin-left: 10px;
-  color: #666;
-  font-size: 14px;
-}
-
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
   .workflow-container {
-    padding: 10px;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-overflow-scrolling: touch;
   }
   
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #eee;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .header-left {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   
   .header-right {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: space-between;
+    display: flex;
+    align-items: center;
+  }
+  
+  .view-toggle {
+    margin-left: 10px;
+    font-size: 14px;
+    color: #606266;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
   }
   
   .toggle-text {
-    display: none;
-  }
-  
-  .page-header h2 {
-    margin-bottom: 10px;
-  }
-  
-  .page-header .el-button {
-    margin-top: 10px;
+    margin-left: 5px;
   }
   
   .task-list {
-    margin-top: 15px;
+    margin-top: 52px;
+    border: none;
+    box-shadow: none;
+  }
+  
+  .card-list {
+    margin-top: 52px;
+    padding: 0;
+  }
+  
+  .card-view-content {
+    padding: 0;
+  }
+  
+  .waterfall-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin: 0;
+    padding: 4px;
+  }
+  
+  .task-card {
+    width: calc(50% - 4px);
+    margin-bottom: 8px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+  }
+  
+  .task-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f5f7fa;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .task-card-title {
+    font-size: 13px;
+    font-weight: bold;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  
+  .task-card-content {
+    flex: 1;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 45px;
+  }
+  
+  .task-card-info {
+    font-size: 12px;
+    color: #909399;
+    margin-bottom: 4px;
+  }
+  
+  .task-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f5f7fa;
+    border-top: 1px solid #eee;
+  }
+  
+  .action-btn {
+    font-size: 12px;
+    margin-left: 8px;
+  }
+  
+  .load-more-container {
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    color: #606266;
+  }
+  
+  .loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #606266;
+  }
+  
+  .el-icon-loading {
+    margin-right: 5px;
+  }
+  
+  .mobile-footer-menu {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background-color: #fff;
+    border-top: 1px solid #eee;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 10px 0;
+  }
+  
+  .menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: #606266;
+  }
+  
+  .menu-item i {
+    font-size: 20px;
+    margin-bottom: 5px;
+  }
+  
+  .floating-add-btn {
+    position: fixed;
+    bottom: 70px;
+    right: 20px;
+    z-index: 1001;
+    background-color: #409eff;
+    color: #fff;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    animation: float 2s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  
+  .mobile-header-placeholder {
+    height: 52px;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .el-empty {
+    margin-top: 60px !important;
+  }
+  
+  .task-card:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+</style>
+
+<style>
+/* 全局覆盖Element UI组件的样式 */
+.card-list .el-loading-mask {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+@media screen and (max-width: 768px) {
+  .card-list .el-empty {
+    margin: 0 !important;
+    padding: 10px 0 !important;
+  }
+  
+  .card-view-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .waterfall-container {
+    margin: 0 !important;
+  }
+  
+  /* 加载中动画优化 */
+  .el-loading-spinner {
+    top: 35% !important;
+  }
+  
+  /* 消除列表显示时的底部空白 */
+  .el-table {
+    margin-bottom: 60px !important;
   }
 }
 </style>

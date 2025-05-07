@@ -2,8 +2,8 @@
   <div id="app">
     <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register' || (!isAuthenticated && $route.path === '/contact')"></router-view>
     <el-container v-else-if="isAuthenticated">
-        <!-- 左侧导航栏 -->
-        <el-aside :width="isCollapse ? '64px' : '200px'" class="app-aside">
+        <!-- 左侧导航栏 - 在非移动端显示 -->
+        <el-aside :width="isCollapse ? '64px' : '200px'" class="app-aside" :class="{'is-mobile': isMobile, 'is-hidden': isMobile}">
           <div class="aside-logo">
             <router-link to="/">
               <h1 v-if="!isCollapse">Virtual Human Studio</h1>
@@ -39,7 +39,6 @@
             <el-submenu index="digital-human">
               <template slot="title">
                 <i class="el-icon-user"></i>
-
                 <span class="submenu-title">数字人合成</span>
               </template>
               <el-menu-item index="/digital-human">数字人制作</el-menu-item>
@@ -95,7 +94,7 @@
         <el-container>
           <!-- 顶部用户信息 -->
           <el-header height="50px" class="app-header">
-            <div class="mobile-menu-btn" @click="toggleCollapse">
+            <div class="mobile-menu-btn" @click="toggleMobileMenu">
               <i class="el-icon-s-operation"></i>
             </div>
             <div class="header-user">
@@ -112,14 +111,65 @@
           </el-header>
           
           <!-- 主内容区域 -->
-          <el-main class="app-main">
+          <el-main class="app-main" :class="{'mobile-main': isMobile}">
             <router-view />
           </el-main>
           
           <!-- 底部版权信息 -->
-          <el-footer height="50px" class="app-footer">
+          <el-footer height="50px" class="app-footer" :class="{'mobile-footer': isMobile}">
             <p>© 2023 Virtual Human Studio. All Rights Reserved.</p>
           </el-footer>
+          
+          <!-- 移动端底部导航菜单 -->
+          <div v-if="isMobile" class="mobile-bottom-nav">
+            <div class="mobile-nav-item" @click="navigateTo('/')" :class="{'active': activeIndex === '/'}">
+              <i class="el-icon-s-home"></i>
+              <span>首页</span>
+            </div>
+            <div class="mobile-nav-item" @click="toggleMobileSubmenu('voice')" :class="{'active': isVoiceActive}">
+              <i class="el-icon-microphone"></i>
+              <span>音频</span>
+            </div>
+            <div class="mobile-nav-item" @click="toggleMobileSubmenu('image')" :class="{'active': isImageActive}">
+              <i class="el-icon-picture"></i>
+              <span>图像</span>
+            </div>
+            <div class="mobile-nav-item" @click="navigateTo('/digital-human')" :class="{'active': activeIndex === '/digital-human'}">
+              <i class="el-icon-user"></i>
+              <span>数字人</span>
+            </div>
+            <div class="mobile-nav-item" @click="navigateTo('/membership')" :class="{'active': activeIndex === '/membership'}">
+              <i class="el-icon-medal"></i>
+              <span>会员</span>
+            </div>
+          </div>
+          
+          <!-- 移动端子菜单 -->
+          <div v-if="isMobile && showMobileSubmenu" class="mobile-submenu" :class="mobileSubmenuClass">
+            <!-- 音频服务子菜单 -->
+            <div v-if="activeMobileSubmenu === 'voice'" class="mobile-submenu-content">
+              <div class="mobile-submenu-title">
+                <i class="el-icon-back" @click="closeMobileSubmenu"></i>
+                <span>音频服务</span>
+              </div>
+              <div class="mobile-submenu-item" v-for="(item, index) in voiceMenuItems" :key="index" @click="navigateTo(item.route)">
+                <i :class="item.icon"></i>
+                <span>{{ item.name }}</span>
+              </div>
+            </div>
+            
+            <!-- 图像处理子菜单 -->
+            <div v-if="activeMobileSubmenu === 'image'" class="mobile-submenu-content">
+              <div class="mobile-submenu-title">
+                <i class="el-icon-back" @click="closeMobileSubmenu"></i>
+                <span>图像处理</span>
+              </div>
+              <div class="mobile-submenu-item" v-for="module in imageProcessingModules" :key="module.id" @click="navigateTo(module.route)">
+                <i :class="module.icon" v-if="module.icon"></i>
+                <span>{{ module.name }}</span>
+              </div>
+            </div>
+          </div>
         </el-container>
     </el-container>
   </div>
@@ -135,16 +185,39 @@ export default {
     return {
       activeIndex: this.$route.path,
       imageProcessingModules: [],
-      isCollapse: window.innerWidth <= 768
+      isCollapse: window.innerWidth <= 768,
+      isMobile: window.innerWidth <= 768,
+      showMobileMenu: false,
+      showMobileSubmenu: false,
+      activeMobileSubmenu: '',
+      voiceMenuItems: [
+        { name: '音色克隆', route: '/voice-clone', icon: 'el-icon-microphone' },
+        { name: '音色库', route: '/voice-library', icon: 'el-icon-headset' },
+        { name: '文本转语音', route: '/tts', icon: 'el-icon-reading' },
+        { name: '语音识别', route: '/speech2text', icon: 'el-icon-mic' }
+      ]
     }
   },
   computed: {
-    ...mapGetters(['isAuthenticated', 'isAdmin', 'currentUser'])
+    ...mapGetters(['isAuthenticated', 'isAdmin', 'currentUser']),
+    isVoiceActive() {
+      return this.activeIndex.includes('/voice-') || this.activeIndex === '/tts' || this.activeIndex === '/speech2text';
+    },
+    isImageActive() {
+      const imageRoutes = this.imageProcessingModules.map(module => module.route);
+      return imageRoutes.some(route => this.activeIndex.includes(route)) || this.activeIndex === '/accessory';
+    },
+    mobileSubmenuClass() {
+      return `mobile-submenu-${this.activeMobileSubmenu}`;
+    }
   },
   watch: {
     // 监听路由变化，更新激活的菜单项
     '$route.path'(newPath) {
       this.activeIndex = newPath
+      if (this.isMobile) {
+        this.closeMobileSubmenu();
+      }
     }
   },
   created() {
@@ -219,7 +292,43 @@ export default {
     },
     // 处理窗口大小变化
     handleResize() {
-      this.isCollapse = window.innerWidth <= 768
+      const mobile = window.innerWidth <= 768;
+      this.isMobile = mobile;
+      this.isCollapse = mobile;
+      
+      // 如果从移动设备切换到桌面设备，关闭移动端子菜单
+      if (!mobile && this.showMobileSubmenu) {
+        this.closeMobileSubmenu();
+      }
+    },
+    // 移动端切换主菜单
+    toggleMobileMenu() {
+      this.showMobileMenu = !this.showMobileMenu;
+      const asideElement = document.querySelector('.app-aside');
+      if (asideElement) {
+        asideElement.classList.toggle('is-hidden', !this.showMobileMenu);
+      }
+    },
+    // 移动端切换子菜单
+    toggleMobileSubmenu(type) {
+      if (this.activeMobileSubmenu === type && this.showMobileSubmenu) {
+        this.closeMobileSubmenu();
+      } else {
+        this.showMobileSubmenu = true;
+        this.activeMobileSubmenu = type;
+      }
+    },
+    // 关闭移动端子菜单
+    closeMobileSubmenu() {
+      this.showMobileSubmenu = false;
+    },
+    // 页面导航
+    navigateTo(route) {
+      this.$router.push(route).catch(err => {
+        if (err.name !== 'NavigationDuplicated') {
+          throw err;
+        }
+      });
     }
   }
 }
@@ -253,7 +362,7 @@ html, body {
   top: 0;
   z-index: 1001;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, transform 0.3s ease;
 }
 
 .aside-logo {
@@ -363,6 +472,100 @@ html, body {
   font-size: 14px;
 }
 
+/* 移动端底部导航菜单 */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  background-color: rgba(48, 65, 86, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 1010;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #b3e5fc;
+  padding: 4px 0;
+  flex: 1;
+  transition: all 0.3s;
+}
+
+.mobile-nav-item i {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.mobile-nav-item span {
+  font-size: 12px;
+}
+
+.mobile-nav-item.active {
+  color: #64b5f6;
+}
+
+/* 移动端子菜单 */
+.mobile-submenu {
+  position: fixed;
+  bottom: 56px;
+  left: 0;
+  width: 100%;
+  background-color: rgba(48, 65, 86, 0.95);
+  backdrop-filter: blur(15px);
+  z-index: 1009;
+  box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+  transform: translateY(0);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.mobile-submenu-title {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-submenu-title i {
+  margin-right: 10px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.mobile-submenu-title span {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.mobile-submenu-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #b3e5fc;
+  transition: background-color 0.2s;
+}
+
+.mobile-submenu-item:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-submenu-item i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
   .mobile-menu-btn {
@@ -375,22 +578,34 @@ html, body {
   }
   
   .app-aside {
-    transform: translateX(0);
-    transition: transform 0.3s ease, width 0.3s ease;
+    transform: translateX(-100%);
+    width: 80% !important;
+    z-index: 1020;
   }
   
-  .app-aside.is-collapsed {
-    transform: translateX(-100%);
+  .app-aside.is-mobile:not(.is-hidden) {
+    transform: translateX(0);
   }
   
   .app-main {
-    margin-left: 0;
+    margin-left: 0 !important;
     padding: 15px;
+    padding-bottom: 76px;
+    min-height: calc(100vh - 106px);
+  }
+  
+  .mobile-main {
+    margin-bottom: 56px;
   }
   
   .app-footer {
-    margin-left: 0;
+    margin-left: 0 !important;
     padding: 10px 0;
+    margin-bottom: 56px;
+  }
+  
+  .mobile-footer {
+    margin-bottom: 56px;
   }
   
   .app-header {
@@ -446,10 +661,26 @@ html, body {
 
 /* 当侧边栏折叠时，调整主内容区域和底部的边距 */
 .app-main {
-  margin-left: v-bind('isCollapse ? "64px" : "200px"');
+  margin-left: v-bind('isCollapse && !isMobile ? "64px" : isMobile ? "0" : "200px"');
 }
 
 .app-footer {
-  margin-left: v-bind('isCollapse ? "64px" : "200px"');
+  margin-left: v-bind('isCollapse && !isMobile ? "64px" : isMobile ? "0" : "200px"');
+}
+
+/* 遮罩层 */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1005;
+  display: none;
+}
+
+.menu-overlay.active {
+  display: block;
 }
 </style>
