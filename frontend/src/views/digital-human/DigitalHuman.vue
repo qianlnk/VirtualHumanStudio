@@ -1,17 +1,20 @@
 <template>
   <div class="digital-human-container">
-    <div class="page-header">
+    <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>数字人合成</h2>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="showCreateDialog" icon="el-icon-plus">创建任务</el-button>
-        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+        <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" icon="el-icon-plus">创建任务</el-button>
+        <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
         </el-button>
       </div>
     </div>
+    
+    <!-- 移动端头部占位 -->
+    <div v-if="isMobile" class="mobile-header-placeholder"></div>
     
     <!-- 任务列表 -->
     <div v-loading="loading" class="task-list mobile-card-view" v-show="!isCardView">
@@ -23,7 +26,7 @@
             <span class="text-ellipsis">{{ scope.row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
+        <el-table-column prop="created_at" label="创建时间" width="180" class="hide-on-mobile">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
           </template>
@@ -74,7 +77,7 @@
       <el-empty v-if="digitalHumans.length === 0" description="暂无数字人合成任务"></el-empty>
       
       <div v-else class="card-view-content">
-        <div class="waterfall-container">
+        <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
           <div class="task-card" v-for="item in digitalHumans" :key="item.id">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.name }}</h3>
@@ -157,20 +160,9 @@
       </div>
     </el-dialog>
     
-    <!-- 移动端底部菜单 -->
-    <div class="mobile-footer-menu">
-      <div class="menu-item" @click="isCardView = false">
-        <i class="el-icon-menu"></i>
-        <span>列表</span>
-      </div>
-      <div class="menu-item" @click="isCardView = true">
-        <i class="el-icon-s-grid"></i>
-        <span>卡片</span>
-      </div>
-      <div class="menu-item" @click="showCreateDialog">
-        <i class="el-icon-plus"></i>
-        <span>创建</span>
-      </div>
+    <!-- 移动端悬浮添加按钮 -->
+    <div v-if="isMobile" class="floating-add-btn" @click="showCreateDialog">
+      <i class="el-icon-plus"></i>
     </div>
   </div>
 </template>
@@ -221,7 +213,9 @@ export default {
         ]
       },
       audioFileList: [],
-      videoFileList: []
+      videoFileList: [],
+      isMobile: false, // 移动设备检测标志
+      lastScrollTop: 0 // 记录上次滚动位置，用于判断滚动方向
     }
   },
   created() {
@@ -229,10 +223,12 @@ export default {
     const viewMode = localStorage.getItem('digital_human_view_mode')
     if (viewMode) {
       this.isCardView = viewMode === 'card'
-    } else {
-      // 移动设备默认使用卡片视图
-      this.isCardView = window.innerWidth <= 768
     }
+    
+    // 检测设备类型
+    this.checkDeviceType();
+    // 监听窗口大小变化
+    window.addEventListener('resize', this.checkDeviceType);
     
     this.debug('组件创建，开始加载初始数据')
     this.loadInitialData()
@@ -240,19 +236,37 @@ export default {
   
   mounted() {
     // 添加滚动事件监听器
-    window.addEventListener('scroll', this.handleScroll)
+    window.addEventListener('scroll', this.handleWindowScroll)
+    
+    // 如果是移动端，默认使用卡片视图
+    if (this.isMobile) {
+      this.isCardView = true;
+    }
   },
   
   beforeDestroy() {
     // 移除滚动事件监听器
-    window.removeEventListener('scroll', this.handleScroll)
+    window.removeEventListener('scroll', this.handleWindowScroll)
     // 清除IntersectionObserver
     if (this.observer) {
       this.observer.disconnect()
       this.observer = null
     }
+    
+    // 移除窗口大小变化监听
+    window.removeEventListener('resize', this.checkDeviceType);
   },
   methods: {
+    // 检测设备类型
+    checkDeviceType() {
+      this.isMobile = window.innerWidth <= 768;
+      
+      // 在移动端强制使用卡片视图
+      if (this.isMobile) {
+        this.isCardView = true;
+      }
+    },
+    
     // 辅助方法: 调试日志
     debug(...args) {
       console.log('[DigitalHuman]', ...args)
@@ -345,21 +359,26 @@ export default {
     },
     
     // 处理滚动事件
-    handleScroll() {
-      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
+    handleWindowScroll() {
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
       
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const windowHeight = window.innerHeight
-      const documentHeight = Math.max(
-        document.body.scrollHeight, document.documentElement.scrollHeight,
-        document.body.offsetHeight, document.documentElement.offsetHeight,
-        document.body.clientHeight, document.documentElement.clientHeight
-      )
-      
-      // 当滚动到距离底部阈值距离时触发加载
-      if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
-        this.debug('窗口滚动触发加载更多:', '文档高度=', documentHeight, '滚动位置=', scrollTop, '窗口高度=', windowHeight)
-        this.loadMoreTasks()
+      // 加载更多数据条件
+      if (this.isCardView && scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (documentHeight - scrollTop - windowHeight < 200) {
+          this.loadMoreTasks();
+        }
       }
     },
     
@@ -585,7 +604,7 @@ export default {
 
 <style scoped>
 .digital-human-container {
-  padding: 15px;
+  padding: 20px;
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
   color: #fff;
@@ -595,11 +614,36 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 移动端头部 */
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  border-radius: 0;
+  padding: 10px 12px;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-direction: row;
+  align-items: center;
+  height: 50px;
+  box-sizing: border-box;
+}
+
+.mobile-header-placeholder {
+  height: 52px;
+  margin: 0;
+  padding: 0;
 }
 
 .header-left, .header-right {
@@ -670,262 +714,214 @@ export default {
   border-radius: 4px;
 }
 
-/* 卡片视图相关样式 */
-.card-list {
-  position: relative;
-  min-height: 300px;
-}
-
-.card-view-content {
-  display: flex;
-  flex-direction: column;
-  min-height: 300px;
-}
-
-.waterfall-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap:15px;
-  margin-bottom: 30px;
-  width: 100%;
-}
-
-@media screen and (min-width: 768px) {
-  .waterfall-container {
-    grid-template-columns: repeat(2, minmax(320px, 1fr));
-    gap: 40px;
-  }
-}
-
-@media screen and (min-width: 1200px) {
-  .waterfall-container {
-    grid-template-columns: repeat(3, minmax(320px, 1fr));
-    gap: 40px;
-  }
-}
-
-@media screen and (min-width: 1600px) {
-  .waterfall-container {
-    grid-template-columns: repeat(4, minmax(320px, 1fr));
-    gap: 40px;
-  }
-}
-
-.task-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: auto;
-  margin-bottom: 0;
-}
-
-.task-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.task-card-header {
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.task-card-title {
-  margin: 0;
-  font-size: 14px;
-  color: #fff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  max-width: 65%;
-}
-
-.task-card-content {
-  padding: 10px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 90px;
-}
-
-.task-card-info {
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-
-.task-card-info p {
-  margin: 6px 0;
-  font-size: 13px;
-  color: #ddd;
-}
-
-.text-ellipsis {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-word;
-  max-height: 60px;
-}
-
-.info-label {
-  color: #aaa;
-  margin-right: 5px;
-}
-
-.task-card-footer {
-  padding: 10px;
-  display: flex;
-  justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
-  margin-top: auto;
-}
-
-.action-btn {
-  padding: 4px 8px;
-  margin: 0 2px;
-  border-radius: 4px;
-  transition: all 0.3s;
-  font-size: 13px;
-  color: #1890ff;
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.load-more-container {
-  text-align: center;
-  padding: 20px 0;
-  margin: 20px 0;
-  color: #909399;
-  font-size: 14px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  clear: both;
-  order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-}
-
-.load-more-container p {
-  margin: 0;
-  padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
-  backdrop-filter: blur(5px);
-}
-
-.loading-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.loading-indicator i {
-  font-size: 24px;
-  color: #409EFF;
-}
-
-.loading-indicator p {
-  margin: 0;
-  background: transparent;
-  padding: 5px 0;
-}
-
 .pagination-container {
   margin-top: 20px;
   text-align: right;
 }
 
+/* 强制移动端使用卡片视图 */
+.mobile-card-view {
+  display: none;
+}
+
+/* 悬浮添加按钮 */
+.floating-add-btn {
+  position: fixed;
+  bottom: 70px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.floating-add-btn i {
+  font-size: 24px;
+}
+
+.floating-add-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
+  .digital-human-container {
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    border-radius: 0;
+    padding: 10px 12px;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    flex-direction: row;
+    align-items: center;
+    height: 50px;
+    box-sizing: border-box;
+  }
+  
+  .header-left {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   
   .header-right {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: space-between;
+    margin-top: 0;
+    width: auto;
+    justify-content: flex-end;
   }
   
   .toggle-text {
     display: none;
   }
-}
-
-/* 移动端底部菜单 */
-.mobile-footer-menu {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: none;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  z-index: 100;
-  padding: 10px 0;
-  justify-content: space-around;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
-}
-
-.menu-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px 16px;
-  color: #ddd;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.menu-item i {
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.menu-item span {
-  font-size: 12px;
-}
-
-.menu-item:hover, .menu-item.active {
-  color: #409EFF;
-}
-
-@media screen and (max-width: 768px) {
-  .mobile-footer-menu {
-    display: flex;
+  
+  .page-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
   }
   
-  .task-list, .card-list {
-    padding-bottom: 70px;
+  .page-header .el-button {
+    margin: 0;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  
+  .view-toggle {
+    padding: 3px 6px;
+  }
+  
+  .mobile-header-placeholder {
+    height: 52px;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .task-list {
+    margin-top: 10px;
+    padding-bottom: 60px;
+  }
+  
+  .card-list {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  
+  .card-view-content {
+    padding: 0;
+    margin: 0;
+  }
+  
+  .waterfall-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px;
+    margin: 0;
+    padding-top: 0;
+  }
+  
+  .mobile-card-container {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  
+  /* 悬浮按钮移动端样式 */
+  .floating-add-btn {
+    bottom: 80px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1001;
+  }
+  
+  .floating-add-btn i {
+    font-size: 28px;
+  }
+  
+  /* 修复iOS移动端滑动问题 */
+  .card-list, 
+  .task-list,
+  .card-view-content,
+  .waterfall-container {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 空状态优化 */
+  .el-empty {
+    margin-top: 60px !important;
+  }
+  
+  /* 触碰反馈优化 */
+  .task-card:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  /* 隐藏在移动端不重要的表格列 */
+  .hide-on-mobile {
+    display: none;
+  }
+}
+</style>
+
+<style>
+@media screen and (max-width: 768px) {
+  .card-list .el-empty {
+    margin: 0 !important;
+    padding: 10px 0 !important;
+  }
+  
+  .card-view-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .waterfall-container {
+    margin: 0 !important;
+  }
+  
+  /* 加载中动画优化 */
+  .el-loading-spinner {
+    top: 35% !important;
+  }
+  
+  /* 消除列表显示时的底部空白 */
+  .el-table {
+    margin-bottom: 60px !important;
   }
 }
 </style>

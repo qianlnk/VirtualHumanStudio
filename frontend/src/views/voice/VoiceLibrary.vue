@@ -1,17 +1,25 @@
 <template>
   <div class="voice-library-container">
-    <div class="page-header">
+    <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>音色库</h2>
       </div>
       <div class="header-right">
         <!-- <el-button type="primary" @click="showUploadDialog">上传音色</el-button> -->
-        <el-button type="primary" @click="refreshVoices">刷新</el-button>
-        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+        <el-button v-if="!isMobile" type="primary" @click="refreshVoices">刷新</el-button>
+        <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
         </el-button>
       </div>
+    </div>
+    
+    <!-- 移动端头部占位 -->
+    <div v-if="isMobile" class="mobile-header-placeholder"></div>
+    
+    <!-- 移动端浮动刷新按钮 -->
+    <div v-if="isMobile" class="floating-refresh-btn" @click="refreshVoices">
+      <i class="el-icon-refresh"></i>
     </div>
     
     <!-- 音色列表（表格视图） -->
@@ -73,7 +81,7 @@
       <el-empty v-if="voices.length === 0" description="暂无音色"></el-empty>
       
       <div v-else class="card-view-content">
-        <div class="waterfall-container" ref="cardContainer">
+        <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
           <div class="voice-card" v-for="item in voices" :key="item.id">
             <div class="voice-card-header">
               <h3 class="voice-card-title">{{ item.name }}</h3>
@@ -233,7 +241,9 @@ export default {
       loadingMore: false,
       hasMoreData: true,
       initialLoaded: false,
-      observer: null
+      observer: null,
+      isMobile: false,
+      lastScrollTop: 0
     }
   },
   computed: {
@@ -251,16 +261,27 @@ export default {
     
     // 初始加载第一页数据
     this.loadInitialData()
+    
+    // 检测设备类型
+    this.checkDeviceType();
+    // 监听窗口大小变化
+    window.addEventListener('resize', this.checkDeviceType);
   },
   
   mounted() {
-    // 添加滚动事件监听器用于卡片视图加载更多
-    window.addEventListener('scroll', this.handleWindowScroll)
+    // 添加滚动事件监听器
+    window.addEventListener('scroll', this.handleWindowScroll);
+    
+    // 如果是移动端，默认使用卡片视图
+    if (this.isMobile) {
+      this.isCardView = true;
+    }
   },
   
   beforeDestroy() {
-    // 移除滚动事件监听器
-    window.removeEventListener('scroll', this.handleWindowScroll)
+    // 移除事件监听
+    window.removeEventListener('resize', this.checkDeviceType);
+    window.removeEventListener('scroll', this.handleWindowScroll);
     
     // 清除IntersectionObserver
     if (this.observer) {
@@ -373,72 +394,46 @@ export default {
       this.fetchVoices(true)
     },
     
-    // 处理滚动事件
+    // 处理窗口滚动事件
     handleWindowScroll() {
-      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
       
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const windowHeight = window.innerHeight
-      const documentHeight = Math.max(
-        document.body.scrollHeight, document.documentElement.scrollHeight,
-        document.body.offsetHeight, document.documentElement.offsetHeight,
-        document.body.clientHeight, document.documentElement.clientHeight
-      )
-      
-      // 当滚动到距离底部200px时触发加载
-      if (documentHeight - scrollTop - windowHeight < 200) {
-        this.debug('窗口滚动触发加载更多')
-        this.loadMoreVoices()
-      }
-    },
-    
-    // 设置IntersectionObserver
-    setupIntersectionObserver() {
-      // 如果已经有observer，先断开连接
-      if (this.observer) {
-        this.observer.disconnect()
-        this.observer = null
-      }
-      
-      this.$nextTick(() => {
-        // 获取加载更多的触发元素
-        const triggerElement = this.$refs.loadMoreTrigger
-        if (!triggerElement) {
-          this.debug('未找到加载更多触发元素')
-          return
+      // 加载更多数据条件
+      if (this.isCardView && scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (documentHeight - scrollTop - windowHeight < 200) {
+          this.loadMoreVoices();
         }
-        
-        this.debug('设置观察者')
-        
-        // 创建新的IntersectionObserver
-        this.observer = new IntersectionObserver((entries) => {
-          const entry = entries[0]
-          this.debug('intersection事件:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
-          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
-            this.debug('观察者触发加载更多')
-            this.loadMoreVoices()
-          }
-        }, {
-          root: null,
-          threshold: 0,
-          rootMargin: '50px'
-        })
-        
-        // 开始观察
-        this.observer.observe(triggerElement)
-      })
+      }
     },
     
-    // 刷新音色列表
-    refreshVoices() {
-      this.currentPage = 1
-      this.fetchVoices()
+    // 滚动到页面顶部
+    scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     },
     
-    // 切换视图模式（列表/卡片）
+    // 切换视图
     toggleView() {
-      this.isCardView = !this.isCardView
-      localStorage.setItem('voice_library_view_mode', this.isCardView ? 'card' : 'list')
+      this.isCardView = !this.isCardView;
+      
+      // 切换视图后滚动到顶部
+      this.$nextTick(() => {
+        this.scrollToTop();
+      });
       
       // 重置状态
       this.currentPage = 1
@@ -663,33 +658,114 @@ export default {
       const filePath = type === 'model' ? voice.model_file : voice.sample_file
       const fileName = type === 'model' ? `${voice.name}_model${this.getFileExtension(filePath)}` : `${voice.name}_sample${this.getFileExtension(filePath)}`
       downloadFile(filePath, fileName)
-    }
+    },
+
+    // 检查设备类型
+    checkDeviceType() {
+      this.isMobile = window.innerWidth <= 768;
+      
+      // 在移动端强制使用卡片视图
+      if (this.isMobile) {
+        this.isCardView = true;
+        
+        // 隐藏视图切换按钮，只在移动端上这样做
+        const viewToggleBtn = document.querySelector('.view-toggle');
+        if (viewToggleBtn) {
+          viewToggleBtn.style.display = 'none';
+        }
+      }
+    },
+
+    // 刷新音色列表
+    refreshVoices() {
+      this.currentPage = 1;
+      this.fetchVoices();
+    },
+
+    // 设置IntersectionObserver
+    setupIntersectionObserver() {
+      // 如果已经有observer，先断开连接
+      if (this.observer) {
+        this.observer.disconnect()
+        this.observer = null
+      }
+      
+      this.$nextTick(() => {
+        // 获取加载更多的触发元素
+        const triggerElement = this.$refs.loadMoreTrigger
+        if (!triggerElement) {
+          this.debug('未找到加载更多触发元素')
+          return
+        }
+        
+        this.debug('设置观察者')
+        
+        // 创建新的IntersectionObserver
+        this.observer = new IntersectionObserver((entries) => {
+          const entry = entries[0]
+          this.debug('intersection事件:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
+            this.debug('观察者触发加载更多')
+            this.loadMoreVoices()
+          }
+        }, {
+          root: null,
+          threshold: 0,
+          rootMargin: '50px'
+        })
+        
+        // 开始观察
+        this.observer.observe(triggerElement)
+      })
+    },
   }
 }
 </script>
 
 <style scoped>
 .voice-library-container {
-  padding: 15px;
+  padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  border-radius: 0;
+  padding: 8px 10px;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-header-placeholder {
+  height: 50px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .header-left, .header-right {
   display: flex;
   align-items: center;
+}
+
+.header-left {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {
@@ -912,19 +988,141 @@ export default {
 
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
+  .voice-library-container {
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 12px;
+    margin: 0;
+    height: 50px;
+    box-sizing: border-box;
   }
   
   .header-right {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: space-between;
+    margin-top: 0;
+    width: auto;
+    justify-content: flex-end;
   }
   
   .toggle-text {
     display: none;
   }
+  
+  .page-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
+  }
+  
+  .page-header .el-button {
+    margin: 0;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  
+  .view-toggle {
+    padding: 3px 6px;
+  }
+  
+  .mobile-header-placeholder {
+    height: 52px;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .voice-list {
+    margin-top: 10px;
+    padding-bottom: 60px;
+  }
+  
+  /* 移动端底部菜单激活状态 */
+  .mobile-footer-menu .menu-item.active {
+    color: #2196f3;
+    font-weight: bold;
+  }
+  
+  .mobile-footer-menu .menu-item.active i {
+    transform: scale(1.1);
+  }
+  
+  /* 修复iOS移动端滑动问题 */
+  .card-list, 
+  .voice-list,
+  .card-view-content,
+  .waterfall-container {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 空状态优化 */
+  .el-empty {
+    margin-top: 60px !important;
+  }
+  
+  /* 触碰反馈优化 */
+  .voice-card:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  /* 隐藏在移动端不重要的表格列 */
+  .hide-on-mobile {
+    display: none;
+  }
+  
+  /* 浮动刷新按钮 */
+  .floating-refresh-btn {
+    bottom: 20px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1001;
+  }
+  
+  .floating-refresh-btn i {
+    font-size: 28px;
+  }
+}
+
+/* 浮动刷新按钮 */
+.floating-refresh-btn {
+  position: fixed;
+  bottom: 70px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 99;
+}
+
+.floating-refresh-btn:hover, .floating-refresh-btn:active {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 </style>

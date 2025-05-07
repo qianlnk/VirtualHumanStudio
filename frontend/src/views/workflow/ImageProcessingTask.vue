@@ -6,12 +6,15 @@
       </div>
       <div class="header-right">
         <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
-        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+        <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
         </el-button>
       </div>
     </div>
+
+    <!-- 移动端头部占位 -->
+    <div v-if="isMobile" class="mobile-header-placeholder"></div>
 
     <!-- 任务列表 -->
     <el-card class="task-list" v-show="!isCardView">
@@ -102,22 +105,6 @@
             <p>没有更多数据了</p>
           </template>
         </div>
-      </div>
-    </div>
-    
-    <!-- 移动端底部菜单 -->
-    <div class="mobile-footer-menu">
-      <div class="menu-item" @click="isCardView = false">
-        <i class="el-icon-menu"></i>
-        <span>列表</span>
-      </div>
-      <div class="menu-item" @click="isCardView = true">
-        <i class="el-icon-s-grid"></i>
-        <span>卡片</span>
-      </div>
-      <div class="menu-item" @click="showCreateDialog">
-        <i class="el-icon-plus"></i>
-        <span>创建</span>
       </div>
     </div>
 
@@ -267,9 +254,6 @@
     <div v-if="isMobile" class="floating-add-btn" @click="showCreateDialog" :disabled="!currentModule">
       <i class="el-icon-plus"></i>
     </div>
-
-    <!-- 移动端头部占位 -->
-    <div v-if="isMobile" class="mobile-header-placeholder"></div>
   </div>
 </template>
 
@@ -425,7 +409,18 @@ export default {
   methods: {
     // 检测设备类型
     checkDeviceType() {
-      this.isMobile = window.innerWidth <= 768
+      this.isMobile = window.innerWidth <= 768;
+      
+      // 在移动端强制使用卡片视图
+      if (this.isMobile) {
+        this.isCardView = true;
+        
+        // 隐藏视图切换按钮，只在移动端上这样做
+        const viewToggleBtn = document.querySelector('.view-toggle');
+        if (viewToggleBtn) {
+          viewToggleBtn.style.display = 'none';
+        }
+      }
     },
     // 获取所有模块
     async fetchModules() {
@@ -1257,6 +1252,212 @@ export default {
 </script>
 
 <style scoped>
+.workflow-container {
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-header h2 {
+  font-size: 1.4em;
+  margin: 0;
+  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.task-list {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.card-list {
+  position: relative;
+  min-height: 300px;
+}
+
+.card-view-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.waterfall-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+  width: 100%;
+}
+
+@media screen and (min-width: 768px) {
+  .waterfall-container {
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  .waterfall-container {
+    grid-template-columns: repeat(3, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  .waterfall-container {
+    grid-template-columns: repeat(4, minmax(320px, 1fr));
+    gap: 40px;
+  }
+}
+
+.task-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: auto;
+  margin-bottom: 0;
+}
+
+.task-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.task-card-header {
+  padding: 12px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.task-card-title {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  max-width: 65%;
+}
+
+.task-card-content {
+  padding: 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 90px;
+}
+
+.task-card-info {
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.task-card-info p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #ddd;
+}
+
+.task-card-footer {
+  padding: 10px;
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
+  margin-top: auto;
+}
+
+.action-btn {
+  padding: 4px 8px;
+  margin: 0 2px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  font-size: 13px;
+  color: #1890ff;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.load-more-container {
+  text-align: center;
+  padding: 20px 0;
+  margin: 20px 0;
+  color: #909399;
+  font-size: 14px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  clear: both;
+  order: 999;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.load-more-container p {
+  margin: 0;
+  padding: 15px 30px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  backdrop-filter: blur(5px);
+}
+
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.loading-indicator i {
+  font-size: 24px;
+  color: #409EFF;
+}
+
+.loading-indicator p {
+  margin: 0;
+  background: transparent;
+  padding: 5px 0;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  text-align: right;
+}
+
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
   .workflow-container {
@@ -1277,14 +1478,17 @@ export default {
     top: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
-    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 999;
+    border-radius: 0;
+    padding: 10px 12px;
+    margin: 0;
+    background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid #eee;
-    padding: 10px 15px;
-    display: flex;
-    justify-content: space-between;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    flex-direction: row;
     align-items: center;
+    height: 50px;
+    box-sizing: border-box;
   }
   
   .header-left {
@@ -1295,182 +1499,33 @@ export default {
   }
   
   .header-right {
-    display: flex;
-    align-items: center;
-  }
-  
-  .view-toggle {
-    margin-left: 10px;
-    font-size: 14px;
-    color: #606266;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
+    margin-top: 0;
+    width: auto;
+    justify-content: flex-end;
   }
   
   .toggle-text {
-    margin-left: 5px;
+    display: none;
   }
   
-  .task-list {
-    margin-top: 52px;
-    border: none;
-    box-shadow: none;
-  }
-  
-  .card-list {
-    margin-top: 52px;
-    padding: 0;
-  }
-  
-  .card-view-content {
-    padding: 0;
-  }
-  
-  .waterfall-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+  .page-header h2 {
     margin: 0;
-    padding: 4px;
-  }
-  
-  .task-card {
-    width: calc(50% - 4px);
-    margin-bottom: 8px;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    overflow: hidden;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    background-color: #fff;
-  }
-  
-  .task-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background-color: #f5f7fa;
-    border-bottom: 1px solid #eee;
-  }
-  
-  .task-card-title {
-    font-size: 13px;
-    font-weight: bold;
-    margin: 0;
+    font-size: 1.3em;
+    max-width: 200px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
+    font-weight: bold;
   }
   
-  .task-card-content {
-    flex: 1;
-    padding: 8px 12px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 45px;
-  }
-  
-  .task-card-info {
+  .page-header .el-button {
+    margin: 0;
+    padding: 5px 8px;
     font-size: 12px;
-    color: #909399;
-    margin-bottom: 4px;
   }
   
-  .task-card-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 8px 12px;
-    background-color: #f5f7fa;
-    border-top: 1px solid #eee;
-  }
-  
-  .action-btn {
-    font-size: 12px;
-    margin-left: 8px;
-  }
-  
-  .load-more-container {
-    text-align: center;
-    padding: 10px;
-    font-size: 14px;
-    color: #606266;
-  }
-  
-  .loading-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: #606266;
-  }
-  
-  .el-icon-loading {
-    margin-right: 5px;
-  }
-  
-  .mobile-footer-menu {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    background-color: #fff;
-    border-top: 1px solid #eee;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    padding: 10px 0;
-  }
-  
-  .menu-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    font-size: 12px;
-    color: #606266;
-  }
-  
-  .menu-item i {
-    font-size: 20px;
-    margin-bottom: 5px;
-  }
-  
-  .floating-add-btn {
-    position: fixed;
-    bottom: 70px;
-    right: 20px;
-    z-index: 1001;
-    background-color: #409eff;
-    color: #fff;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
-    cursor: pointer;
-    animation: float 2s ease-in-out infinite;
-  }
-  
-  @keyframes float {
-    0% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-    100% {
-      transform: translateY(0);
-    }
+  .view-toggle {
+    padding: 3px 6px;
   }
   
   .mobile-header-placeholder {
@@ -1479,14 +1534,96 @@ export default {
     padding: 0;
   }
   
+  .task-list {
+    margin-top: 10px;
+    padding-bottom: 60px;
+  }
+  
+  .card-list {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  
+  .card-view-content {
+    padding: 0;
+    margin: 0;
+  }
+  
+  .waterfall-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px;
+    margin: 0;
+    padding-top: 0;
+  }
+  
+  .mobile-card-container {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  
+  /* 悬浮按钮样式 */
+  .floating-add-btn {
+    bottom: 80px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1001; /* 确保在底部菜单之上 */
+  }
+  
+  .floating-add-btn i {
+    font-size: 28px;
+  }
+  
+  /* 修复iOS移动端滑动问题 */
+  .card-list, 
+  .task-list,
+  .card-view-content,
+  .waterfall-container {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 空状态优化 */
   .el-empty {
     margin-top: 60px !important;
   }
   
+  /* 触碰反馈优化 */
   .task-card:active {
     transform: scale(0.98);
     opacity: 0.9;
   }
+}
+
+/* 悬浮添加按钮 */
+.floating-add-btn {
+  position: fixed;
+  bottom: 70px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.floating-add-btn i {
+  font-size: 24px;
+}
+
+.floating-add-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 </style>
 

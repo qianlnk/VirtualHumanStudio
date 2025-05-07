@@ -1,30 +1,33 @@
 <template>
   <div class="voice-clone-container">
-    <div class="page-header">
+    <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>音色克隆</h2>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="createVoiceClone" icon="el-icon-plus">创建音色克隆任务</el-button>
-        <el-button type="text" size="small" class="view-toggle" @click="toggleView">
+        <el-button v-if="!isMobile" type="primary" @click="createVoiceClone" icon="el-icon-plus">创建音色克隆任务</el-button>
+        <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
         </el-button>
       </div>
     </div>
     
+    <!-- 移动端头部占位 -->
+    <div v-if="isMobile" class="mobile-header-placeholder"></div>
+    
     <!-- 任务列表（表格视图） -->
-    <div v-loading="loading" class="task-list" v-show="!isCardView">
+    <div v-loading="loading" class="task-list mobile-card-view" v-show="!isCardView">
       <el-empty v-if="tasks.length === 0" description="暂无音色克隆任务"></el-empty>
       
-      <el-table v-else :data="tasks" style="width: 100%">
+      <el-table v-else :data="tasks" style="width: 100%" class="responsive-table">
         <el-table-column prop="speaker_name" label="说话人名称" width="150"></el-table-column>
         <el-table-column prop="prompt_text" label="提示词" show-overflow-tooltip>
           <template slot-scope="scope">
             <span>{{ scope.row.prompt_text || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180">
+        <el-table-column prop="created_at" label="创建时间" width="180" class="hide-on-mobile">
           <template slot-scope="scope">
             {{ formatDate(scope.row.created_at) }}
           </template>
@@ -61,7 +64,7 @@
       <el-empty v-if="tasks.length === 0" description="暂无音色克隆任务"></el-empty>
       
       <div v-else class="card-view-content">
-        <div class="waterfall-container" ref="cardContainer">
+        <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
           <div class="task-card" v-for="item in tasks" :key="item.id">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.speaker_name }}</h3>
@@ -69,8 +72,10 @@
             </div>
             <div class="task-card-content">
               <div class="task-card-info">
-                <p class="text-ellipsis"><span class="info-label">提示词:</span> {{ item.prompt_text || '-' }}</p>
-                <p><span class="info-label">创建时间:</span> {{ formatDate(item.created_at) }}</p>
+                <div class="text-with-copy card-text">
+                  <p class="text-ellipsis">{{ item.prompt_text || '-' }}</p>
+                </div>
+                <p><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
               </div>
             </div>
             <div class="task-card-footer">
@@ -96,6 +101,11 @@
           </template>
         </div>
       </div>
+    </div>
+    
+    <!-- 移动端悬浮添加按钮 -->
+    <div v-if="isMobile" class="floating-add-btn" @click="createVoiceClone">
+      <i class="el-icon-plus"></i>
     </div>
     
     <!-- 音色克隆创建表单 -->
@@ -149,6 +159,7 @@
 
 <script>
 import '@/assets/styles/card-view.css'
+import axios from 'axios'
 
 export default {
   name: 'VoiceClone',
@@ -190,7 +201,9 @@ export default {
       loadingMore: false,
       hasMoreData: true,
       initialLoaded: false,
-      observer: null
+      observer: null,
+      isMobile: false,
+      lastScrollTop: 0
     }
   },
   created() {
@@ -200,13 +213,31 @@ export default {
       this.isCardView = savedViewMode === 'card'
     }
     
+    // 检测设备类型
+    this.checkDeviceType();
+    
+    // 如果是移动端，默认使用卡片视图
+    if (this.isMobile) {
+      this.isCardView = true;
+    }
+    
     // 初始加载数据
-    this.loadInitialData()
+    this.loadInitialData();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', this.checkDeviceType);
   },
   
   mounted() {
     // 添加滚动事件监听器用于卡片视图加载更多
     window.addEventListener('scroll', this.handleWindowScroll)
+    
+    // 如果是卡片视图，初始化交叉观察器
+    if (this.isCardView) {
+      this.$nextTick(() => {
+        this.setupIntersectionObserver()
+      })
+    }
   },
   
   beforeDestroy() {
@@ -218,12 +249,35 @@ export default {
       this.observer.disconnect()
       this.observer = null
     }
+    
+    // 移除事件监听
+    window.removeEventListener('resize', this.checkDeviceType);
   },
   
   methods: {
     // 辅助方法: 调试日志
     debug(...args) {
       console.log('[VoiceClone]', ...args)
+    },
+    
+    // 切换视图模式
+    toggleView() {
+      this.isCardView = !this.isCardView
+      // 保存用户偏好到本地存储
+      localStorage.setItem('voice_clone_view_mode', this.isCardView ? 'card' : 'list')
+      
+      // 当切换到卡片视图时，重置并加载数据
+      if (this.isCardView) {
+        this.currentPage = 1
+        this.tasks = []
+        this.hasMoreData = true
+        this.fetchTasks()
+        
+        // 设置滚动监听
+        this.$nextTick(() => {
+          this.setupIntersectionObserver()
+        })
+      }
     },
     
     // 初始加载数据
@@ -254,13 +308,18 @@ export default {
         this.loadingMore = true
       }
       
+      const baseURL = process.env.VUE_APP_API_URL || ''
+      const token = localStorage.getItem('token') || ''
+      
       this.debug('请求数据:', '页码=', this.currentPage, '每页数量=', this.isCardView ? this.cardPageSize : this.pageSize)
       
-      this.$http.get(`/api/voice/clones`, {
+      // 发送真实API请求
+      axios.get(`${baseURL}/api/voice/clones`, {
         params: {
           page: this.currentPage,
           size: this.isCardView ? this.cardPageSize : this.pageSize
-        }
+        },
+        headers: { Authorization: `Bearer ${token}` }
       })
         .then(response => {
           const newTasks = response.data.voice_clones || []
@@ -281,8 +340,8 @@ export default {
           this.debug('当前数据量：', this.tasks.length, '总数：', this.total, '是否还有更多：', this.hasMoreData)
         })
         .catch(error => {
-          console.error('获取音色克隆任务列表失败', error)
-          this.$message.error('获取音色克隆任务列表失败')
+          console.error('获取音色克隆任务列表失败:', error)
+          this.$message.error('获取任务列表失败')
         })
         .finally(() => {
           this.loading = false
@@ -297,7 +356,67 @@ export default {
         })
     },
     
-    // 加载更多数据
+    // 设置IntersectionObserver用于检测滚动到底部
+    setupIntersectionObserver() {
+      if (!this.$refs.loadMoreTrigger) return
+      
+      // 如果已存在观察者，先断开连接
+      if (this.observer) {
+        this.observer.disconnect()
+      }
+      
+      // 创建新的观察者
+      this.observer = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && !this.loadingMore && this.hasMoreData) {
+          this.loadMoreTasks()
+        }
+      }, { rootMargin: '0px 0px 200px 0px' })
+      
+      // 观察加载更多触发器
+      this.observer.observe(this.$refs.loadMoreTrigger)
+    },
+    
+    // 检查设备类型
+    checkDeviceType() {
+      this.isMobile = window.innerWidth <= 768;
+      
+      // 在移动端强制使用卡片视图
+      if (this.isMobile) {
+        this.isCardView = true;
+        
+        // 隐藏视图切换按钮，只在移动端上这样做
+        const viewToggleBtn = document.querySelector('.view-toggle');
+        if (viewToggleBtn) {
+          viewToggleBtn.style.display = 'none';
+        }
+      }
+    },
+    
+    // 处理滚动事件 - 优化为与TTS组件相同的方法
+    handleWindowScroll() {
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
+      
+      // 加载更多数据条件
+      if (this.isCardView && scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (documentHeight - scrollTop - windowHeight < 200) {
+          this.loadMoreTasks();
+        }
+      }
+    },
+    
+    // 加载更多任务
     loadMoreTasks() {
       if (this.loadingMore || !this.hasMoreData) {
         this.debug('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData)
@@ -309,93 +428,18 @@ export default {
       this.fetchTasks(true)
     },
     
-    // 处理滚动事件
-    handleWindowScroll() {
-      if (!this.isCardView || this.loadingMore || !this.hasMoreData) return
-      
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      const windowHeight = window.innerHeight
-      const documentHeight = Math.max(
-        document.body.scrollHeight, document.documentElement.scrollHeight,
-        document.body.offsetHeight, document.documentElement.offsetHeight,
-        document.body.clientHeight, document.documentElement.clientHeight
-      )
-      
-      // 当滚动到距离底部200px时触发加载
-      if (documentHeight - scrollTop - windowHeight < 200) {
-        this.debug('窗口滚动触发加载更多')
-        this.loadMoreTasks()
-      }
-    },
-    
-    // 设置IntersectionObserver
-    setupIntersectionObserver() {
-      // 如果已经有observer，先断开连接
-      if (this.observer) {
-        this.observer.disconnect()
-        this.observer = null
-      }
-      
-      this.$nextTick(() => {
-        // 获取加载更多的触发元素
-        const triggerElement = this.$refs.loadMoreTrigger
-        if (!triggerElement) {
-          this.debug('未找到加载更多触发元素')
-          return
-        }
-        
-        this.debug('设置观察者')
-        
-        // 创建新的IntersectionObserver
-        this.observer = new IntersectionObserver((entries) => {
-          const entry = entries[0]
-          this.debug('intersection事件:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
-          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
-            this.debug('观察者触发加载更多')
-            this.loadMoreTasks()
-          }
-        }, {
-          root: null,
-          threshold: 0,
-          rootMargin: '50px'
-        })
-        
-        // 开始观察
-        this.observer.observe(triggerElement)
-      })
-    },
-    
-    // 切换视图模式（列表/卡片）
-    toggleView() {
-      this.isCardView = !this.isCardView
-      localStorage.setItem('voice_clone_view_mode', this.isCardView ? 'card' : 'list')
-      
-      // 重置状态
-      this.currentPage = 1
-      this.tasks = []
-      this.hasMoreData = true
-      
-      // 重新加载第一页数据
-      this.fetchTasks()
-      
-      // 如果切换到卡片视图，设置IntersectionObserver用于无限滚动
-      if (this.isCardView) {
-        this.$nextTick(() => {
-          this.setupIntersectionObserver()
-        })
-      }
-    },
-    
-    // 分页处理
-    handleSizeChange(size) {
-      this.pageSize = size
-      this.currentPage = 1
-      this.fetchTasks()
-    },
-    
-    handleCurrentChange(page) {
-      this.currentPage = page
-      this.fetchTasks()
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '-';
+      const date = new Date(dateString);
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/\//g, '-');
     },
     
     // 获取状态类型
@@ -405,24 +449,19 @@ export default {
         'processing': 'warning',
         'completed': 'success',
         'failed': 'danger'
-      }
-      return statusMap[status] || 'info'
+      };
+      return statusMap[status] || 'info';
     },
     
     // 获取状态文本
     getStatusText(status) {
       const statusTextMap = {
-        'pending': '等待处理',
+        'pending': '等待中',
         'processing': '处理中',
         'completed': '已完成',
         'failed': '失败'
-      }
-      return statusTextMap[status] || status
-    },
-    
-    formatDate(dateString) {
-      if (!dateString) return ''
-      return new Date(dateString).toLocaleString()
+      };
+      return statusTextMap[status] || '未知';
     },
     
     // 生成随机字符串
@@ -444,172 +483,245 @@ export default {
         prompt_text: ''
       }
       this.fileList = []
+      
+      // 重置表单验证
+      if (this.$refs.form) {
+        this.$refs.form.clearValidate()
+      }
     },
     
     // 提交表单
     submitForm() {
-      this.$refs.form.validate(valid => {
-        if (valid) {
-          if (!this.form.audio_file) {
-            return this.$message.error('请上传音频文件')
+      this.$refs.form.validate((valid) => {
+        if (!valid) return;
+        
+        if (!this.form.audio_file) {
+          return this.$message.error('请上传音频文件');
+        }
+        
+        this.submitting = true;
+        const baseURL = process.env.VUE_APP_API_URL || '';
+        const token = localStorage.getItem('token') || '';
+        
+        // 创建表单数据
+        const formData = new FormData();
+        // 生成任务名称：说话人名称 + 随机字符串
+        const taskName = `${this.form.speaker_name}_${this.generateRandomString()}`;
+        formData.append('name', taskName);
+        formData.append('prompt_file', this.form.audio_file);
+        formData.append('prompt_text', this.form.prompt_text);
+        formData.append('speaker_name', this.form.speaker_name);
+        
+        // 发送创建请求
+        axios.post(`${baseURL}/api/voice/clone`, formData, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
           }
-          
-          this.submitting = true
-          
-          const formData = new FormData()
-          // 生成任务名称：说话人名称 + 随机字符串
-          const taskName = `${this.form.speaker_name}_${this.generateRandomString()}`
-          formData.append('name', taskName)
-          formData.append('prompt_file', this.form.audio_file)
-          formData.append('prompt_text', this.form.prompt_text)
-          formData.append('speaker_name', this.form.speaker_name)
-          
-          this.$http.post('/api/voice/clone', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
+        })
+          .then(response => {
+            this.$message.success('创建音色克隆任务成功');
+            this.dialogVisible = false;
+            
+            // 刷新任务列表
+            this.currentPage = 1;
+            this.fetchTasks();
+            
+            // 跳转到详情页 - 确保路径正确
+            if (response.data && response.data.voice_clone && response.data.voice_clone.id) {
+              const id = response.data.voice_clone.id;
+              // 和viewDetail方法保持一致的路径格式
+              this.$router.push({
+                path: `/voice-clone/${id}`,
+                query: { from: 'create' }
+              }).catch(err => {
+                if (err.name !== 'NavigationDuplicated') {
+                  console.error('导航错误', err);
+                }
+              });
             }
           })
-            .then(response => {
-              this.$message.success('创建音色克隆任务成功')
-              this.dialogVisible = false
-              this.fetchTasks()
-              
-              // 跳转到详情页
-              this.$router.push(`/voice-clone/${response.data.voice_clone.id}`)
-            })
-            .catch(error => {
-              console.error('创建音色克隆任务失败', error)
-              this.$message.error('创建音色克隆任务失败: ' + ((error.response && error.response.data && error.response.data.message) || '未知错误'))
-            })
-            .finally(() => {
-              this.submitting = false
-            })
-        }
-      })
+          .catch(error => {
+            console.error('创建音色克隆任务失败', error);
+            this.$message.error('创建音色克隆任务失败: ' + 
+              ((error.response && error.response.data && error.response.data.message) || '未知错误'));
+          })
+          .finally(() => {
+            this.submitting = false;
+          });
+      });
     },
     
-    // 查看详情
+    // 查看任务详情
     viewDetail(id) {
-      this.$router.push(`/voice-clone/${id}`)
+      // 记录当前任务ID以便于返回时恢复
+      localStorage.setItem('last_voice_clone_id', id);
+      
+      // 确保ID是有效的
+      if (!id) {
+        this.$message.error('无效的任务ID');
+        return;
+      }
+      
+      // 跳转到详情页 - 根据路由配置使用正确的路径
+      this.$router.push({
+        path: `/voice-clone/${id}`,
+        query: { from: 'list' }
+      }).catch(err => {
+        // 如果是重复导航错误，忽略它
+        if (err.name !== 'NavigationDuplicated') {
+          console.error('导航错误', err);
+          this.$message.error('无法跳转到详情页');
+        }
+      });
     },
     
     // 确认删除
     confirmDelete(id) {
-      this.$confirm('此操作将永久删除该音色克隆任务, 是否继续?', '提示', {
+      this.$confirm('确定要删除此音色克隆任务吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      })
-        .then(() => {
-          this.deleteTask(id)
-        })
-        .catch(() => {
-          this.$message.info('已取消删除')
-        })
+      }).then(() => {
+        this.deleteTask(id);
+      }).catch(() => {
+        // 取消删除
+      });
     },
     
     // 删除任务
     deleteTask(id) {
-      this.$http.delete(`/api/voice/clone/${id}`)
+      this.loading = true;
+      const baseURL = process.env.VUE_APP_API_URL || '';
+      const token = localStorage.getItem('token') || '';
+      
+      // 发送删除请求
+      axios.delete(`${baseURL}/api/voice/clone/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
         .then(() => {
-          this.$message.success('删除成功')
-          this.fetchTasks()
+          this.$message.success('删除成功');
+          // 从本地列表中移除
+          this.tasks = this.tasks.filter(task => task.id !== id);
+          
+          // 如果当前页的任务都删完了且不是第一页，则加载上一页数据
+          if (this.tasks.length === 0 && this.currentPage > 1) {
+            this.currentPage -= 1;
+            this.fetchTasks();
+          }
         })
         .catch(error => {
-          console.error('删除失败', error)
-          this.$message.error('删除失败')
+          console.error('删除失败', error);
+          this.$message.error('删除失败');
         })
+        .finally(() => {
+          this.loading = false;
+        });
     },
 
-    // 上传前验证
+    // 上传前检查
     beforeUpload(file) {
-      // 检查文件类型和扩展名
-      const validMimeTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav']
-      const isAudioType = validMimeTypes.includes(file.type)
-      const fileName = file.name.toLowerCase()
-      const isValidExtension = fileName.endsWith('.mp3') || fileName.endsWith('.wav')
-      const isLt50M = file.size / 1024 / 1024 < 50
-
-      if (!isAudioType || !isValidExtension) {
-        let errorMsg = '只能上传MP3/WAV格式的音频文件！'
-        if (!isAudioType) {
-          errorMsg += `\n检测到的文件类型: ${file.type || '未知'}`
-        }
-        this.$message.error(errorMsg)
-        return false
+      const isAudio = file.type.includes('audio');
+      const isLt50M = file.size / 1024 / 1024 < 50;
+      
+      if (!isAudio) {
+        this.$message.error('只能上传音频文件!');
+        return false;
       }
       if (!isLt50M) {
-        this.$message.error('音频文件大小不能超过50MB！')
-        return false
+        this.$message.error('音频文件大小不能超过 50MB!');
+        return false;
       }
-      return true
+      
+      return isAudio && isLt50M;
     },
-
-    // 自定义上传
+    
+    // 自定义上传方法
     uploadAudio(params) {
-      const file = params.file
-      const isValid = this.beforeUpload(file)
-      if (isValid) {
-        this.form.audio_file = file
-        this.fileList = [{ name: file.name, url: URL.createObjectURL(file) }]
-      }
+      const file = params.file;
+      const isValid = this.beforeUpload(file);
+      if (!isValid) return;
+      
+      // 更新文件列表显示
+      this.fileList = [{ name: file.name, url: URL.createObjectURL(file) }];
+      // 保存文件到表单
+      this.form.audio_file = file;
     },
     
     // 开始录音
     async startRecording() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        this.mediaRecorder = new MediaRecorder(stream)
-        this.recordedChunks = []
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.isRecording = true;
+        this.recordedChunks = [];
+        
+        this.mediaRecorder = new MediaRecorder(stream);
         
         this.mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
-            this.recordedChunks.push(event.data)
+            this.recordedChunks.push(event.data);
           }
-        }
+        };
         
         this.mediaRecorder.onstop = () => {
-          const blob = new Blob(this.recordedChunks, { type: 'audio/wav' })
-          this.recordedAudio = blob
-          this.recordedAudioUrl = URL.createObjectURL(blob)
+          const audioBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+          this.recordedAudio = audioBlob;
+          this.recordedAudioUrl = URL.createObjectURL(audioBlob);
+          
           // 停止所有音轨
-          stream.getTracks().forEach(track => track.stop())
-        }
+          stream.getTracks().forEach(track => track.stop());
+        };
         
-        this.mediaRecorder.start()
-        this.isRecording = true
+        this.mediaRecorder.start();
       } catch (error) {
-        console.error('录音失败:', error)
-        this.$message.error('无法访问麦克风，请确保已授予麦克风权限')
+        console.error('录音失败:', error);
+        this.$message.error('无法访问麦克风');
+        this.isRecording = false;
       }
     },
     
     // 停止录音
     stopRecording() {
-      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-        this.mediaRecorder.stop()
-        this.isRecording = false
+      if (this.mediaRecorder && this.isRecording) {
+        this.mediaRecorder.stop();
+        this.isRecording = false;
       }
     },
     
     // 使用录制的音频
     useRecordedAudio() {
       if (this.recordedAudio) {
-        const file = new File([this.recordedAudio], 'recorded_audio.wav', { type: 'audio/wav' })
-        this.form.audio_file = file
-        this.fileList = [{ name: file.name, url: this.recordedAudioUrl }]
-        this.discardRecordedAudio()
+        const fileName = `recorded_audio_${new Date().getTime()}.webm`;
+        const file = new File([this.recordedAudio], fileName, { type: 'audio/webm' });
+        
+        this.form.audio_file = file;
+        this.fileList = [{ name: fileName, url: this.recordedAudioUrl }];
+        this.discardRecordedAudio();
       }
     },
     
     // 放弃录制的音频
     discardRecordedAudio() {
       if (this.recordedAudioUrl) {
-        URL.revokeObjectURL(this.recordedAudioUrl)
+        URL.revokeObjectURL(this.recordedAudioUrl);
       }
-      this.recordedAudio = null
-      this.recordedAudioUrl = null
-      this.recordedChunks = []
+      this.recordedAudio = null;
+      this.recordedAudioUrl = null;
+      this.recordedChunks = [];
+    },
+    
+    // 分页相关方法
+    handleSizeChange(size) {
+      this.pageSize = size;
+      this.currentPage = 1;
+      this.tasks = []; // 清空现有数据
+      this.fetchTasks();
+    },
+    
+    handleCurrentChange(page) {
+      this.currentPage = page;
+      this.tasks = []; // 清空现有数据
+      this.fetchTasks();
     },
   }
 }
@@ -637,6 +749,13 @@ export default {
 .header-left, .header-right {
   display: flex;
   align-items: center;
+}
+
+.header-left {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {
@@ -857,21 +976,219 @@ export default {
   text-align: right;
 }
 
+/* 录音相关样式 */
+.audio-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.recorded-audio-preview {
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.preview-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+/* 移动端样式优化 */
+/* 移动端底部菜单 */
+.mobile-footer-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(20, 20, 40, 0.95);
+  display: flex;
+  height: 60px;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mobile-footer-menu .menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 20px;
+  color: #2196f3;
+  transition: all 0.3s;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.mobile-footer-menu .menu-item i {
+  font-size: 24px;
+  margin-bottom: 3px;
+}
+
+.mobile-footer-menu .menu-item span {
+  font-size: 14px;
+}
+
+.mobile-footer-menu .menu-item.active {
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.mobile-footer-menu .menu-item.active i {
+  transform: scale(1.1);
+}
+
+/* 悬浮添加按钮 */
+.floating-add-btn {
+  position: fixed;
+  bottom: 70px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 99;
+}
+
+.floating-add-btn:hover, .floating-add-btn:active {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
+  .voice-clone-container {
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 12px;
+    margin: 0;
+    height: 50px;
+    box-sizing: border-box;
   }
   
   .header-right {
-    margin-top: 10px;
-    width: 100%;
-    justify-content: space-between;
+    margin-top: 0;
+    width: auto;
+    justify-content: flex-end;
   }
   
   .toggle-text {
     display: none;
+  }
+  
+  .page-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
+  }
+  
+  .page-header .el-button {
+    margin: 0;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  
+  .view-toggle {
+    padding: 3px 6px;
+  }
+  
+  .mobile-header-placeholder {
+    height: 52px;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .task-list {
+    margin-top: 10px;
+    padding-bottom: 60px;
+  }
+  
+  /* 悬浮按钮移动端样式 */
+  .floating-add-btn {
+    bottom: 80px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 1001; /* 确保在底部菜单之上 */
+  }
+  
+  .floating-add-btn i {
+    font-size: 28px;
+  }
+  
+  /* 修复iOS移动端滑动问题 */
+  .card-list, 
+  .task-list,
+  .card-view-content,
+  .waterfall-container {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 空状态优化 */
+  .el-empty {
+    margin-top: 60px !important;
+  }
+  
+  /* 触碰反馈优化 */
+  .task-card:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  /* 隐藏在移动端不重要的表格列 */
+  .hide-on-mobile {
+    display: none;
+  }
+  
+  /* 移动端卡片容器优化 */
+  .mobile-card-container {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 8px;
+  }
+  
+  /* 移动端头部固定 */
+  .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border-radius: 0;
+    margin-bottom: 0;
   }
 }
 </style>

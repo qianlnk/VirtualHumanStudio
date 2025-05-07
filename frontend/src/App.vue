@@ -3,7 +3,7 @@
     <router-view v-if="$route.path === '/' || $route.path === '/login' || $route.path === '/register' || (!isAuthenticated && $route.path === '/contact')"></router-view>
     <el-container v-else-if="isAuthenticated">
         <!-- 左侧导航栏 - 在非移动端显示 -->
-        <el-aside :width="isCollapse ? '64px' : '200px'" class="app-aside" :class="{'is-mobile': isMobile, 'is-hidden': isMobile}">
+        <el-aside v-if="!isMobile" :width="isCollapse ? '64px' : '200px'" class="app-aside" :class="{'is-mobile': isMobile, 'is-hidden': isMobile}">
           <div class="aside-logo">
             <router-link to="/">
               <h1 v-if="!isCollapse">Virtual Human Studio</h1>
@@ -92,11 +92,10 @@
         </el-aside>
         
         <el-container>
-          <!-- 顶部用户信息 -->
-          <el-header height="50px" class="app-header">
-            <div class="mobile-menu-btn" @click="toggleMobileMenu">
-              <i class="el-icon-s-operation"></i>
-            </div>
+          <!-- 顶部用户信息 - 不包含菜单按钮 -->
+          <el-header height="50px" class="app-header mobile-header">
+            <!-- 在这里刻意删除菜单按钮 -->
+            <div style="flex: 1;"></div>
             <div class="header-user">
               <el-dropdown trigger="click" @command="handleCommand">
                 <span class="el-dropdown-link">
@@ -232,6 +231,35 @@ export default {
       })
     }
   },
+  mounted() {
+    // 在DOM加载完成后，强制移除菜单按钮
+    this.$nextTick(() => {
+      // 确保菜单按钮不显示
+      const menuButtons = document.querySelectorAll('.mobile-menu-btn, .el-icon-s-operation');
+      menuButtons.forEach(btn => {
+        if (btn) {
+          btn.style.display = 'none';
+          btn.style.visibility = 'hidden';
+          btn.style.opacity = '0';
+          btn.style.pointerEvents = 'none';
+          btn.style.position = 'absolute';
+          btn.style.left = '-9999px';
+          if (btn.parentNode) {
+            btn.parentNode.removeChild(btn);
+          }
+        }
+      });
+      
+      // 确保侧边栏在移动端总是隐藏
+      if (this.isMobile) {
+        const asideElement = document.querySelector('.app-aside');
+        if (asideElement) {
+          asideElement.style.display = 'none';
+          asideElement.style.visibility = 'hidden';
+        }
+      }
+    });
+  },
   beforeDestroy() {
     // 移除事件监听
     window.removeEventListener('resize', this.handleResize)
@@ -286,9 +314,11 @@ export default {
           this.$message.error('退出登录失败，请重试')
         })
     },
-    // 切换侧边栏折叠状态
+    // 切换侧边栏折叠状态 - 仅在非移动端使用
     toggleCollapse() {
-      this.isCollapse = !this.isCollapse
+      if (!this.isMobile) {
+        this.isCollapse = !this.isCollapse
+      }
     },
     // 处理窗口大小变化
     handleResize() {
@@ -296,13 +326,18 @@ export default {
       this.isMobile = mobile;
       this.isCollapse = mobile;
       
-      // 如果从移动设备切换到桌面设备，关闭移动端子菜单
-      if (!mobile && this.showMobileSubmenu) {
+      // 移动端总是隐藏侧边栏
+      if (mobile) {
+        this.showMobileMenu = false;
+        // 关闭移动端子菜单
         this.closeMobileSubmenu();
       }
     },
-    // 移动端切换主菜单
+    // 移动端切换主菜单 - 在移动端实际上不再使用
     toggleMobileMenu() {
+      // 移动端禁用侧边栏
+      if (this.isMobile) return;
+      
       this.showMobileMenu = !this.showMobileMenu;
       const asideElement = document.querySelector('.app-aside');
       if (asideElement) {
@@ -391,11 +426,36 @@ html, body {
   z-index: 1002;
 }
 
-.mobile-menu-btn {
-  display: none;
-  cursor: pointer;
-  font-size: 20px;
-  color: #fff;
+.mobile-menu-btn, 
+div.mobile-menu-btn, 
+.el-icon-s-operation, 
+div.el-icon-s-operation,
+i.el-icon-s-operation,
+[class*="mobile-menu-btn"],
+.app-header > div:first-child:not(.header-user) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  pointer-events: none !important;
+}
+
+/* 明确设置头部 */
+.mobile-header {
+  justify-content: flex-end !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+.mobile-header::before {
+  display: none !important;
+  content: none !important;
 }
 
 .aside-logo h1 {
@@ -512,6 +572,24 @@ html, body {
 
 .mobile-nav-item.active {
   color: #64b5f6;
+  font-weight: bold;
+}
+
+/* 移动端样式增强 */
+@media screen and (max-width: 768px) {
+  .mobile-nav-item {
+    padding: 6px 0;
+  }
+  
+  .mobile-nav-item i {
+    font-size: 22px;
+  }
+  
+  .mobile-nav-item.active {
+    background-color: rgba(100, 181, 246, 0.2);
+    border-top: 2px solid #64b5f6;
+    margin-top: -2px;
+  }
 }
 
 /* 移动端子菜单 */
@@ -568,23 +646,27 @@ html, body {
 
 /* 响应式样式 */
 @media screen and (max-width: 768px) {
-  .mobile-menu-btn {
-    display: block;
-    margin-right: auto;
+  /* 移动端完全隐藏侧边栏和菜单按钮 */
+  html body #app .app-aside, 
+  html body #app .mobile-menu-btn,
+  html body #app .el-header .mobile-menu-btn,
+  html body #app .el-header > div:first-child:not(.header-user) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+  }
+  
+  html body #app .app-header {
+    justify-content: flex-end !important;
+    padding: 0 15px !important;
   }
   
   .collapse-btn {
     display: none;
-  }
-  
-  .app-aside {
-    transform: translateX(-100%);
-    width: 80% !important;
-    z-index: 1020;
-  }
-  
-  .app-aside.is-mobile:not(.is-hidden) {
-    transform: translateX(0);
   }
   
   .app-main {
@@ -606,10 +688,6 @@ html, body {
   
   .mobile-footer {
     margin-bottom: 56px;
-  }
-  
-  .app-header {
-    padding: 0 15px;
   }
   
   /* 折叠时的样式 */
