@@ -135,7 +135,7 @@
       </el-col>
     </el-row>
     
-    <!-- 会员计划列表，放在底部 -->
+    <!-- 会员计划列表 -->
     <el-row>
       <el-col :span="24">
         <el-card class="plans-card" shadow="hover">
@@ -197,6 +197,74 @@
                 </div>
               </el-col>
             </el-row>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+    
+    <!-- 订单历史区域（可折叠） -->
+    <el-row class="order-history-row">
+      <el-col :span="24">
+        <el-card class="order-history-card" shadow="hover">
+          <div class="order-history-header" @click="toggleOrderHistory">
+            <i class="el-icon-document"></i>
+            <h3>购买记录</h3>
+            <span class="expand-icon">
+              <i :class="orderHistoryExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+            </span>
+          </div>
+          <div v-show="orderHistoryExpanded" class="order-history-content">
+            <el-button 
+              type="text" 
+              icon="el-icon-refresh" 
+              class="refresh-btn"
+              @click="fetchOrderHistory" 
+              :loading="historyLoading">
+              刷新
+            </el-button>
+            <el-table 
+              :data="orderHistory" 
+              stripe 
+              style="width: 100%; margin-top: 15px;"
+              v-loading="historyLoading"
+              empty-text="暂无购买记录">
+              <el-table-column prop="created_at" label="提交时间" width="180">
+                <template slot-scope="scope">
+                  {{ formatDateTime(scope.row.created_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="plan_name" label="会员方案" width="120"></el-table-column>
+              <el-table-column prop="payment_method" label="支付方式" width="100">
+                <template slot-scope="scope">
+                  {{ scope.row.payment_method === 'wechat' ? '微信支付' : '支付宝' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="price" label="金额" width="100">
+                <template slot-scope="scope">
+                  ¥{{ scope.row.price }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="100">
+                <template slot-scope="scope">
+                  <el-tag type="warning" v-if="scope.row.status === 'pending'">待审核</el-tag>
+                  <el-tag type="success" v-else-if="scope.row.status === 'approved'">已通过</el-tag>
+                  <el-tag type="danger" v-else-if="scope.row.status === 'rejected'">已拒绝</el-tag>
+                  <el-tag v-else>{{ scope.row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="approved_at" label="生效时间" width="180">
+                <template slot-scope="scope">
+                  <span v-if="scope.row.status === 'approved'">{{ formatDateTime(scope.row.approved_at) }}</span>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="reject_reason" label="备注">
+                <template slot-scope="scope">
+                  <span v-if="scope.row.status === 'rejected'">{{ scope.row.reject_reason }}</span>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </el-card>
       </el-col>
@@ -283,7 +351,8 @@ import {
   purchaseMembership, 
   cancelAutoRenew,
   getDailyUsage,
-  getUserPendingOrders
+  getUserPendingOrders,
+  getUserOrderHistory
 } from '@/api/membership'
 
 export default {
@@ -315,7 +384,10 @@ export default {
       // 订单状态
       orderStatus: null,
       pendingOrders: [],
-      orderLoading: false
+      orderHistory: [],
+      orderLoading: false,
+      historyLoading: false,
+      orderHistoryExpanded: false
     }
   },
   computed: {
@@ -349,6 +421,9 @@ export default {
   },
   created() {
     this.fetchMembershipData()
+    this.fetchPendingOrders()
+    // 不立即加载订单历史，等用户点击展开时再加载
+    // this.fetchOrderHistory()
   },
   methods: {
     // 获取所有会员相关数据
@@ -526,11 +601,11 @@ export default {
     async fetchPendingOrders() {
       this.orderLoading = true
       try {
-        // 这里应该是从后端获取当前用户的待审核订单
-        // 实际实现时连接后端API
         const response = await getUserPendingOrders()
         if (response.success) {
           this.pendingOrders = response.orders || []
+        } else {
+          console.error('获取待审核订单失败:', response.message)
         }
       } catch (error) {
         console.error('获取待审核订单失败:', error)
@@ -556,6 +631,23 @@ export default {
         this.$message.error('取消自动续费失败')
       } finally {
         this.cancelling = false
+      }
+    },
+    
+    // 获取订单历史记录
+    async fetchOrderHistory() {
+      this.historyLoading = true
+      try {
+        const response = await getUserOrderHistory()
+        if (response.success) {
+          this.orderHistory = response.orders || []
+        } else {
+          console.error('获取订单历史记录失败:', response.message)
+        }
+      } catch (error) {
+        console.error('获取订单历史记录失败:', error)
+      } finally {
+        this.historyLoading = false
       }
     },
     
@@ -638,6 +730,16 @@ export default {
       
       // 备用方案：如果套餐数据中没有二维码URL，则使用拼接的路径
       return `/uploads/qrcode/${this.selectedPlan.level}_${method}.jpg`;
+    },
+    
+    // 切换订单历史区域的展开状态
+    toggleOrderHistory() {
+      this.orderHistoryExpanded = !this.orderHistoryExpanded;
+      
+      // 如果展开且还没有数据，则加载数据
+      if (this.orderHistoryExpanded && this.orderHistory.length === 0) {
+        this.fetchOrderHistory();
+      }
     }
   }
 }
@@ -1051,5 +1153,53 @@ export default {
 .pending-tip i {
   margin-right: 5px;
   color: #E6A23C;
+}
+
+/* 订单历史区域（可折叠） */
+.order-history-row {
+  margin-bottom: 20px;
+}
+
+.order-history-card {
+  margin-bottom: 20px;
+}
+
+.order-history-header {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s;
+}
+
+.order-history-header:hover {
+  background-color: #f9f9f9;
+}
+
+.order-history-header i {
+  font-size: 24px;
+  margin-right: 10px;
+  color: #409EFF;
+}
+
+.order-history-header h3 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.expand-icon {
+  margin-left: auto;
+  color: #909399;
+  font-size: 16px;
+}
+
+.order-history-content {
+  padding: 0 15px 15px;
+}
+
+.order-history-content .refresh-btn {
+  margin-left: auto;
+  float: right;
 }
 </style> 

@@ -135,4 +135,35 @@ export const rejectOrder = async (orderId, rejectReason) => {
     }
     return { success: false, message: errorMsg }
   }
+}
+
+// 管理员获取所有订单（支持筛选）
+export const getAllOrders = async (params) => {
+  try {
+    const response = await axios.get('/api/admin/membership/orders', { params })
+    return { success: true, orders: response.data }
+  } catch (error) {
+    console.error('获取所有订单失败:', error)
+    var errorMsg = '获取所有订单失败'
+    if (error.response && error.response.data && error.response.data.error) {
+      errorMsg = error.response.data.error
+    }
+    return { success: false, message: errorMsg }
+  }
+}
+
+// 获取用户订单历史记录
+export const getUserOrderHistory = async () => {
+  try {
+    // 使用正确的API路径获取完整订单历史
+    const response = await axios.get('/api/membership/orders/history')
+    return { success: true, orders: response.data }
+  } catch (error) {
+    console.error('获取订单历史记录失败:', error)
+    var errorMsg = '获取订单历史记录失败'
+    if (error.response && error.response.data && error.response.data.error) {
+      errorMsg = error.response.data.error
+    }
+    return { success: false, message: errorMsg }
+  }
 } 

@@ -199,6 +199,7 @@ func registerRoutes(router *gin.Engine) {
 		membershipAPI.POST("/cancel", middleware.JWTAuth(), membershipController.CancelAutoRenew)
 		membershipAPI.GET("/daily-usage", middleware.JWTAuth(), membershipController.GetDailyUsage)
 		membershipAPI.GET("/pending-orders", middleware.JWTAuth(), membershipController.GetUserPendingOrders)
+		membershipAPI.GET("/orders/history", middleware.JWTAuth(), membershipController.GetUserOrderHistory)
 	}
 
 	// 管理员路由
@@ -222,5 +223,6 @@ func registerRoutes(router *gin.Engine) {
 		admin.GET("/membership/orders/pending", membershipController.GetAllPendingOrders)
 		admin.POST("/membership/orders/:id/approve", membershipController.ApproveOrder)
 		admin.POST("/membership/orders/:id/reject", membershipController.RejectOrder)
+		admin.GET("/membership/orders", membershipController.GetAllOrders)
 	}
 }

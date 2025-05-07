@@ -200,6 +200,21 @@ func (c *MembershipController) GetUserPendingOrders(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, orders)
 }
 
+// GetUserOrderHistory 获取用户订单历史记录
+func (c *MembershipController) GetUserOrderHistory(ctx *gin.Context) {
+	userIDInterface, _ := ctx.Get("user_id")
+	userID := userIDInterface.(uint)
+
+	var orders []models.MembershipOrder
+	if err := c.DB.Where("user_id = ?", userID).
+		Order("created_at DESC").Find(&orders).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取订单历史记录失败"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, orders)
+}
+
 // GetAllPendingOrders 管理员获取所有待审核订单
 func (c *MembershipController) GetAllPendingOrders(ctx *gin.Context) {
 	// 验证是否是管理员
@@ -284,15 +299,18 @@ func (c *MembershipController) ApproveOrder(ctx *gin.Context) {
 
 	startDate := time.Now()
 	var expireDate time.Time
-	if order.Duration > 0 {
-		expireDate = startDate.AddDate(0, 0, order.Duration)
-	} else {
-		expireDate = time.Date(9999, 12, 31, 23, 59, 59, 0, time.Local) // 永不过期
-	}
 
-	// 如果存在会员记录且未过期，则延长有效期
+	// 如果存在会员记录且未过期，则从当前到期日开始延长有效期
 	if result.Error == nil && membership.Level != models.MembershipFree && time.Now().Before(membership.ExpireDate) {
+		startDate = membership.StartDate // 保持原始开始日期
 		expireDate = membership.ExpireDate.AddDate(0, 0, order.Duration)
+	} else {
+		// 新会员或已过期会员，从当前时间开始计算
+		if order.Duration > 0 {
+			expireDate = startDate.AddDate(0, 0, order.Duration)
+		} else {
+			expireDate = time.Date(9999, 12, 31, 23, 59, 59, 0, time.Local) // 永不过期
+		}
 	}
 
 	// 查询会员计划获取任务优先级和每日限制
@@ -401,6 +419,67 @@ func (c *MembershipController) RejectOrder(ctx *gin.Context) {
 		"message": "订单已拒绝",
 		"order":   order,
 	})
+}
+
+// GetAllOrders 管理员获取所有订单（支持筛选）
+func (c *MembershipController) GetAllOrders(ctx *gin.Context) {
+	// 验证是否是管理员
+	roleInterface, exists := ctx.Get("role")
+	if !exists || roleInterface.(string) != "admin" {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "权限不足"})
+		return
+	}
+
+	// 获取查询参数
+	status := ctx.Query("status")
+	username := ctx.Query("username")
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+
+	query := c.DB.Model(&models.MembershipOrder{})
+
+	// 关联查询用户信息
+	query = query.Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, username, email, phone")
+	})
+
+	// 应用过滤条件
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if startDateStr != "" {
+		startDate, err := time.Parse("2006-01-02", startDateStr)
+		if err == nil {
+			query = query.Where("created_at >= ?", startDate)
+		}
+	}
+
+	if endDateStr != "" {
+		endDate, err := time.Parse("2006-01-02", endDateStr)
+		if err == nil {
+			// 将结束日期设置为当天的最后一刻
+			endDate = endDate.Add(24*time.Hour - time.Second)
+			query = query.Where("created_at <= ?", endDate)
+		}
+	}
+
+	// 如果有用户名筛选，需要关联用户表
+	if username != "" {
+		query = query.Joins("JOIN users ON membership_orders.user_id = users.id").
+			Where("users.username LIKE ?", "%"+username+"%")
+	}
+
+	// 按创建时间倒序排序
+	query = query.Order("created_at DESC")
+
+	var orders []models.MembershipOrder
+	if err := query.Find(&orders).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取订单列表失败"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, orders)
 }
 
 // CancelAutoRenew 取消自动续费
