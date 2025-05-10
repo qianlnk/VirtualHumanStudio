@@ -228,3 +228,29 @@ export async function getImageUrl(path, options = {}) {
         throw error
     }
 }
+
+/**
+ * 获取直接访问文件的URL（无Blob转换，仅添加token）
+ * @param {string} path - 文件路径
+ * @returns {string} 附带token的URL
+ */
+export function getDirectFileUrl(path) {
+    if (!path) return ''
+    
+    // 如果是HTTP/HTTPS完整URL，不需要特殊处理，直接添加token
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        const token = localStorage.getItem('token')
+        const separator = path.includes('?') ? '&' : '?'
+        return `${path}${separator}token=${token}`
+    }
+    
+    // 如果是相对路径，转为绝对路径
+    const baseURL = process.env.VUE_APP_API_URL || (window.location.origin + '/api')
+    if (path.startsWith('/')) {
+        path = path.substring(1) // 移除前导斜杠
+    }
+    
+    const fullUrl = `${baseURL}/${path}`
+    const token = localStorage.getItem('token')
+    return `${fullUrl}?token=${token}`
+}
