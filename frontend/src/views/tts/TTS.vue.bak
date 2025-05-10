@@ -1,5 +1,5 @@
 <template>
-  <div class="tts-container" :class="{'input-focused': isInputFocused}">
+  <div class="tts-container">
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>语音合成</h2>
@@ -31,7 +31,7 @@
                 size="mini" 
                 icon="el-icon-document-copy" 
                 class="copy-btn" 
-                @click.stop.prevent="copyText(scope.row.input_text)">
+                @click.stop="copyText(scope.row.input_text)">
               </el-button>
             </div>
           </template>
@@ -120,7 +120,7 @@
                     size="mini" 
                     icon="el-icon-document-copy" 
                     class="copy-btn" 
-                    @click.stop.prevent="copyText(item.input_text)">
+                    @click.stop="copyText(item.input_text)">
                   </el-button>
                 </div>
                 <p><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
@@ -179,16 +179,18 @@
       title="创建语音合成任务" 
       :visible.sync="dialogVisible" 
       :fullscreen="isMobile"
-      :modal="true"
+      :modal="isMobile"
       :close-on-click-modal="false"
       :append-to-body="true"
       :show-close="!isMobile"
+      :destroy-on-close="true"
+      width="600px"
       custom-class="tts-dialog"
-      width="600px">
+      @close="handleDialogClose">
       
       <!-- 移动端顶部导航 -->
       <div v-if="isMobile" class="mobile-header-bar">
-        <div class="header-back" @click="dialogVisible = false">
+        <div class="header-back" @click="closeDialog">
           <i class="el-icon-arrow-left"></i>
           <span>返回</span>
         </div>
@@ -226,7 +228,7 @@
       
       <!-- 桌面端底部按钮 -->
       <span v-if="!isMobile" slot="footer" class="dialog-footer">
-        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button @click="closeDialog">取 消</el-button>
         <el-button type="primary" :loading="submitting" @click="submitForm">确 定</el-button>
       </span>
     </el-dialog>
@@ -275,10 +277,7 @@ export default {
       audioFile: null,
       isMobile: false,
       lastScrollTop: 0,
-      pauseScrollListening: false,
-      isInputFocused: false,
-      originalScrollY: 0,
-      originalBodyHeight: ''
+      pauseScrollListening: false
     }
   },
   created() {
@@ -312,6 +311,12 @@ export default {
     
     // 确保在组件挂载时清理可能的残留状态
     document.body.style.overflow = ''
+    document.body.style.position = ''
+    document.body.style.width = ''
+    document.body.style.height = ''
+    document.body.style.top = ''
+    document.body.style.left = ''
+    this.pauseScrollListening = false
     
     // 确保对话框是关闭的
     this.dialogVisible = false
@@ -326,9 +331,6 @@ export default {
     if (this.isMobile) {
       this.isCardView = true;
     }
-    
-    // 设置移动端视口
-    this.setupMobileViewport();
   },
   
   beforeDestroy() {
@@ -347,36 +349,17 @@ export default {
     
     // 确保在组件销毁时清理状态
     document.body.style.overflow = ''
+    document.body.style.position = ''
+    document.body.style.width = ''
+    document.body.style.height = ''
+    document.body.style.top = ''
+    document.body.style.left = ''
     this.pauseScrollListening = false
-    
-    // 恢复默认视口设置
-    this.resetMobileViewport();
   },
   methods: {
     // 辅助方法: 调试日志
     debug(...args) {
       console.log('[TTS]', ...args)
-    },
-    
-    // 设置移动端视口
-    setupMobileViewport() {
-      if (!this.isMobile) return;
-      
-      let viewportMeta = document.querySelector('meta[name="viewport"]');
-      if (!viewportMeta) {
-        viewportMeta = document.createElement('meta');
-        viewportMeta.name = 'viewport';
-        document.head.appendChild(viewportMeta);
-      }
-      viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-    },
-    
-    // 重置移动端视口
-    resetMobileViewport() {
-      let viewportMeta = document.querySelector('meta[name="viewport"]');
-      if (viewportMeta) {
-        viewportMeta.content = 'width=device-width, initial-scale=1.0';
-      }
     },
     
     // 初始加载数据
@@ -524,24 +507,87 @@ export default {
     
     // 显示创建对话框
     showCreateDialog() {
-      // 重置表单数据
+      // 先重置表单数据
       this.form = {
         input_text: '',
         speaker_names: []
       }
       
+      // 确保在显示对话框前禁用滚动
+      if (this.isMobile) {
+        // 立即禁用滚动
+        document.body.style.overflow = 'hidden'
+        document.body.style.position = 'fixed'
+        document.body.style.width = '100%'
+        document.body.style.height = '100%'
+        document.body.style.top = '0'
+        document.body.style.left = '0'
+      }
+      
+      // 暂停滚动监听
+      this.pauseScrollListening = true
+      
       // 显示对话框
       this.dialogVisible = true
       
-      // 重置表单验证
+      // 等待对话框渲染完成后执行
       this.$nextTick(() => {
+        // 重置表单验证
         if (this.$refs.form) {
           this.$refs.form.clearValidate()
         }
         
-        // 确保移动端视口设置正确
-        this.setupMobileViewport();
+        // 确保对话框内容从顶部开始显示
+        const dialogBody = document.querySelector('.el-dialog__body')
+        if (dialogBody) {
+          dialogBody.scrollTop = 0
+        }
+        
+        // 确保输入框可以正常工作
+        setTimeout(() => {
+          // 强制重新渲染表单
+          this.$forceUpdate()
+        }, 100)
       })
+    },
+    
+    // 关闭对话框
+    closeDialog() {
+      // 关闭对话框
+      this.dialogVisible = false
+      
+      // 恢复滚动
+      if (this.isMobile) {
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.width = ''
+        document.body.style.height = ''
+        document.body.style.top = ''
+        document.body.style.left = ''
+      }
+      
+      // 延迟恢复滚动监听
+      setTimeout(() => {
+        this.pauseScrollListening = false
+      }, 300)
+    },
+    
+    // 处理对话框关闭
+    handleDialogClose() {
+      // 恢复滚动
+      if (this.isMobile) {
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.width = ''
+        document.body.style.height = ''
+        document.body.style.top = ''
+        document.body.style.left = ''
+      }
+      
+      // 延迟恢复滚动监听
+      setTimeout(() => {
+        this.pauseScrollListening = false
+      }, 300)
     },
     
     // 提交表单
@@ -582,17 +628,11 @@ export default {
           
           if (completedTasks === totalTasks) {
             this.$message.success('所有TTS任务创建完成')
-            this.dialogVisible = false
-            // 重置列表数据并重新加载
-            this.currentPage = 1
-            this.tasks = []
+            this.closeDialog()
             this.fetchTasks()
           } else if (completedTasks > 0) {
             this.$message.warning(`部分任务创建成功 (${completedTasks}/${totalTasks}), 失败 ${failedTasks} 个`)
-            this.dialogVisible = false
-            // 重置列表数据并重新加载
-            this.currentPage = 1
-            this.tasks = []
+            this.closeDialog()
             this.fetchTasks()
           } else {
             this.$message.error('所有任务创建失败')
@@ -605,7 +645,7 @@ export default {
           
           // 确保在移动端上，即使提交失败也能正确清理状态
           if (this.isMobile && this.dialogVisible) {
-            this.dialogVisible = false
+            this.closeDialog()
           }
         }
       })
@@ -670,76 +710,14 @@ export default {
     copyText(text) {
       if (!text) return
       
-      // 尝试使用现代的Clipboard API
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text)
-          .then(() => {
-            this.$message.success('文本已复制到剪贴板')
-          })
-          .catch(err => {
-            console.error('Clipboard API复制失败，尝试备选方案:', err)
-            this.fallbackCopyText(text)
-          })
-      } else {
-        // 对于不支持Clipboard API的浏览器，使用备选方案
-        this.fallbackCopyText(text)
-      }
-    },
-    
-    // 复制文本的备选方案
-    fallbackCopyText(text) {
-      try {
-        // 创建一个不可见的span元素
-        const span = document.createElement('span')
-        span.textContent = text
-        span.style.position = 'absolute'
-        span.style.left = '-9999px'
-        span.style.top = '0'
-        span.style.opacity = '0'
-        span.style.userSelect = 'all'
-        span.style.webkitUserSelect = 'all'
-        span.style.MozUserSelect = 'all'
-        span.style.msUserSelect = 'all'
-        
-        // 添加到DOM
-        document.body.appendChild(span)
-        
-        // 保存当前选择和滚动位置
-        const selection = window.getSelection()
-        const savedSelection = selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null
-        const scrollX = window.scrollX || window.pageXOffset
-        const scrollY = window.scrollY || window.pageYOffset
-        
-        // 选择文本
-        const range = document.createRange()
-        range.selectNode(span)
-        selection.removeAllRanges()
-        selection.addRange(range)
-        
-        // 执行复制命令
-        const successful = document.execCommand('copy')
-        
-        // 恢复原始选择
-        selection.removeAllRanges()
-        if (savedSelection) {
-          selection.addRange(savedSelection)
-        }
-        
-        // 恢复滚动位置
-        window.scrollTo(scrollX, scrollY)
-        
-        // 移除临时元素
-        document.body.removeChild(span)
-        
-        if (successful) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
           this.$message.success('文本已复制到剪贴板')
-        } else {
+        })
+        .catch(err => {
+          console.error('复制失败:', err)
           this.$message.error('复制失败')
-        }
-      } catch (err) {
-        console.error('备选复制方案失败:', err)
-        this.$message.error('复制失败')
-      }
+        })
     },
     
     // 获取文件扩展名
@@ -1084,21 +1062,6 @@ export default {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.copy-btn:active {
-  transform: scale(0.95);
-  background-color: #409EFF;
-  color: white;
-}
-
-/* 增加移动端复制按钮的触摸区域 */
-@media screen and (max-width: 768px) {
-  .copy-btn {
-    width: 36px;
-    height: 36px;
-    padding: 8px;
-  }
-}
-
 /* 卡片视图相关样式 */
 .card-list {
   position: relative;
@@ -1435,6 +1398,68 @@ export default {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
+/* 移动端对话框样式优化 */
+@media screen and (max-width: 768px) {
+  /* 确保对话框占满全屏 */
+  .el-dialog.tts-dialog {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background-color: #fff !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* 隐藏对话框标题 */
+  .el-dialog.tts-dialog .el-dialog__header {
+    display: none !important;
+  }
+  
+  /* 确保对话框内容区域可滚动 */
+  .el-dialog.tts-dialog .el-dialog__body {
+    padding: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-top: 56px !important; /* 为顶部导航留出空间 */
+    flex: 1 !important;
+    margin: 0 !important;
+  }
+  
+  /* 确保表单可编辑 */
+  .tts-form {
+    padding-top: 10px !important;
+    padding-bottom: 70px !important; /* 为底部按钮留出空间 */
+  }
+  
+  /* 固定底部按钮 */
+  .mobile-form-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 2002 !important;
+    background-color: #fff !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* 修复顶部导航栏 */
+  .mobile-header-bar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 2003 !important;
+  }
+  
+  /* 修复遮罩层问题 */
+  .v-modal {
+    opacity: 0.5 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
 /* 防止对话框打开时背景滚动 */
 body.dialog-open {
   overflow: hidden !important;
@@ -1443,6 +1468,48 @@ body.dialog-open {
   height: 100%;
   top: 0;
   left: 0;
+}
+
+/* 移动端对话框容器样式 */
+@media screen and (max-width: 768px) {
+  .el-dialog__wrapper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 2001 !important;
+  }
+}
+
+/* iOS设备输入框修复 */
+@supports (-webkit-touch-callout: none) {
+  /* iOS设备特定样式 */
+  .tts-dialog .el-textarea__inner,
+  .tts-dialog .el-input__inner {
+    -webkit-appearance: none !important;
+    border-radius: 4px !important;
+    background-color: #fff !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+  
+  /* 确保iOS设备上表单元素可交互 */
+  .tts-form {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  /* 防止iOS设备上滚动穿透 */
+  body.dialog-open {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 /* 移动端对话框基础样式 */
@@ -1502,60 +1569,5 @@ body.dialog-open {
 .mobile-submit-btn:active {
   background: linear-gradient(135deg, #1565c0, #42a5f5);
   transform: translateY(1px);
-}
-
-/* 移动端对话框样式优化 */
-@media screen and (max-width: 768px) {
-  /* 确保对话框占满全屏 */
-  .el-dialog.tts-dialog {
-    width: 100% !important;
-    height: 100% !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    overflow: hidden !important;
-  }
-  
-  /* 确保对话框内容区域可滚动 */
-  .el-dialog__body {
-    padding: 0 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding-top: 56px !important; /* 为顶部导航留出空间 */
-    height: calc(100% - 56px) !important;
-  }
-  
-  /* 确保表单可编辑 */
-  .tts-form {
-    padding-top: 10px !important;
-    padding-bottom: 70px !important; /* 为底部按钮留出空间 */
-  }
-  
-  /* 固定底部按钮 */
-  .mobile-form-footer {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 2002 !important;
-    background-color: #fff !important;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
-  }
-  
-  /* 输入框样式优化 */
-  .el-textarea__inner {
-    font-size: 16px !important; /* 避免iOS自动缩放 */
-    padding: 10px !important;
-    line-height: 1.5 !important;
-  }
-  
-  /* 修复iOS上输入框问题 */
-  .el-textarea {
-    transform: translateZ(0);
-  }
-}
-
-/* 修复iOS上的滚动问题 */
-.el-dialog__wrapper {
-  -webkit-overflow-scrolling: touch;
 }
 </style>

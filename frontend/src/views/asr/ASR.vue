@@ -161,10 +161,32 @@
     <audio ref="audioPlayer" style="display: none"></audio>
     
     <!-- 创建任务对话框 -->
-    <el-dialog title="创建语音识别任务" :visible.sync="uploadDialogVisible" width="50%" :close-on-click-modal="false">
-      <el-form :model="asrForm" :rules="asrRules" ref="asrForm" label-width="100px" class="asr-form">
+    <el-dialog 
+      title="创建语音识别任务" 
+      :visible.sync="uploadDialogVisible" 
+      :fullscreen="isMobile"
+      :modal="true"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+      :show-close="!isMobile"
+      custom-class="asr-dialog"
+      width="50%">
+      
+      <!-- 移动端顶部导航 -->
+      <div v-if="isMobile" class="mobile-header-bar">
+        <div class="header-back" @click="uploadDialogVisible = false">
+          <i class="el-icon-arrow-left"></i>
+          <span>返回</span>
+        </div>
+      </div>
+      
+      <el-form :model="asrForm" :rules="asrRules" ref="asrForm" label-width="100px" class="asr-form" :label-position="isMobile ? 'top' : 'left'">
         <el-form-item label="任务名称" prop="name">
-          <el-input v-model="asrForm.name" placeholder="请输入任务名称"></el-input>
+          <el-input 
+            v-model="asrForm.name" 
+            placeholder="请输入任务名称"
+            @focus="handleInputFocus"
+            @blur="handleInputBlur"></el-input>
         </el-form-item>
         <el-form-item label="音频来源" prop="audioSource">
           <el-radio-group v-model="asrForm.audioSource">
@@ -187,9 +209,15 @@
             <el-button size="small" type="danger" @click="stopRecording" v-if="isRecording">停止录制</el-button>
             <div slot="tip" class="el-upload__tip">只能上传mp3/wav/m4a格式的音频文件，且不超过50MB</div>
           </div>
-          <!-- 录音预览 -->
+          <!-- 录音预览 - 改进播放控件布局 -->
           <div v-if="recordedAudio" class="recorded-audio-preview">
-            <audio :src="recordedAudioUrl" controls></audio>
+            <div class="audio-player-wrapper">
+              <audio :src="recordedAudioUrl" controls controlsList="nodownload" ref="previewAudio"></audio>
+              <div class="audio-player-fallback" v-if="isMobile">
+                <el-button size="small" type="primary" icon="el-icon-video-play" @click="playPreviewAudio">播放</el-button>
+                <el-button size="small" type="info" icon="el-icon-video-pause" @click="pausePreviewAudio">暂停</el-button>
+              </div>
+            </div>
             <div class="preview-actions">
               <el-button size="small" type="primary" @click="useRecordedAudio">使用录制的音频</el-button>
               <el-button size="small" @click="discardRecordedAudio">放弃</el-button>
@@ -197,10 +225,21 @@
           </div>
         </el-form-item>
         <el-form-item v-else label="音频URL" prop="audioUrl">
-          <el-input v-model="asrForm.audioUrl" placeholder="请输入音频文件URL"></el-input>
+          <el-input 
+            v-model="asrForm.audioUrl" 
+            placeholder="请输入音频文件URL"
+            @focus="handleInputFocus"
+            @blur="handleInputBlur"></el-input>
         </el-form-item>
+        
+        <!-- 移动端底部按钮 -->
+        <div v-if="isMobile" class="mobile-form-footer">
+          <el-button type="primary" @click="submitASRTask" class="mobile-submit-btn">创建任务</el-button>
+        </div>
       </el-form>
-      <div slot="footer" class="dialog-footer">
+      
+      <!-- 桌面端底部按钮 -->
+      <div v-if="!isMobile" slot="footer" class="dialog-footer">
         <el-button @click="uploadDialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="submitASRTask">确 定</el-button>
       </div>
@@ -264,6 +303,9 @@ export default {
       observer: null,
       isMobile: false, // 是否为移动端
       lastScrollTop: 0, // 记录上次滚动位置
+      // 视口控制相关变量
+      originalViewportContent: null,
+      isInputFocused: false
     }
   },
   
@@ -291,6 +333,11 @@ export default {
     if (this.isMobile) {
       this.isCardView = true;
     }
+    
+    // 设置移动端视口
+    if (this.isMobile) {
+      this.setupMobileViewport();
+    }
   },
   
   beforeDestroy() {
@@ -305,6 +352,9 @@ export default {
     
     // 移除事件监听
     window.removeEventListener('resize', this.checkDeviceType);
+    
+    // 重置视口设置
+    this.resetMobileViewport();
   },
   
   methods: {
@@ -510,6 +560,48 @@ export default {
       return new Date(dateString).toLocaleString()
     },
 
+    // 设置移动端视口
+    setupMobileViewport() {
+      if (!this.isMobile) return;
+      
+      let viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (!viewportMeta) {
+        viewportMeta = document.createElement('meta');
+        viewportMeta.name = 'viewport';
+        document.head.appendChild(viewportMeta);
+      }
+      
+      // 保存原始视口设置
+      if (!this.originalViewportContent) {
+        this.originalViewportContent = viewportMeta.content;
+      }
+      
+      // 设置禁止用户缩放的视口
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    },
+    
+    // 重置移动端视口
+    resetMobileViewport() {
+      if (!this.isMobile) return;
+      
+      let viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta && this.originalViewportContent) {
+        viewportMeta.content = this.originalViewportContent;
+      } else if (viewportMeta) {
+        viewportMeta.content = 'width=device-width, initial-scale=1.0';
+      }
+    },
+    
+    // 处理输入框焦点
+    handleInputFocus() {
+      this.isInputFocused = true;
+    },
+    
+    // 处理输入框失焦
+    handleInputBlur() {
+      this.isInputFocused = false;
+    },
+
     // 处理上传
     handleUpload() {
       this.uploadDialogVisible = true
@@ -521,6 +613,13 @@ export default {
       }
       this.fileList = []
       this.discardRecordedAudio()
+      
+      // 对话框打开时设置移动端视口
+      if (this.isMobile) {
+        this.$nextTick(() => {
+          this.setupMobileViewport();
+        });
+      }
     },
 
     // 上传前验证
@@ -560,29 +659,80 @@ export default {
     // 开始录音
     async startRecording() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        this.mediaRecorder = new MediaRecorder(stream)
-        this.recordedChunks = []
+        // 确保在移动端上获取正确的音频格式
+        let options = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        };
         
-        this.mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            this.recordedChunks.push(event.data)
+        const stream = await navigator.mediaDevices.getUserMedia(options);
+        const audioTracks = stream.getAudioTracks();
+        
+        if (audioTracks.length > 0) {
+          console.log('使用音频设备:', audioTracks[0].label);
+        }
+        
+        // 对于iOS，需要特殊处理媒体录制器
+        let mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = '';  // 让浏览器选择支持的格式
           }
         }
         
-        this.mediaRecorder.onstop = () => {
-          const blob = new Blob(this.recordedChunks, { type: 'audio/wav' })
-          this.recordedAudio = blob
-          this.recordedAudioUrl = URL.createObjectURL(blob)
-          // 停止所有音轨
-          stream.getTracks().forEach(track => track.stop())
-        }
+        this.mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType || ''
+        });
         
-        this.mediaRecorder.start()
-        this.isRecording = true
+        this.recordedChunks = [];
+        
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.recordedChunks.push(event.data);
+            console.log('获取录音数据块，大小:', event.data.size);
+          }
+        };
+        
+        this.mediaRecorder.onstop = () => {
+          // 确定正确的MIME类型
+          let audioType = mimeType || 'audio/webm';
+          // 对于iOS Safari，通常使用audio/mp4
+          if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            audioType = 'audio/mp4';
+          }
+          
+          const blob = new Blob(this.recordedChunks, { type: audioType });
+          console.log('录音完成，创建Blob，大小:', blob.size, '类型:', audioType);
+          
+          // 为iOS创建特殊文件名
+          const fileName = /iPhone|iPad|iPod/.test(navigator.userAgent) 
+            ? 'recording.m4a' 
+            : 'recording.webm';
+            
+          this.recordedAudio = new File([blob], fileName, { type: audioType });
+          this.recordedAudioUrl = URL.createObjectURL(blob);
+          
+          // 停止所有音轨
+          stream.getTracks().forEach(track => track.stop());
+          
+          // 确保UI更新
+          this.$nextTick(() => {
+            if (this.$refs.previewAudio) {
+              this.$refs.previewAudio.load();
+            }
+          });
+        };
+        
+        this.mediaRecorder.start(1000); // 每秒触发一次ondataavailable
+        this.isRecording = true;
+        console.log('开始录音，使用MIME类型:', this.mediaRecorder.mimeType);
       } catch (error) {
-        console.error('录音失败:', error)
-        this.$message.error('无法访问麦克风，请确保已授予麦克风权限')
+        console.error('录音失败:', error);
+        this.$message.error('无法访问麦克风，请确保已授予麦克风权限');
       }
     },
     
@@ -721,6 +871,13 @@ export default {
           this.$refs.asrForm.resetFields();
           this.fileList = [];
           this.discardRecordedAudio();
+          
+          // 重置视口设置
+          if (this.isMobile) {
+            this.$nextTick(() => {
+              this.resetMobileViewport();
+            });
+          }
         }
       } catch (error) {
         const errorMessage = (error.response && error.response.data && error.response.data.error) || error.message || '创建任务失败';
@@ -748,6 +905,22 @@ export default {
         top: 0,
         behavior: 'smooth'
       });
+    },
+    // 播放预览音频
+    playPreviewAudio() {
+      if (this.$refs.previewAudio) {
+        this.$refs.previewAudio.play().catch(err => {
+          console.error('播放预览音频失败:', err);
+          this.$message.error('播放失败，请尝试使用此音频或重新录制');
+        });
+      }
+    },
+    
+    // 暂停预览音频
+    pausePreviewAudio() {
+      if (this.$refs.previewAudio) {
+        this.$refs.previewAudio.pause();
+      }
     },
   }
 }
@@ -1157,5 +1330,275 @@ export default {
 .floating-add-btn:active {
   transform: scale(0.95);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* 移动端对话框样式 */
+@media screen and (max-width: 768px) {
+  /* 确保对话框占满全屏 */
+  .el-dialog.asr-dialog {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+  
+  /* 确保对话框内容区域可滚动 */
+  .el-dialog__body {
+    padding: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-top: 56px !important; /* 为顶部导航留出空间 */
+    height: calc(100% - 56px) !important;
+  }
+  
+  /* 确保表单可编辑 */
+  .asr-form {
+    padding: 10px 15px 70px !important; /* 为底部按钮留出空间 */
+  }
+  
+  /* 固定底部按钮 */
+  .mobile-form-footer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 2002 !important;
+    background-color: #fff !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* 移动端底部按钮样式 */
+  .mobile-submit-btn {
+    width: 100%;
+    height: 56px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 0;
+    margin: 0;
+    background: linear-gradient(135deg, #1976d2, #64b5f6);
+    border: none;
+    color: #fff;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+  
+  .mobile-submit-btn:active {
+    background: linear-gradient(135deg, #1565c0, #42a5f5);
+    transform: translateY(1px);
+  }
+  
+  /* 移动端顶部导航栏 */
+  .mobile-header-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background-color: #409EFF;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    z-index: 2003;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    color: white;
+  }
+  
+  .header-back {
+    display: flex;
+    align-items: center;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .header-back i {
+    margin-right: 5px;
+    font-size: 18px;
+  }
+  
+  /* 录音区域响应式调整 */
+  .audio-upload-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .recorded-audio-preview {
+    margin-top: 10px;
+    width: 100%;
+  }
+  
+  .recorded-audio-preview audio {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .preview-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  
+  /* 修复iOS上的滚动问题 */
+  .el-dialog__wrapper {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 输入框样式优化 */
+  .el-textarea__inner,
+  .el-input__inner {
+    font-size: 16px !important; /* 避免iOS自动缩放 */
+    padding: 10px !important;
+    line-height: 1.5 !important;
+  }
+}
+
+/* 增强录音预览样式 */
+.recorded-audio-preview {
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.audio-player-wrapper {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.audio-player-wrapper audio {
+  width: 100%;
+  max-width: 100%;
+  height: 40px;
+  margin-bottom: 10px;
+}
+
+.audio-player-fallback {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* 修复移动端音频播放问题 */
+@media screen and (max-width: 768px) {
+  .el-dialog.asr-dialog {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+  
+  /* 确保对话框内容区域可滚动 */
+  .el-dialog__body {
+    padding: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-top: 56px !important; /* 为顶部导航留出空间 */
+    height: calc(100% - 56px) !important;
+  }
+  
+  /* 移动端录音组件优化 */
+  .audio-upload-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  
+  .recorded-audio-preview {
+    margin-top: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .audio-player-wrapper {
+    width: 100%;
+  }
+  
+  .audio-player-wrapper audio {
+    width: 100%;
+    height: 40px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  .audio-player-fallback {
+    margin: 12px 0;
+  }
+  
+  .audio-player-fallback .el-button {
+    flex: 1;
+    height: 40px;
+    border-radius: 20px;
+  }
+  
+  .preview-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .preview-actions .el-button {
+    width: 100%;
+    height: 44px;
+    margin: 0;
+  }
+}
+
+/* 修复移动端音频播放问题 */
+@media screen and (max-width: 768px) {
+  /* ... 其他样式 ... */
+  
+  /* 修复iOS上的输入框放大问题 */
+  input[type="text"],
+  input[type="url"],
+  input[type="email"],
+  input[type="number"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important; /* 关键：16px或更大可以防止iOS缩放 */
+    max-height: none !important;
+  }
+  
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 16px !important;
+    line-height: 20px !important;
+  }
+  
+  /* 对话框类容器禁止缩放 */
+  .el-dialog__wrapper,
+  .el-dialog,
+  .el-dialog__body {
+    touch-action: pan-y !important;
+  }
+  
+  /* 输入框聚焦时的样式，提供用户反馈 */
+  .el-input.is-focus .el-input__inner {
+    border-color: #409EFF !important;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+  }
 }
 </style>

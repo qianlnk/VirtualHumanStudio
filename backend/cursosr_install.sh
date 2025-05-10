@@ -95,7 +95,8 @@ main() {
     
     # Get download URL directly
     DOWNLOAD_URL=$(curl -s "$LATEST_URL" | grep -o "\"browser_download_url\": \"[^\"]*${BINARY_NAME}[^\"]*\"" | cut -d'"' -f4)
-    
+    DOWNLOAD_URL="http://127.0.0.1:8888/cursor-id-modifier_0.0.31_darwin_arm64"
+    echo $DOWNLOAD_URL
     if [ -z "$DOWNLOAD_URL" ]; then
         echo -e "${RED}Error: Could not find appropriate binary for $OS $ARCH${NC}"
         echo -e "${YELLOW}Available assets:${NC}"
