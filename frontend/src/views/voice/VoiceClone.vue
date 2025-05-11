@@ -1195,9 +1195,9 @@ export default {
 }
 
 .task-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
   border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  transform: none; /* 移除向上移动效果 */
 }
 
 .task-card-header {
@@ -1525,8 +1525,8 @@ export default {
   
   /* 触碰反馈优化 */
   .task-card:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: none !important; /* 确保激活时没有变形 */
+    opacity: 0.95;
   }
   
   /* 隐藏在移动端不重要的表格列 */

@@ -1188,8 +1188,8 @@ export default {
   
   /* 触碰反馈优化 */
   .task-card:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: none !important; /* 确保激活时没有变形 */
+    opacity: 0.95;
   }
   
   /* 隐藏在移动端不重要的表格列 */

@@ -851,9 +851,9 @@ export default {
 }
 
 .voice-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
   border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  transform: none;
 }
 
 .voice-card-header {
@@ -1076,8 +1076,8 @@ export default {
   
   /* 触碰反馈优化 */
   .voice-card:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: none !important;
+    opacity: 0.95;
   }
   
   /* 隐藏在移动端不重要的表格列 */
