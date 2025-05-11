@@ -194,7 +194,8 @@ export default {
         { name: '音色库', route: '/voice-library', icon: 'el-icon-headset' },
         { name: '文本转语音', route: '/tts', icon: 'el-icon-reading' },
         { name: '语音识别', route: '/speech2text', icon: 'el-icon-mic' }
-      ]
+      ],
+      hasLoadedModules: false
     }
   },
   computed: {
@@ -216,6 +217,23 @@ export default {
       this.activeIndex = newPath
       if (this.isMobile) {
         this.closeMobileSubmenu();
+      }
+      
+      // 在路由变化时，如果用户已登录且还没加载模块，则加载模块
+      if (this.$store.getters.isAuthenticated && !this.hasLoadedModules) {
+        console.log('检测到路由变化且用户已登录，正在加载模块...');
+        this.fetchImageProcessingModules();
+      }
+    },
+    
+    // 监听登录状态变化
+    '$store.getters.isAuthenticated': {
+      immediate: true,
+      handler(isAuthenticated) {
+        if (isAuthenticated && !this.hasLoadedModules) {
+          console.log('检测到登录状态变化，用户已登录，正在加载模块...');
+          this.fetchImageProcessingModules();
+        }
       }
     }
   },
@@ -259,36 +277,72 @@ export default {
         }
       }
     });
+    
+    // 监听登录事件
+    if (this.$eventBus) {
+      this.$eventBus.$on('auth-changed', () => {
+        console.log('收到auth-changed事件，加载模块');
+        this.fetchImageProcessingModules();
+      });
+    }
   },
   beforeDestroy() {
     // 移除事件监听
-    window.removeEventListener('resize', this.handleResize)
+    window.removeEventListener('resize', this.handleResize);
+    // 移除自定义事件监听
+    if (this.$eventBus) {
+      this.$eventBus.$off('auth-changed');
+    }
   },
   methods: {
     // 获取图像处理模块列表
     async fetchImageProcessingModules() {
       try {
-        const response = await getImageProcessingModules()
-        if (response.success) {
-          // 合并本地和远程模块
-          const localModules = [{
-            id: 'accessory',
-            name: '饰品替换',
-            route: '/accessory',
-            icon: 'el-icon-magic-stick',
-            description: '智能替换人物饰品'
-          }]
-          this.imageProcessingModules = [...localModules, ...response.modules]
-          // 动态添加模块路由
-          const moduleRoutes = this.$router.options.generateImageProcessingRoutes(this.imageProcessingModules)
-          // 逐个添加模块路由
-          moduleRoutes.forEach(route => {
-            this.$router.addRoute(route)
-          })
+        // 确保用户已登录
+        if (this.$store.getters.isAuthenticated) {
+          console.log('开始获取图像处理模块列表');
+          const response = await getImageProcessingModules();
+          if (response.success) {
+            // // 合并本地和远程模块
+            // const localModules = [{
+            //   id: 'accessory',
+            //   name: '饰品替换',
+            //   route: '/accessory',
+            //   icon: 'el-icon-magic-stick',
+            //   description: '智能替换人物饰品'
+            // }];
+            // this.imageProcessingModules = [...localModules, ...response.modules];
+            this.imageProcessingModules = [...response.modules];
+            
+            // 动态添加模块路由
+            const moduleRoutes = this.$router.options.generateImageProcessingRoutes(this.imageProcessingModules);
+            
+            // 逐个添加模块路由
+            moduleRoutes.forEach(route => {
+              try {
+                // 尝试添加路由
+                this.$router.addRoute(route);
+              } catch (e) {
+                console.warn('添加路由失败，可能已存在:', route.path, e);
+              }
+            });
+            
+            console.log('图像处理模块加载成功:', this.imageProcessingModules);
+            
+            // 标记模块已加载
+            this.hasLoadedModules = true;
+            
+            // 强制重新渲染菜单
+            this.$nextTick(() => {
+              this.$forceUpdate();
+            });
+          }
+        } else {
+          console.log('用户未登录，不加载图像处理模块');
         }
       } catch (error) {
-        console.error('获取图像处理模块列表失败:', error)
-        this.$message.error('获取图像处理模块列表失败')
+        console.error('获取图像处理模块列表失败:', error);
+        this.$message.error('获取图像处理模块列表失败');
       }
     },
     // 处理用户下拉菜单命令

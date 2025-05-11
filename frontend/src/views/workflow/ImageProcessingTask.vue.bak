@@ -75,7 +75,7 @@
       
       <div v-else class="card-view-content">
         <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
-          <div class="task-card" v-for="item in tasks" :key="item.id" :data-task-id="item.id">
+          <div class="task-card" v-for="item in tasks" :key="item.id">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.name }}</h3>
               <el-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
@@ -90,18 +90,11 @@
                   arrow="hover" 
                   :autoplay="false" 
                   indicator-color="#ddd" 
-                  type=""
-                  :key="'carousel-' + item.id"
-                  :ref="`carousel-${item.id}`"
-                  loop
-                  @change="(index) => updateCarouselIndex(item.id, index)">
+                  :type="isMobile ? '' : 'card'">
                   <el-carousel-item v-for="(image, index) in getTaskImages(item)" :key="`${image.type}-${index}`">
-                    <div class="carousel-item" :data-is-output="image.type === 'output'"
-                      @touchstart="onCarouselTouchStart($event, item.id)" 
-                      @touchmove="onCarouselTouchMove($event, item.id)" 
-                      @touchend="onCarouselTouchEnd($event, item.id)">
+                    <div class="carousel-item" :data-is-output="image.type === 'output'">
                       <div class="carousel-image-wrapper">
-                        <img :src="image.src" class="carousel-image" :alt="image.alt" draggable="false">
+                        <img :src="image.src" class="carousel-image" :alt="image.alt">
                       </div>
                       <div class="carousel-label">
                         <span :class="image.type === 'output' ? 'carousel-output-label' : 'carousel-input-label'">
@@ -417,12 +410,7 @@ export default {
       lastScrollTop: 0, // 记录上次滚动位置
       // 视口控制相关变量
       originalViewportContent: null,
-      isInputFocused: false,
-      // 轮播图触摸相关状态
-      carouselTouchStart: null,
-      carouselTouchCurrent: null,
-      activeCarouselIndex: {},
-      isDraggingCarousel: false
+      isInputFocused: false
     }
   },
   created() {
@@ -546,15 +534,6 @@ export default {
     // 返回上一页
     goBack() {
       this.$router.back();
-    },
-    
-    // 处理触摸事件，阻止图片拖拽但允许轮播滑动
-    handleTouchEvent(e) {
-      // 允许事件冒泡，以便轮播图可以响应滑动
-      // 但阻止默认行为，防止图片拖拽
-      if (e.target.tagName.toLowerCase() === 'img') {
-        e.preventDefault();
-      }
     },
     
     // 检测设备类型
@@ -1375,8 +1354,8 @@ export default {
         }
       } catch (error) {
         if (error !== 'cancel') {
-          this.$message.error('删除任务失败：' + error.message)
-        }
+        console.error('获取所有图片失败:', error);
+        return [];
       }
     },
 
@@ -1457,47 +1436,23 @@ export default {
     // 检查任务是否有图片可显示
     hasImages(item) {
       // 对于已完成的任务检查是否有输出
-      if (item.status === 'completed') {
-        // 检查output_params（包含图片参数的情况）
-        if (item.output_params) {
-          try {
-            let params = item.output_params;
-            if (typeof params === 'string') {
-              params = JSON.parse(params);
-            }
-            
-            if (Array.isArray(params)) {
-              for (const param of params) {
-                if (param && (param.type === 'image' || param.type === 'mask') && 
-                    param.value && typeof param.value === 'string' && param.value.trim()) {
-                  return true;
-                }
+      if (item.status === 'completed' && item.output_paths) {
+        try {
+          let outputPaths = item.output_paths;
+          if (typeof outputPaths === 'string') {
+            outputPaths = JSON.parse(outputPaths);
+          }
+          
+          if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
+            // 检查是否有有效的图片路径
+            for (const key in outputPaths) {
+              if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
+                return true;
               }
             }
-          } catch (e) {
-            console.error('检查输出参数图片失败:', e);
           }
-        }
-        
-        // 检查output_paths（直接包含图片路径的情况）
-        if (item.output_paths) {
-          try {
-            let outputPaths = item.output_paths;
-            if (typeof outputPaths === 'string') {
-              outputPaths = JSON.parse(outputPaths);
-            }
-            
-            if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
-              // 检查是否有有效的图片路径
-              for (const key in outputPaths) {
-                if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
-                  return true;
-                }
-              }
-            }
-          } catch (e) {
-            console.error('检查输出图片路径失败:', e);
-          }
+        } catch (e) {
+          console.error('检查输出图片失败:', e);
         }
       }
       
@@ -1531,56 +1486,27 @@ export default {
       const images = [];
       
       // 只有完成状态的任务才显示输出图片
-      if (item.status === 'completed') {
-        // 检查output_params中的图片
-        if (item.output_params) {
-          try {
-            let params = item.output_params;
-            if (typeof params === 'string') {
-              params = JSON.parse(params);
-            }
-            
-            if (Array.isArray(params)) {
-              for (const param of params) {
-                if (param && (param.type === 'image' || param.type === 'mask') && 
-                    param.value && typeof param.value === 'string' && param.value.trim()) {
-                  images.push({
-                    src: param.value,
-                    alt: param.alias || param.key,
-                    label: param.alias || param.key,
-                    type: 'output'
-                  });
-                }
+      if (item.status === 'completed' && item.output_paths) {
+        try {
+          let outputPaths = item.output_paths;
+          if (typeof outputPaths === 'string') {
+            outputPaths = JSON.parse(outputPaths);
+          }
+          
+          if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
+            for (const key in outputPaths) {
+              if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
+                images.push({
+                  src: outputPaths[key],
+                  alt: key,
+                  label: key,
+                  type: 'output'
+                });
               }
             }
-          } catch (e) {
-            console.error('处理输出参数图片失败:', e);
           }
-        }
-        
-        // 检查output_paths中的图片路径
-        if (item.output_paths && images.length === 0) {
-          try {
-            let paths = item.output_paths;
-            if (typeof paths === 'string') {
-              paths = JSON.parse(paths);
-            }
-            
-            if (typeof paths === 'object' && !Array.isArray(paths)) {
-              for (const [key, path] of Object.entries(paths)) {
-                if (typeof path === 'string' && path.trim()) {
-                  images.push({
-                    src: path,
-                    alt: `输出: ${key}`,
-                    label: key,
-                    type: 'output'
-                  });
-                }
-              }
-            }
-          } catch (e) {
-            console.error('处理输出路径图片失败:', e);
-          }
+        } catch (e) {
+          console.error('处理输出图片失败:', e);
         }
       }
       
@@ -1610,115 +1536,8 @@ export default {
         }
       }
       
-      // 确保至少有一张图片可显示
-      if (images.length === 0) {
-        console.log('任务没有找到任何可显示的图片:', item.id);
-      }
-      
       return images;
     },
-
-    // 格式化日期
-    formatDate(date) {
-      return new Date(date).toLocaleString()
-    },
-
-    // 获取状态类型
-    getStatusType(status) {
-      const statusMap = {
-        pending: 'info',
-        processing: 'warning',
-        completed: 'success',
-        failed: 'danger'
-      }
-      return statusMap[status] || 'info'
-    },
-
-    // 获取状态文本
-    getStatusText(status) {
-      const statusMap = {
-        pending: '待处理',
-        processing: '处理中',
-        completed: '已完成',
-        failed: '失败'
-      }
-      return statusMap[status] || status
-    },
-
-    // 轮播图触摸事件处理
-    onCarouselTouchStart(event, taskId) {
-      this.isDraggingCarousel = true;
-      this.carouselTouchStart = event.touches[0].clientX;
-      this.carouselTouchCurrent = event.touches[0].clientX;
-      
-      // 确保该任务ID有索引记录
-      if (this.activeCarouselIndex[taskId] === undefined) {
-        this.activeCarouselIndex[taskId] = 0;
-      }
-    },
-
-    onCarouselTouchMove(event) {
-      if (!this.isDraggingCarousel) return;
-      
-      // 阻止默认行为，防止页面滚动
-      event.preventDefault();
-      this.carouselTouchCurrent = event.touches[0].clientX;
-    },
-
-    onCarouselTouchEnd(event, taskId) {
-      if (!this.isDraggingCarousel) return;
-      
-      const delta = this.carouselTouchCurrent - this.carouselTouchStart;
-      const images = this.getTaskImages(this.tasks.find(t => t.id === taskId));
-      const maxIndex = images.length - 1;
-      
-      if (Math.abs(delta) > 50) { // 降低触发阈值，提高灵敏度
-        if (delta > 0) {
-          // 向右滑动，显示上一张
-          if (this.activeCarouselIndex[taskId] === 0) {
-            // 如果当前是第一张，循环到最后一张
-            this.activeCarouselIndex[taskId] = maxIndex;
-          } else {
-            // 否则显示上一张
-            this.activeCarouselIndex[taskId]--;
-          }
-        } else {
-          // 向左滑动，显示下一张
-          if (this.activeCarouselIndex[taskId] === maxIndex) {
-            // 如果当前是最后一张，循环到第一张
-            this.activeCarouselIndex[taskId] = 0;
-          } else {
-            // 否则显示下一张
-            this.activeCarouselIndex[taskId]++;
-          }
-        }
-        
-        // 手动控制对应轮播图
-        this.setCarouselToIndex(taskId, this.activeCarouselIndex[taskId]);
-      }
-      
-      this.isDraggingCarousel = false;
-    },
-
-    // 更新轮播图索引记录
-    updateCarouselIndex(taskId, index) {
-      this.activeCarouselIndex[taskId] = index;
-    },
-
-    // 手动设置轮播图到指定索引
-    setCarouselToIndex(taskId, index) {
-      // 使用ref获取轮播图实例
-      const refName = `carousel-${taskId}`;
-      const carousel = this.$refs[refName];
-      
-      if (carousel) {
-        if (Array.isArray(carousel) && carousel.length > 0) {
-          carousel[0].setActiveItem(index);
-        } else {
-          carousel.setActiveItem(index);
-        }
-      }
-    }
   }
 }
 </script>
@@ -1819,13 +1638,12 @@ export default {
   width: 100%;
   min-width: auto;
   margin-bottom: 0;
-  transform: none !important; /* 确保没有任何变形 */
 }
 
 .task-card:hover {
+  transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
   border-color: rgba(255, 255, 255, 0.2);
-  transform: none !important; /* 确保悬停时没有变形 */
 }
 
 .task-card-header {
@@ -1853,28 +1671,22 @@ export default {
 
 .task-card-content {
   padding: 10px;
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* 改回hidden，完全禁止滚动 */
-  min-height: 0; /* 允许内容区域收缩，避免溢出 */
-  max-height: 100%; /* 限制最大高度，避免溢出 */
+  overflow: hidden;
+  min-height: 90px;
 }
 
 .task-card-info {
-  margin: 8px 0 5px 0;
+  margin-bottom: 10px;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .task-card-info p {
-  margin: 0;
+  margin: 6px 0;
   font-size: 13px;
   color: #ddd;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .task-card-footer {
@@ -1884,7 +1696,6 @@ export default {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.1);
   margin-top: auto;
-  flex-shrink: 0; /* 防止底部被压缩 */
 }
 
 .action-btn {
@@ -2093,8 +1904,8 @@ export default {
   
   /* 触碰反馈优化 */
   .task-card:active {
-    opacity: 0.95;
-    transform: none !important; /* 确保激活时没有变形 */
+    transform: scale(0.98);
+    opacity: 0.9;
   }
   
   /* 加载更多容器样式 */
@@ -2244,13 +2055,10 @@ export default {
 
 /* 轮播图样式 */
 .task-card-carousel {
-  margin: 0 -10px 5px; /* 减少底部margin，避免内容溢出 */
-  width: calc(100% + 20px);
+  margin: 0 -12px 10px;
+  width: calc(100% + 24px);
   border-radius: 4px;
   overflow: hidden;
-  padding: 3px;
-  box-sizing: border-box;
-  flex-shrink: 0; /* 防止轮播图被压缩 */
 }
 
 .carousel-item {
@@ -2263,7 +2071,6 @@ export default {
 
 .carousel-image-wrapper {
   height: 140px;
-  max-height: 140px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2326,23 +2133,12 @@ export default {
 /* 响应式样式调整 */
 @media screen and (max-width: 768px) {
   .task-card-carousel {
-    margin: 0 -8px 3px; /* 移动端底部margin更小 */
+    margin: 0 -8px 8px;
     width: calc(100% + 16px);
-  }
-  
-  .task-card-footer {
-    padding: 8px 10px; /* 减小移动端padding */
-  }
-  
-  /* 移动端卡片样式调整 */
-  .task-card {
-    height: auto; /* 自适应高度 */
-    min-height: 0;
   }
   
   .carousel-image-wrapper {
     height: 120px;
-    max-height: 120px;
   }
   
   .carousel-label {
@@ -2355,102 +2151,12 @@ export default {
 .carousel-item[data-is-output="true"] .carousel-image-wrapper {
   border: 2px solid rgba(76, 175, 80, 0.5);
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
-  box-sizing: border-box;
-  margin: 2px;
-  width: calc(100% - 4px);
 }
 
 @media screen and (max-width: 768px) {
   .carousel-output-label::before {
     font-size: 12px;
     top: 0;
-  }
-  
-  .carousel-item[data-is-output="true"] .carousel-image-wrapper {
-    margin: 1px;
-    width: calc(100% - 2px);  /* 移动端边框更窄 */
-  }
-  
-  /* 确保移动端也不显示滚动条 */
-  .task-card-content {
-    overflow: hidden;
-    min-height: 0;
-  }
-  
-  .task-card-info {
-    margin: 5px 0 0 0;
-  }
-  
-  .carousel-image-wrapper {
-    height: 120px;
-    max-height: 120px;
-  }
-}
-
-/* 修复轮播图项在卡片模式下的样式 */
-.el-carousel__item--card {
-  border: none !important;
-}
-
-/* 调整轮播图容器样式避免边框显示不全 */
-.task-card .el-carousel__container {
-  padding: 1px;
-  box-sizing: border-box;
-}
-
-@media screen and (max-width: 768px) {
-  .task-card .el-carousel__indicators {
-    bottom: 2px !important;
-  }
-  
-  .task-card .el-carousel__arrow {
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 10px !important;
-  }
-  
-  /* 移动端轮播图高度调整 */
-  .task-card .el-carousel {
-    height: 160px !important;
-  }
-  
-  /* 确保移动端可以触摸滑动 */
-  .task-card .el-carousel__container {
-    touch-action: pan-y !important;
-  }
-  
-  /* 隐藏卡片效果的多余内边距 */
-  .task-card .el-carousel__item {
-    padding: 0 !important;
-  }
-}
-
-.el-carousel__container {
-  position: relative;
-  height: 100%;
-  touch-action: pan-x !important; /* 启用横向触摸滑动 */
-}
-
-@media screen and (max-width: 768px) {
-  .task-card .el-carousel__container {
-    touch-action: pan-x !important;
-    height: 160px !important;
-  }
-  
-  /* 确保移动端的轮播图可以滑动 */
-  .card-list .el-carousel {
-    touch-action: pan-x !important;
-  }
-  
-  .el-carousel__item {
-    touch-action: pan-x !important;
-  }
-  
-  /* 确保图片不会阻止滑动事件 */
-  .carousel-image {
-    pointer-events: none;
-    user-select: none;
-    -webkit-user-drag: none;
   }
 }
 </style>
@@ -2742,92 +2448,6 @@ export default {
   /* 隐藏卡片效果的多余内边距 */
   .task-card .el-carousel__item {
     padding: 0 !important;
-  }
-}
-
-/* 强化轮播图触摸滑动 */
-.el-carousel {
-  --webkit-user-select: none;
-  user-select: none;
-}
-
-.el-carousel__mask {
-  display: none !important; /* 移除遮罩，优化触摸体验 */
-}
-
-/* 确保轮播图容器样式避免边框显示不全 */
-.task-card .el-carousel__container {
-  padding: 1px;
-  box-sizing: border-box;
-  touch-action: pan-x !important;
-}
-
-/* 移动端触摸优化 */
-@media screen and (max-width: 768px) {
-  /* 优化轮播图点击区域 */
-  .el-carousel__arrow {
-    width: 28px !important; /* 增大点击区域 */
-    height: 28px !important;
-  }
-  
-  /* 确保轮播图不会阻止页面滚动 */
-  .card-list {
-    touch-action: pan-y !important;
-  }
-  
-  /* 隐藏桌面端样式按钮，使用原生按钮样式 */
-  .task-card .el-carousel__arrow i {
-    font-size: 14px !important;
-  }
-}
-
-/* 优化轮播图移动端触摸体验 */
-.task-card-carousel {
-  width: 100%;
-  box-sizing: border-box;
-  touch-action: pan-x !important;
-  -webkit-user-select: none;
-  user-select: none;
-  overflow: visible !important;
-}
-
-.carousel-item {
-  touch-action: pan-x !important;
-  -webkit-user-select: none;
-  user-select: none;
-  cursor: grab;
-}
-
-.carousel-item:active {
-  cursor: grabbing;
-}
-
-/* 确保图片不会阻止滑动事件 */
-.carousel-image {
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-/* 增强移动端触摸体验 */
-@media (max-width: 768px) {
-  .el-carousel__container {
-    touch-action: pan-x !important;
-  }
-  
-  .el-carousel__item {
-    touch-action: pan-x !important;
-  }
-  
-  /* 增大点击区域 */
-  .el-carousel__arrow {
-    width: 32px !important;
-    height: 32px !important;
-    background-color: rgba(0, 0, 0, 0.4) !important;
-  }
-  
-  .el-carousel__arrow i {
-    font-size: 18px !important;
   }
 }
 </style>

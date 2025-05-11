@@ -19,7 +19,7 @@ const ASR = () => import('../views/asr/ASR.vue')
 const ASRDetail = () => import('../views/asr/ASRDetail.vue')
 const DigitalHuman = () => import('../views/digital-human/DigitalHuman.vue')
 const DigitalHumanDetail = () => import('../views/digital-human/DigitalHumanDetail.vue')
-const Accessory = () => import('../views/accessory/Accessory.vue')
+// const Accessory = () => import('../views/accessory/Accessory.vue')
 const ImageProcessingTask = () => import('../views/workflow/ImageProcessingTask.vue')
 const ImageProcessingTaskDetail = () => import('../views/workflow/ImageProcessingTaskDetail.vue')
 const UserProfile = () => import('../views/user/UserProfile.vue')
@@ -170,24 +170,21 @@ const generateImageProcessingRoutes = (modules) => {
     return routes
 }
 
-// 添加配饰路由
-const AccessoryDetail = () => import('../views/accessory/AccessoryDetail.vue')
-baseRoutes.push({
-    path: '/accessory',
-    component: Accessory,
-    meta: { requiresAuth: true }
-})
-baseRoutes.push({
-    path: '/accessory/:id',
-    component: AccessoryDetail,
-    meta: { requiresAuth: true }
-})
+// // 添加配饰路由
+// const AccessoryDetail = () => import('../views/accessory/AccessoryDetail.vue')
+// baseRoutes.push({
+//     path: '/accessory',
+//     component: Accessory,
+//     meta: { requiresAuth: true }
+// })
+// baseRoutes.push({
+//     path: '/accessory/:id',
+//     component: AccessoryDetail,
+//     meta: { requiresAuth: true }
+// })
 
 // 合并基础路由和动态路由
-const routes = baseRoutes.concat(generateImageProcessingRoutes([{
-    id: 'image-processing',
-    route: '/image-processing'
-}]))
+const routes = [...baseRoutes]
 
 const router = new VueRouter({
     mode: 'history',
@@ -214,6 +211,16 @@ router.beforeEach((to, from, next) => {
             // 需要管理员权限的路由
             next({ path: '/' })
         } else {
+            // 用户已认证，触发事件通知App组件加载模块
+            if (from.path === '/login') {
+                // 如果是从登录页面跳转过来，使用setTimeout确保导航完成后再触发事件
+                setTimeout(() => {
+                    if (Vue.prototype.$eventBus) {
+                        console.log('从登录页跳转，触发auth-changed事件');
+                        Vue.prototype.$eventBus.$emit('auth-changed');
+                    }
+                }, 100);
+            }
             next()
         }
     } else if (to.matched.some(record => record.meta.guest) && isAuthenticated) {
