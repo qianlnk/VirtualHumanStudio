@@ -74,7 +74,11 @@
           <div class="task-card" v-for="(item, index) in digitalHumans" :key="item.id || index" :ref="`taskCard_${item.id || index}`">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.name || '未命名任务' }}</h3>
-              <el-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+              <div class="status-icon">
+                <i v-if="item.status === 'completed'" class="el-icon-check" style="color: #67c23a;"></i>
+                <i v-else-if="item.status === 'failed'" class="el-icon-close" style="color: #f56c6c;"></i>
+                <el-tag v-else :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+              </div>
             </div>
             <div class="task-card-content">
               <div class="task-card-info">
