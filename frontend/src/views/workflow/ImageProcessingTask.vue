@@ -2,6 +2,7 @@
   <div class="workflow-container">
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
+        <i v-if="isMobile" class="el-icon-arrow-left back-icon" @click="goBack"></i>
         <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
       </div>
       <div class="header-right">
@@ -116,9 +117,28 @@
     </el-dialog>
 
     <!-- 蒙版编辑对话框 -->
-    <el-dialog title="蒙版编辑" :visible.sync="maskEditorVisible" width="80%" :before-close="closeMaskEditor">
-      <div class="mask-editor-container">
-        <div class="editor-tools">
+    <el-dialog 
+      title="蒙版编辑" 
+      :visible.sync="maskEditorVisible" 
+      :width="isMobile ? '100%' : '80%'" 
+      :fullscreen="isMobile"
+      :before-close="closeMaskEditor"
+      :append-to-body="true"
+      :close-on-click-modal="false"
+      :show-close="!isMobile"
+      custom-class="mask-editor-dialog">
+      
+      <!-- 移动端顶部导航 -->
+      <div v-if="isMobile" class="mobile-header-bar mask-editor-header">
+        <div class="header-back" @click="closeMaskEditor">
+          <i class="el-icon-arrow-left"></i>
+          <span>返回</span>
+        </div>
+        <div class="header-title">蒙版编辑</div>
+      </div>
+      
+      <div class="mask-editor-container" :class="{'mobile-mask-editor': isMobile}">
+        <div class="editor-tools" :class="{'mobile-editor-tools': isMobile}">
           <div class="tool-group">
             <span class="tool-label">模式:</span>
             <el-radio-group v-model="brushMode" size="small">
@@ -153,7 +173,7 @@
               :step="1"
               show-stops
               :show-tooltip="true"
-              style="width: 200px;"
+              :style="{ width: isMobile ? '140px' : '200px' }"
             ></el-slider>
             <span class="brush-size-label">{{brushSize}}px</span>
           </div>
@@ -161,23 +181,58 @@
           <el-button size="small" type="danger" @click="clearCanvas">清空</el-button>
         </div>
         
-        <div class="canvas-container">
+        <div class="canvas-container" :class="{'mobile-canvas-container': isMobile}">
           <div class="canvas-wrapper">
             <canvas ref="baseCanvas" class="editor-canvas base-canvas"></canvas>
-            <canvas ref="drawCanvas" class="editor-canvas draw-canvas" :style="{ cursor: brushMode === 'brush' ? 'crosshair' : 'cell' }"></canvas>
+            <canvas ref="drawCanvas" class="editor-canvas draw-canvas" :style="{ cursor: customCursor || 'crosshair' }"></canvas>
           </div>
         </div>
         
-        <div class="editor-actions">
-          <el-button type="primary" @click="saveMask">保存蒙版</el-button>
-          <el-button @click="closeMaskEditor">取消</el-button>
+        <div class="editor-actions" :class="{'mobile-editor-actions': isMobile}">
+          <template v-if="!isMobile">
+            <el-button type="primary" @click="saveMask">保存蒙版</el-button>
+            <el-button @click="closeMaskEditor">取消</el-button>
+          </template>
         </div>
+      </div>
+      
+      <!-- 移动端底部按钮 -->
+      <div v-if="isMobile" class="mobile-form-footer">
+        <el-button type="primary" @click="saveMask" class="mobile-submit-btn">保存蒙版</el-button>
       </div>
     </el-dialog>
     
     <!-- 创建任务对话框 -->
-    <el-dialog :title="`创建${currentModule ? currentModule.name : '图像处理'}任务`" :visible.sync="dialogVisible" width="600px">
-      <el-form :model="form" :rules="rules" ref="form" label-width="120px" v-if="currentModule && currentModule.inputParams">
+    <el-dialog 
+      :title="`创建${currentModule ? currentModule.name : '图像处理'}任务`" 
+      :visible.sync="dialogVisible" 
+      :width="isMobile ? '100%' : '600px'"
+      :fullscreen="isMobile"
+      :modal="true"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+      :show-close="!isMobile"
+      custom-class="image-processing-dialog">
+      
+      <!-- 移动端顶部导航 -->
+      <div v-if="isMobile" class="mobile-header-bar">
+        <div class="header-back" @click="dialogVisible = false">
+          <i class="el-icon-arrow-left"></i>
+          <span>返回</span>
+        </div>
+        <div class="header-title">
+          创建{{currentModule ? currentModule.name : '图像处理'}}任务
+        </div>
+      </div>
+      
+      <el-form 
+        :model="form" 
+        :rules="rules" 
+        ref="form" 
+        :label-width="isMobile ? '90px' : '120px'"
+        :label-position="isMobile ? 'top' : 'left'"
+        class="image-processing-form">
+        
         <!-- 任务名称输入框 -->
         <el-form-item label="任务名称" prop="taskName">
           <el-input
@@ -187,8 +242,11 @@
             resize="both"
             :rows="2"
             style="width: 100%;"
+            @focus="handleInputFocus"
+            @blur="handleInputBlur"
           ></el-input>
         </el-form-item>
+        
         <!-- 动态表单，根据模块配置生成不同的表单项 -->
         <div v-for="(param, index) in currentModule.inputParams" :key="index">
           <el-form-item :label="param.alias" :prop="`params.${param.key}`">
@@ -201,13 +259,16 @@
               resize="both"
               :rows="3"
               style="width: 100%;"
+              @focus="handleInputFocus"
+              @blur="handleInputBlur"
             ></el-input>
             
             <!-- 选择类型参数 -->
             <el-select
               v-else-if="param.type === 'select'"
               v-model="form.params[param.key]"
-              :placeholder="`请选择${param.alias}`">
+              :placeholder="`请选择${param.alias}`"
+              style="width: 100%;">
               <el-option
                 v-for="option in param.options"
                 :key="option.value"
@@ -218,7 +279,7 @@
             
             <!-- 图片类型参数 -->
             <template v-else-if="param.type === 'image' || param.type === 'mask'">
-              <div class="image-param-container">
+              <div class="image-param-container" :class="{'mobile-image-container': isMobile}">
                 <el-upload
                   class="upload-item"
                   action="#"
@@ -243,8 +304,15 @@
             </template>
           </el-form-item>
         </div>
+        
+        <!-- 移动端底部按钮 -->
+        <div v-if="isMobile" class="mobile-form-footer">
+          <el-button type="primary" @click="submitForm" :loading="submitting" class="mobile-submit-btn">创建任务</el-button>
+        </div>
       </el-form>
-      <div slot="footer" class="dialog-footer">
+      
+      <!-- 桌面端底部按钮 -->
+      <div v-if="!isMobile" slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="submitForm" :loading="submitting">创建</el-button>
       </div>
@@ -297,6 +365,8 @@ export default {
       brushShape: 'round',
       brushColor: 'black',
       brushSize: 10,
+      cursorSize: 10, // 添加光标大小变量
+      customCursor: '', // 添加自定义光标变量
       baseImage: null,
       maskCanvas: null,
       isDrawing: false,
@@ -312,7 +382,10 @@ export default {
       hasMoreData: true,
       initialLoaded: false,
       scrollThreshold: 200,
-      lastScrollTop: 0 // 记录上次滚动位置
+      lastScrollTop: 0, // 记录上次滚动位置
+      // 视口控制相关变量
+      originalViewportContent: null,
+      isInputFocused: false
     }
   },
   created() {
@@ -364,6 +437,26 @@ export default {
             this.loading = false
           }
       }
+    },
+    
+    // 监听笔刷大小变化
+    brushSize() {
+      this.updateCursor();
+    },
+    
+    // 监听笔刷形状变化
+    brushShape() {
+      this.updateCursor();
+    },
+    
+    // 监听笔刷模式变化
+    brushMode() {
+      this.updateCursor();
+    },
+    
+    // 监听笔刷颜色变化
+    brushColor() {
+      this.updateCursor();
     }
   },
   mounted() {
@@ -384,6 +477,9 @@ export default {
     // 如果是移动端，默认使用卡片视图
     if (this.isMobile) {
       this.isCardView = true
+      
+      // 设置移动端视口
+      this.setupMobileViewport()
     }
   },
   
@@ -405,8 +501,16 @@ export default {
     if (this.loadingTimer) {
       clearTimeout(this.loadingTimer)
     }
+    
+    // 重置视口设置
+    this.resetMobileViewport()
   },
   methods: {
+    // 返回上一页
+    goBack() {
+      this.$router.back();
+    },
+    
     // 检测设备类型
     checkDeviceType() {
       this.isMobile = window.innerWidth <= 768;
@@ -422,6 +526,49 @@ export default {
         }
       }
     },
+    
+    // 设置移动端视口
+    setupMobileViewport() {
+      if (!this.isMobile) return;
+      
+      let viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (!viewportMeta) {
+        viewportMeta = document.createElement('meta');
+        viewportMeta.name = 'viewport';
+        document.head.appendChild(viewportMeta);
+      }
+      
+      // 保存原始视口设置
+      if (!this.originalViewportContent) {
+        this.originalViewportContent = viewportMeta.content;
+      }
+      
+      // 设置禁止用户缩放的视口
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    },
+    
+    // 重置移动端视口
+    resetMobileViewport() {
+      if (!this.isMobile) return;
+      
+      let viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta && this.originalViewportContent) {
+        viewportMeta.content = this.originalViewportContent;
+      } else if (viewportMeta) {
+        viewportMeta.content = 'width=device-width, initial-scale=1.0';
+      }
+    },
+    
+    // 处理输入框焦点
+    handleInputFocus() {
+      this.isInputFocused = true;
+    },
+    
+    // 处理输入框失焦
+    handleInputBlur() {
+      this.isInputFocused = false;
+    },
+
     // 获取所有模块
     async fetchModules() {
       this.moduleLoading = true
@@ -619,6 +766,13 @@ export default {
       if (this.$refs.form) {
         this.$refs.form.resetFields()
       }
+      
+      // 对话框打开时设置移动端视口
+      if (this.isMobile) {
+        this.$nextTick(() => {
+          this.setupMobileViewport();
+        });
+      }
     },
 
     // 处理图片上传
@@ -659,6 +813,13 @@ export default {
       // 设置编辑器状态
       this.currentMaskParam = param
       this.maskEditorVisible = true
+      
+      // 对话框打开时设置移动端视口
+      if (this.isMobile) {
+        this.$nextTick(() => {
+          this.setupMobileViewport();
+        });
+      }
 
       // 初始化画布
       await this.$nextTick()
@@ -751,11 +912,17 @@ export default {
             
             // 初始化绘制事件
             this.initDrawEvents()
+            
+            // 更新光标
+            this.updateCursor()
           }
           maskImg.src = URL.createObjectURL(this.form.params[param.key])
         } else {
           // 如果没有蒙版，直接初始化绘制事件
           this.initDrawEvents()
+          
+          // 更新光标
+          this.updateCursor()
         }
       }
       img.onerror = () => {
@@ -763,6 +930,45 @@ export default {
         this.maskEditorVisible = false
       }
       img.src = URL.createObjectURL(baseImageFile)
+    },
+    
+    // 更新光标样式
+    updateCursor() {
+      // 确保画布已经初始化
+      if (!this.$refs.drawCanvas) return
+      
+      // 应用缩放因子使光标大小与实际绘制效果匹配
+      // 进一步缩小缩放因子，使光标更贴近实际绘制线条粗细
+      const scaleFactor = 0.35
+      const displaySize = Math.round(this.brushSize * scaleFactor)
+      // 确保光标最小尺寸
+      const finalSize = Math.max(displaySize, 3)
+      this.cursorSize = finalSize
+      
+      // 创建SVG光标
+      let svgCursor
+      if (this.brushShape === 'round') {
+        // 圆形光标
+        if (this.brushMode === 'brush') {
+          // 画笔模式 - 实心圆
+          svgCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${finalSize * 2}' height='${finalSize * 2}' viewBox='0 0 ${finalSize * 2} ${finalSize * 2}'><circle cx='${finalSize}' cy='${finalSize}' r='${finalSize}' fill='${this.brushColor === 'black' ? '%23000' : (this.brushColor === 'white' ? '%23fff' : '%23999')}' fill-opacity='0.3' stroke='%23000' stroke-width='1'/></svg>") ${finalSize} ${finalSize}, crosshair`
+        } else {
+          // 橡皮擦模式 - 空心圆
+          svgCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${finalSize * 2}' height='${finalSize * 2}' viewBox='0 0 ${finalSize * 2} ${finalSize * 2}'><circle cx='${finalSize}' cy='${finalSize}' r='${finalSize}' fill='%23fff' fill-opacity='0.2' stroke='%23000' stroke-width='1.5'/></svg>") ${finalSize} ${finalSize}, cell`
+        }
+      } else {
+        // 方形光标
+        if (this.brushMode === 'brush') {
+          // 画笔模式 - 实心方形
+          svgCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${finalSize * 2}' height='${finalSize * 2}' viewBox='0 0 ${finalSize * 2} ${finalSize * 2}'><rect x='${finalSize - finalSize}' y='${finalSize - finalSize}' width='${finalSize * 2}' height='${finalSize * 2}' fill='${this.brushColor === 'black' ? '%23000' : (this.brushColor === 'white' ? '%23fff' : '%23999')}' fill-opacity='0.3' stroke='%23000' stroke-width='1'/></svg>") ${finalSize} ${finalSize}, crosshair`
+        } else {
+          // 橡皮擦模式 - 空心方形
+          svgCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${finalSize * 2}' height='${finalSize * 2}' viewBox='0 0 ${finalSize * 2} ${finalSize * 2}'><rect x='${finalSize - finalSize}' y='${finalSize - finalSize}' width='${finalSize * 2}' height='${finalSize * 2}' fill='%23fff' fill-opacity='0.2' stroke='%23000' stroke-width='1.5'/></svg>") ${finalSize} ${finalSize}, cell`
+        }
+      }
+      
+      // 设置自定义光标
+      this.customCursor = svgCursor
     },
 
     // 初始化绘制事件
@@ -805,9 +1011,22 @@ export default {
         const scaleX = canvasWidth / effectiveWidth
         const scaleY = canvasHeight / effectiveHeight
         
-        // 获取鼠标相对于实际显示区域的位置
-        const x = (e.clientX - rect.left - offsetX) * scaleX
-        const y = (e.clientY - rect.top - offsetY) * scaleY
+        // 获取坐标位置（支持触摸事件和鼠标事件）
+        let clientX, clientY;
+        
+        if (e.touches && e.touches.length > 0) {
+          // 触摸事件
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          // 鼠标事件
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+        
+        // 获取相对于实际显示区域的位置
+        const x = (clientX - rect.left - offsetX) * scaleX
+        const y = (clientY - rect.top - offsetY) * scaleY
         
         // 确保坐标在画布范围内
         return {
@@ -816,53 +1035,75 @@ export default {
         }
       }
 
-      // 鼠标按下事件
-      canvas.addEventListener('mousedown', (e) => {
-        this.isDrawing = true
-        const coords = getScaledCoordinates(e, canvas)
-        this.lastX = coords.x
-        this.lastY = coords.y
-      })
+      // 绘制函数
+      const draw = (e) => {
+        if (!this.isDrawing) return;
 
-      // 鼠标移动事件
-      canvas.addEventListener('mousemove', (e) => {
-        if (!this.isDrawing) return
-
-        const coords = getScaledCoordinates(e, canvas)
-        const x = coords.x
-        const y = coords.y
+        const coords = getScaledCoordinates(e, canvas);
+        const x = coords.x;
+        const y = coords.y;
 
         // 确保每次绘制前重置透明度为完全不透明
-        ctx.globalAlpha = 1.0
+        ctx.globalAlpha = 1.0;
         
         if (this.brushMode === 'brush') {
-          ctx.globalCompositeOperation = 'source-over'
-          ctx.strokeStyle = this.brushColor
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = this.brushColor;
         } else {
-          ctx.globalCompositeOperation = 'destination-out'
-          ctx.strokeStyle = 'rgba(0,0,0,1)'
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.strokeStyle = 'rgba(0,0,0,1)';
         }
 
-        ctx.beginPath()
-        ctx.moveTo(this.lastX, this.lastY)
-        ctx.lineTo(x, y)
-        ctx.lineWidth = this.brushSize
-        ctx.lineCap = this.brushShape === 'round' ? 'round' : 'square'
-        ctx.stroke()
+        ctx.beginPath();
+        ctx.moveTo(this.lastX, this.lastY);
+        ctx.lineTo(x, y);
+        ctx.lineWidth = this.brushSize;
+        ctx.lineCap = this.brushShape === 'round' ? 'round' : 'square';
+        ctx.stroke();
 
-        this.lastX = x
-        this.lastY = y
-      })
+        this.lastX = x;
+        this.lastY = y;
+      };
 
-      // 鼠标松开事件
-      canvas.addEventListener('mouseup', () => {
-        this.isDrawing = false
-      })
+      // 开始绘制
+      const startDrawing = (e) => {
+        this.isDrawing = true;
+        const coords = getScaledCoordinates(e, canvas);
+        this.lastX = coords.x;
+        this.lastY = coords.y;
+      };
 
-      // 鼠标离开事件
-      canvas.addEventListener('mouseleave', () => {
-        this.isDrawing = false
-      })
+      // 停止绘制
+      const stopDrawing = () => {
+        this.isDrawing = false;
+      };
+
+      // 鼠标事件
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseleave', stopDrawing);
+
+      // 触摸事件（移动端）
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // 防止页面滚动
+        startDrawing(e);
+      }, { passive: false });
+      
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // 防止页面滚动
+        draw(e);
+      }, { passive: false });
+      
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault(); // 防止页面滚动
+        stopDrawing();
+      }, { passive: false });
+      
+      canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault(); // 防止页面滚动
+        stopDrawing();
+      }, { passive: false });
     },
 
     // 清空画布
@@ -870,6 +1111,9 @@ export default {
       const canvas = this.$refs.drawCanvas
       const ctx = canvas.getContext('2d')
       ctx.clearRect(0, 0, canvas.width, canvas.height)
+      
+      // 重置光标样式
+      this.updateCursor()
     },
 
     // 保存蒙版
@@ -924,6 +1168,13 @@ export default {
         this.isDrawing = false
       }
       this.maskEditorVisible = false
+      
+      // 重置视口设置
+      if (this.isMobile) {
+        this.$nextTick(() => {
+          this.resetMobileViewport();
+        });
+      }
     },
 
     // 提交表单
@@ -979,6 +1230,13 @@ export default {
           this.$message.success('任务创建成功')
           this.dialogVisible = false
           this.fetchTasks()
+          
+          // 重置视口设置
+          if (this.isMobile) {
+            this.$nextTick(() => {
+              this.resetMobileViewport();
+            });
+          }
         }
       } catch (error) {
         this.$message.error('创建任务失败：' + error.message)
@@ -1264,6 +1522,18 @@ export default {
   margin-bottom: 20px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.back-icon {
+  font-size: 20px;
+  margin-right: 10px;
+  cursor: pointer;
+  color: #fff;
+}
+
 .page-header h2 {
   font-size: 1.4em;
   margin: 0;
@@ -1471,6 +1741,12 @@ export default {
     right: 0;
     bottom: 0;
     -webkit-overflow-scrolling: touch;
+    padding-bottom: 100px; /* 增加底部内边距 */
+  }
+  
+  .task-list {
+    margin-top: 10px;
+    padding-bottom: 100px; /* 增加底部内边距 */
   }
   
   .page-header {
@@ -1542,11 +1818,13 @@ export default {
   .card-list {
     margin-top: 0;
     padding-top: 0;
+    padding-bottom: 120px; /* 增加更多底部空间 */
   }
   
   .card-view-content {
     padding: 0;
     margin: 0;
+    padding-bottom: 120px; /* 增加更多底部空间 */
   }
   
   .waterfall-container {
@@ -1596,6 +1874,15 @@ export default {
     transform: scale(0.98);
     opacity: 0.9;
   }
+  
+  /* 加载更多容器样式 */
+  .load-more-container {
+    text-align: center;
+    padding: 20px 0;
+    margin: 20px 0 120px 0; /* 增加底部边距 */
+    height: auto;
+    min-height: 80px;
+  }
 }
 
 /* 悬浮添加按钮 */
@@ -1624,6 +1911,113 @@ export default {
 .floating-add-btn:active {
   transform: scale(0.95);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* 添加蒙版编辑器样式 */
+.mask-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  border-radius: 5px;
+  align-items: center;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.tool-label {
+  margin-right: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.brush-size-label {
+  margin-left: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 500px;
+  overflow: hidden;
+  background: #f5f5f5;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  flex-grow: 1;
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.editor-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.base-canvas {
+  z-index: 1;
+}
+
+.draw-canvas {
+  z-index: 2;
+  cursor: crosshair;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+/* 图片上传和预览样式 */
+.image-param-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+}
+
+.image-preview {
+  width: 150px;
+  height: 150px;
+  border: 1px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.preview-thumbnail {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>
 
@@ -1658,5 +2052,200 @@ export default {
   .el-table {
     margin-bottom: 60px !important;
   }
+  
+  /* 移动端对话框样式 */
+  .el-dialog.image-processing-dialog,
+  .el-dialog.mask-editor-dialog {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+  }
+  
+  .el-dialog.image-processing-dialog .el-dialog__body,
+  .el-dialog.mask-editor-dialog .el-dialog__body {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-top: 56px !important; /* 为顶部导航留出空间 */
+    padding-bottom: 60px !important; /* 为底部按钮留出空间 */
+    height: 100% !important;
+  }
+  
+  /* 隐藏原始对话框标题 */
+  .image-processing-dialog .el-dialog__header,
+  .mask-editor-dialog .el-dialog__header {
+    display: none !important;
+  }
+  
+  /* 移动端头部导航样式 */
+  .mobile-header-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background-color: #409EFF;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    z-index: 2100; /* 提高z-index确保显示在最上层 */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    color: white;
+    font-size: 16px;
+  }
+  
+  .header-back {
+    display: flex;
+    align-items: center;
+    color: #fff !important;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 10px;
+    min-width: 60px;
+    min-height: 40px;
+    margin-left: -10px;
+  }
+  
+  .header-back i {
+    margin-right: 5px;
+    font-size: 18px;
+    color: #fff !important;
+  }
+  
+  .header-title {
+    flex: 1;
+    text-align: center;
+    margin-right: 20px;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  
+  /* 确保表单可编辑 */
+  .image-processing-form {
+    padding: 10px 15px 90px !important; /* 增加底部空间 */
+  }
+  
+  /* 移动端底部按钮样式 */
+  .mobile-form-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2002;
+    background-color: #fff;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .mobile-submit-btn {
+    width: 100%;
+    height: 50px; /* 减小高度 */
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 0;
+    margin: 0;
+    background: linear-gradient(135deg, #1976d2, #64b5f6);
+    border: none;
+    color: #fff;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+  
+  .mobile-submit-btn:active {
+    background: linear-gradient(135deg, #1565c0, #42a5f5);
+    transform: translateY(1px);
+  }
+  
+  /* 修复iOS上的输入框放大问题 */
+  input[type="text"],
+  input[type="url"],
+  input[type="email"],
+  input[type="number"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important; /* 关键：16px或更大可以防止iOS缩放 */
+    max-height: none !important;
+  }
+  
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 16px !important;
+    line-height: 20px !important;
+  }
+  
+  /* 对话框类容器禁止缩放 */
+  .el-dialog__wrapper,
+  .el-dialog,
+  .el-dialog__body {
+    touch-action: pan-y !important;
+  }
+  
+  /* 输入框聚焦时的样式，提供用户反馈 */
+  .el-input.is-focus .el-input__inner {
+    border-color: #409EFF !important;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+  }
+  
+  /* 图片容器移动端样式 */
+  .mobile-image-container {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* 蒙版编辑器移动端样式 */
+  .mobile-mask-editor {
+    padding: 0 0 90px 0 !important; /* 增加底部空间 */
+  }
+  
+  .mobile-editor-tools {
+    padding: 5px !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+  }
+  
+  .mobile-editor-tools .tool-group {
+    margin: 5px 0 !important;
+    width: 100% !important;
+  }
+  
+  .mobile-canvas-container {
+    height: calc(100vh - 180px) !important;
+  }
+}
+
+/* 蒙版编辑器头部样式 */
+.mask-editor-header {
+  background-color: #67C23A !important; /* 使用绿色以示区分 */
+}
+
+/* 增强返回按钮的触摸区域 */
+.header-back {
+  display: flex;
+  align-items: center;
+  color: #fff !important;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 10px;
+  min-width: 60px;
+  min-height: 40px;
+  margin-left: -10px;
 }
 </style>

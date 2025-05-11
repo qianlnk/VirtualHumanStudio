@@ -222,7 +222,7 @@
         margin: 0;
         padding: 8px; /* 增加外边距 */
         padding-top: 4px; /* 标题与卡片间距较小 */
-        margin-bottom: 70px; /* 为底部菜单留出更多空间 */
+        margin-bottom: 120px; /* 为底部菜单留出更多空间 */
         width: 100%;
         box-sizing: border-box;
         display: grid !important; /* 强制使用grid布局，避免重叠 */

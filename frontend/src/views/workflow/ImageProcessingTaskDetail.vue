@@ -3,7 +3,9 @@
     <div class="image-preview-overlay" v-if="isPreviewActive" @click="closePreview" @wheel.prevent="handleZoom" @mousedown="startDrag" @mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag">
       <img :src="previewUrl" :style="imageStyle" class="preview-image" ref="previewImage">
     </div>
-    <div class="page-header">
+    
+    <!-- PC端顶部导航栏 -->
+    <div class="page-header" v-show="!isMobile">
       <h2>{{ currentModule ? currentModule.name : '图像处理' }}任务详情</h2>
       <div>
         <el-button @click="goBack" icon="el-icon-back">返回列表</el-button>
@@ -11,120 +13,249 @@
         <el-button type="primary" @click="refreshTask" icon="el-icon-refresh">刷新</el-button>
       </div>
     </div>
+    
+    <!-- 移动端顶部导航栏 - 只在移动端显示 -->
+    <div class="mobile-header-bar" v-show="isMobile">
+      <div class="header-back" @click="goBack">
+        <i class="el-icon-arrow-left"></i>
+        <span>返回</span>
+      </div>
+      <h2 class="header-title">{{ currentModule ? currentModule.name : '图像处理' }}任务</h2>
+    </div>
+    
+    <!-- 移动端头部占位 - 只在移动端显示 -->
+    <div class="mobile-header-placeholder" v-show="isMobile"></div>
 
-    <el-card v-loading="loading">
-      <div v-if="task" class="task-detail">
-        <div class="task-header">
-          <div class="task-info">
-            <h3>任务信息</h3>
-            <div class="info-item">
-              <span class="label">任务名称:</span>
-              <span>{{ task.name }}</span>
+    <div class="detail-content-wrapper">
+      <!-- PC端展示 -->
+      <el-card v-loading="loading" v-show="!isMobile">
+        <div v-if="task" class="task-detail">
+          <div class="task-header">
+            <div class="task-info">
+              <h3>任务信息</h3>
+              <div class="info-item">
+                <span class="label">任务名称:</span>
+                <span>{{ task.name }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">创建时间:</span>
+                <span>{{ formatDate(task.created_at) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">状态:</span>
+                <el-tag :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+              </div>
             </div>
-            <div class="info-item">
-              <span class="label">创建时间:</span>
-              <span>{{ formatDate(task.created_at) }}</span>
+          </div>
+
+          <!-- 输入参数 -->
+          <div class="task-section">
+            <h3>输入参数</h3>
+            <div class="params-container">
+              <template v-if="task && task.input_params">
+                <div v-for="(param, index) in parseInputParams()" :key="'input-'+index" class="param-item">
+                  <div class="param-header">
+                    <span class="param-name">{{ param.alias || param.key }}:</span>
+                  </div>
+                  <div class="param-content">
+                    <!-- 图片类型参数 -->
+                    <div v-if="param.type === 'image' || param.type === 'mask'" class="image-param">
+                      <img :src="param.value" :alt="param.alias || param.key" class="param-image" @click="previewImage(param.value)">
+                    </div>
+                    <!-- 其他类型参数 -->
+                    <div v-else class="text-param">
+                      {{ param.value }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="no-params">
+                <el-empty description="无输入参数" :image-size="100"></el-empty>
+              </div>
             </div>
-            <div class="info-item">
-              <span class="label">状态:</span>
-              <el-tag :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+          </div>
+
+          <!-- 处理结果 -->
+          <div class="task-section" v-if="task.status === 'completed'">
+            <h3>处理结果</h3>
+            <div class="result-container">
+              <template v-if="task && task.output_params">
+                <div v-for="(param, index) in parseOutputParams()" :key="'output-'+index" class="result-item">
+                  <div class="result-header">
+                    <span class="result-name">{{ param.alias || param.key }}:</span>
+                  </div>
+                  <div class="result-content">
+                    <!-- 图片类型结果 -->
+                    <template v-if="param.type === 'image' && param.value">
+                      <img :src="param.value" :alt="param.alias || param.key" class="result-image" @click="previewImage(param.value)">
+                      <div class="result-actions">
+                        <el-button type="primary" size="small" @click="downloadImage(param.value, param.key)">
+                          下载
+                        </el-button>
+                      </div>
+                    </template>
+                    <!-- 视频类型结果 -->
+                    <template v-else-if="param.type === 'video' && param.value">
+                      <div class="video-preview">
+                        <video
+                          controls
+                          style="width: 100%; max-height: 400px"
+                          ref="videoPlayer"
+                        >
+                          <source :src="param.value" type="video/mp4">
+                          您的浏览器不支持视频播放
+                        </video>
+                      </div>
+                      <div class="result-actions">
+                        <el-button type="primary" size="small" @click="downloadVideo(param.value, param.key)">
+                          下载
+                        </el-button>
+                      </div>
+                    </template>
+                    <!-- 其他类型结果 -->
+                    <div v-else class="text-result">
+                      {{ param.value }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="no-results">
+                <el-empty description="无处理结果" :image-size="100"></el-empty>
+              </div>
+            </div>
+          </div>
+
+          <!-- 错误信息 -->
+          <div class="task-section" v-if="task.status === 'failed' && task.error_msg">
+            <h3>错误信息</h3>
+            <div class="error-container">
+              <pre class="error-message">{{ task.error_msg }}</pre>
             </div>
           </div>
         </div>
 
-        <!-- 输入参数 -->
-        <div class="task-section">
-          <h3>输入参数</h3>
-          <div class="params-container">
-            <template v-if="task && task.input_params">
-              <div v-for="(param, index) in parseInputParams()" :key="'input-'+index" class="param-item">
-                <div class="param-header">
-                  <span class="param-name">{{ param.alias || param.key }}:</span>
-                </div>
-                <div class="param-content">
+        <div v-else-if="!loading" class="no-task">
+          <el-empty description="任务不存在或已被删除"></el-empty>
+          <div style="color: #999; font-size: 12px; margin-top: 10px; text-align: center;">
+            调试信息: task={{ task ? '存在' : '不存在' }}, loading={{ loading }}
+          </div>
+        </div>
+      </el-card>
+      
+      <!-- 移动端展示 -->
+      <div class="mobile-content-view" v-show="isMobile" v-loading="loading">
+        <div v-if="task" class="mobile-content-inner">
+          <!-- 基本信息 - 简化版 -->
+          <div class="basic-info">
+            <div class="status-tag">
+              <el-tag :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+            </div>
+            <div class="create-time">创建时间：{{ formatDate(task.created_at) }}</div>
+          </div>
+          
+          <!-- 任务信息 -->
+          <div class="mobile-task-info">
+            <div class="info-item">
+              <span class="label">任务名称：</span>
+              <span>{{ task.name }}</span>
+            </div>
+          </div>
+          
+          <!-- 输入参数 -->
+          <div class="mobile-section">
+            <h4 class="section-title">输入参数</h4>
+            <div class="mobile-params">
+              <template v-if="task && task.input_params">
+                <div v-for="(param, index) in parseInputParams()" :key="'mobile-input-'+index" class="mobile-param-item">
+                  <div class="mobile-param-header">
+                    <span class="mobile-param-name">{{ param.alias || param.key }}:</span>
+                  </div>
                   <!-- 图片类型参数 -->
-                  <div v-if="param.type === 'image' || param.type === 'mask'" class="image-param">
-                    <img :src="param.value" :alt="param.alias || param.key" class="param-image" @click="previewImage(param.value)">
+                  <div v-if="param.type === 'image' || param.type === 'mask'" class="mobile-image-param">
+                    <img :src="param.value" :alt="param.alias || param.key" class="mobile-param-image" @click="previewImage(param.value)">
                   </div>
                   <!-- 其他类型参数 -->
-                  <div v-else class="text-param">
+                  <div v-else class="mobile-text-param">
                     {{ param.value }}
                   </div>
                 </div>
+              </template>
+              <div v-else class="mobile-no-params">
+                <el-empty description="无输入参数" :image-size="60"></el-empty>
               </div>
-            </template>
-            <div v-else class="no-params">
-              <el-empty description="无输入参数" :image-size="100"></el-empty>
             </div>
           </div>
-        </div>
-
-        <!-- 处理结果 -->
-        <div class="task-section" v-if="task.status === 'completed'">
-          <h3>处理结果</h3>
-          <div class="result-container">
-            <template v-if="task && task.output_params">
-              <div v-for="(param, index) in parseOutputParams()" :key="'output-'+index" class="result-item">
-                <div class="result-header">
-                  <span class="result-name">{{ param.alias || param.key }}:</span>
-                </div>
-                <div class="result-content">
+          
+          <!-- 处理结果 -->
+          <div class="mobile-section" v-if="task.status === 'completed'">
+            <h4 class="section-title">处理结果</h4>
+            <div class="mobile-results">
+              <template v-if="task && task.output_params">
+                <div v-for="(param, index) in parseOutputParams()" :key="'mobile-output-'+index" class="mobile-result-item">
+                  <div class="mobile-result-header">
+                    <span class="mobile-result-name">{{ param.alias || param.key }}:</span>
+                  </div>
                   <!-- 图片类型结果 -->
                   <template v-if="param.type === 'image' && param.value">
-                    <img :src="param.value" :alt="param.alias || param.key" class="result-image" @click="previewImage(param.value)">
-                    <div class="result-actions">
-                      <el-button type="primary" size="small" @click="downloadImage(param.value, param.key)">
-                        下载
-                      </el-button>
+                    <div class="mobile-image-result">
+                      <img :src="param.value" :alt="param.alias || param.key" class="mobile-result-image" @click="previewImage(param.value)">
+                      <div class="mobile-result-actions">
+                        <el-button type="primary" size="mini" @click="downloadImage(param.value, param.key)">
+                          下载
+                        </el-button>
+                      </div>
                     </div>
                   </template>
                   <!-- 视频类型结果 -->
                   <template v-else-if="param.type === 'video' && param.value">
-                    <div class="video-preview">
+                    <div class="mobile-video-preview">
                       <video
                         controls
-                        style="width: 100%; max-height: 400px"
-                        ref="videoPlayer"
+                        style="width: 100%; max-height: 200px"
+                        class="mobile-video"
                       >
                         <source :src="param.value" type="video/mp4">
                         您的浏览器不支持视频播放
                       </video>
-                    </div>
-                    <div class="result-actions">
-                      <el-button type="primary" size="small" @click="downloadVideo(param.value, param.key)">
-                        下载
-                      </el-button>
+                      <div class="mobile-result-actions">
+                        <el-button type="primary" size="mini" @click="downloadVideo(param.value, param.key)">
+                          下载
+                        </el-button>
+                      </div>
                     </div>
                   </template>
                   <!-- 其他类型结果 -->
-                  <div v-else class="text-result">
+                  <div v-else class="mobile-text-result">
                     {{ param.value }}
                   </div>
                 </div>
+              </template>
+              <div v-else class="mobile-no-results">
+                <el-empty description="无处理结果" :image-size="60"></el-empty>
               </div>
-            </template>
-            <div v-else class="no-results">
-              <el-empty description="无处理结果" :image-size="100"></el-empty>
             </div>
           </div>
-        </div>
-
-        <!-- 错误信息 -->
-        <div class="task-section" v-if="task.status === 'failed' && task.error_msg">
-          <h3>错误信息</h3>
-          <div class="error-container">
-            <pre class="error-message">{{ task.error_msg }}</pre>
+          
+          <!-- 移动端错误信息 -->
+          <div class="mobile-section" v-if="task.status === 'failed' && task.error_msg">
+            <h4 class="section-title">错误信息</h4>
+            <div class="mobile-error-container">
+              <pre class="mobile-error-message">{{ task.error_msg }}</pre>
+            </div>
+          </div>
+          
+          <!-- 移动端操作按钮 -->
+          <div class="mobile-actions">
+            <el-button type="primary" @click="refreshTask" icon="el-icon-refresh" size="small">刷新</el-button>
+            <el-button type="primary" @click="retryTask" :loading="retrying" size="small" v-if="task && task.status !== 'processing'">重试任务</el-button>
           </div>
         </div>
-      </div>
-
-      <div v-else-if="!loading" class="no-task">
-        <el-empty description="任务不存在或已被删除"></el-empty>
-        <div style="color: #999; font-size: 12px; margin-top: 10px; text-align: center;">
-          调试信息: task={{ task ? '存在' : '不存在' }}, loading={{ loading }}
+        
+        <div v-else-if="!loading" class="mobile-no-task">
+          <el-empty description="任务不存在或已被删除"></el-empty>
         </div>
       </div>
-    </el-card>
+    </div>
   </div>
 </template>
 
@@ -150,7 +281,11 @@ export default {
       dragStartX: 0,
       dragStartY: 0,
       translateX: 0,
-      translateY: 0
+      translateY: 0,
+      // 移动端适配
+      screenWidth: window.innerWidth,
+      isMobile: false,
+      globalStyleEl: null
     }
   },
   computed: {
@@ -164,12 +299,23 @@ export default {
   
   created() {
     this.initModule()
+    // 初始化检测设备类型
+    this.checkDeviceType()
+    // 添加窗口大小变化监听
+    window.addEventListener('resize', this.handleResize)
   },
   mounted() {
     // 不需要在mounted中调用initModule，因为已经在created中调用过了
+    
+    // 修复全局样式，确保菜单在合适的层级
+    this.fixGlobalStyles()
   },
   beforeDestroy() {
     this.clearRefreshInterval()
+    // 移除窗口大小变化监听
+    window.removeEventListener('resize', this.handleResize)
+    // 恢复全局样式
+    this.restoreGlobalStyles()
   },
   methods: {
     // 初始化模块
@@ -518,7 +664,7 @@ export default {
 
     // 返回列表
     goBack() {
-      this.$router.push(`/image-processing/${this.currentModule.id}`)
+      this.$router.push(`/image-processing/${this.currentModule ? this.currentModule.id : ''}`)
     },
 
     // 刷新任务
@@ -613,6 +759,10 @@ export default {
         if (value.endsWith('.mp4') || value.endsWith('.webm') || value.endsWith('.mov')) {
           return 'video'
         }
+        // 检查音频类型
+        if (value.endsWith('.mp3') || value.endsWith('.wav') || value.endsWith('.ogg')) {
+          return 'audio'
+        }
       }
       return 'text'
     },
@@ -639,12 +789,58 @@ export default {
         unknown: '未知'
       }
       return statusMap[status] || status
+    },
+    
+    // 处理窗口大小变化
+    handleResize() {
+      this.screenWidth = window.innerWidth
+      // 更新设备类型
+      this.checkDeviceType()
+    },
+    
+    // 检测设备类型
+    checkDeviceType() {
+      this.isMobile = window.innerWidth <= 768 // 假设小于等于768px为移动端
+    },
+    
+    // 修复全局样式，确保菜单在合适的层级
+    fixGlobalStyles() {
+      // 动态创建样式元素
+      this.globalStyleEl = document.createElement('style')
+      this.globalStyleEl.type = 'text/css'
+      this.globalStyleEl.innerHTML = `
+        /* 底部菜单和侧边栏保持高层级 */
+        .app-footer, .app-sidebar {
+          z-index: 3000 !important;
+          position: relative !important;
+        }
+        
+        /* 顶部菜单放在较低层级，让详情页内容可以覆盖它 */
+        .el-menu, .el-submenu, .el-menu-item, .app-header, .app-navbar {
+          z-index: 1 !important;
+        }
+        
+        /* 视频元素保持低层级 */
+        video, iframe, embed, object {
+          z-index: 1 !important;
+        }
+      `
+      document.head.appendChild(this.globalStyleEl)
+    },
+    
+    // 恢复全局样式
+    restoreGlobalStyles() {
+      if (this.globalStyleEl && this.globalStyleEl.parentNode) {
+        this.globalStyleEl.parentNode.removeChild(this.globalStyleEl)
+        this.globalStyleEl = null
+      }
     }
   }
 }
 </script>
 
 <style scoped>
+/* 现有的PC端样式 */
 .error-actions {
   margin-top: 16px;
   text-align: right;
@@ -680,6 +876,11 @@ export default {
 
 .workflow-detail-container {
   padding: 20px;
+  overflow-x: hidden;
+  transform: translateZ(0);
+  isolation: isolate;
+  position: relative;
+  z-index: 100 !important;
 }
 
 .page-header {
@@ -820,5 +1021,293 @@ export default {
   background-color: #f5f7fa;
   border-radius: 4px;
   word-break: break-all;
+}
+
+/* 移动端新增样式 */
+.workflow-detail-container {
+  transform: translateZ(0);
+  isolation: isolate;
+  position: relative;
+  z-index: 100 !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 强制所有视频元素不能超出其父容器的堆叠上下文 */
+.workflow-detail-container video, 
+.workflow-detail-container audio, 
+.workflow-detail-container .video-container, 
+.workflow-detail-container .video-preview, 
+.workflow-detail-container .result-preview,
+.workflow-detail-container .video-player {
+  transform: translateZ(0);
+  position: relative !important;
+  z-index: 0 !important;
+  isolation: isolate;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* 移动端顶部导航栏 */
+.mobile-header-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background-color: #409EFF;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  z-index: 2000 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.header-back {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  z-index: 2100 !important;
+  position: relative;
+}
+
+.header-back:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.header-back i {
+  margin-right: 4px;
+  font-size: 16px;
+}
+
+.header-title {
+  margin: 0 0 0 10px;
+  font-size: 16px;
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-header-placeholder {
+  height: 56px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* 移动端内容样式 */
+.mobile-content-view {
+  padding: 0;
+  width: 100%;
+  background-color: #fff;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.mobile-content-inner {
+  min-height: calc(100vh - 56px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.detail-content-wrapper {
+  width: 100%;
+}
+
+/* 移动端基本信息 */
+.basic-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ebeef5;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.create-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.mobile-task-info {
+  padding: 8px 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.mobile-section {
+  padding: 8px 12px;
+  border-top: 1px solid #ebeef5;
+  margin-top: 8px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 5px 0;
+  color: #303133;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 移动端参数和结果样式 */
+.mobile-params, .mobile-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.mobile-param-item, .mobile-result-item {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-param-header, .mobile-result-header {
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed #ebeef5;
+}
+
+.mobile-param-name, .mobile-result-name {
+  font-weight: bold;
+  color: #409EFF;
+  font-size: 14px;
+}
+
+.mobile-param-image, .mobile-result-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-text-param, .mobile-text-result {
+  padding: 8px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.mobile-video-preview {
+  margin-bottom: 10px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+
+.mobile-video {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-result-actions {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.mobile-error-container {
+  background-color: #fef0f0;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 5px;
+  border-left: 4px solid #f56c6c;
+}
+
+.mobile-error-message {
+  color: #f56c6c;
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.mobile-no-params, .mobile-no-results {
+  padding: 15px;
+  text-align: center;
+}
+
+.mobile-actions {
+  display: flex;
+  gap: 10px;
+  padding: 15px 12px;
+  margin-top: 20px;
+  margin-bottom: 30px;
+  justify-content: center;
+}
+
+.mobile-actions .el-button {
+  flex: 1;
+}
+
+.mobile-no-task {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* 移动端适配 */
+@media screen and (max-width: 768px) {
+  .workflow-detail-container {
+    padding: 0;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5 !important;
+    background-color: #fff;
+    color: #333;
+    height: 100vh;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    transform: translateZ(0);
+    isolation: isolate;
+  }
+  
+  .detail-content-wrapper {
+    transform: translateZ(0);
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    padding-bottom: 120px !important;
+    z-index: 1 !important;
+    isolation: isolate;
+  }
+  
+  .mobile-image-param, .mobile-image-result {
+    margin: 10px 0;
+    text-align: center;
+  }
+  
+  .mobile-video-preview {
+    margin: 10px 0;
+  }
 }
 </style>
