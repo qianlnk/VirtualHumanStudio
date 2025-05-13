@@ -2,7 +2,6 @@
   <div class="workflow-container">
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
-        <i v-if="isMobile" class="el-icon-arrow-left back-icon" @click="goBack"></i>
         <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
       </div>
       <div class="header-right">

@@ -92,6 +92,14 @@
                         <el-button type="primary" size="small" @click="downloadImage(param.value, param.key)">
                           下载
                         </el-button>
+                        <el-button 
+                          v-if="index === 0" 
+                          type="success" 
+                          size="small" 
+                          @click="shareTask" 
+                          :disabled="isShared">
+                          {{ getShareButtonText() }}
+                        </el-button>
                       </div>
                     </template>
                     <!-- 视频类型结果 -->
@@ -109,6 +117,14 @@
                       <div class="result-actions">
                         <el-button type="primary" size="small" @click="downloadVideo(param.value, param.key)">
                           下载
+                        </el-button>
+                        <el-button 
+                          v-if="index === 0" 
+                          type="success" 
+                          size="small" 
+                          @click="shareTask" 
+                          :disabled="isShared">
+                          {{ getShareButtonText() }}
                         </el-button>
                       </div>
                     </template>
@@ -199,11 +215,17 @@
                   <template v-if="param.type === 'image' && param.value">
                     <div class="mobile-image-result">
                       <img :src="param.value" :alt="param.alias || param.key" class="mobile-result-image" @click="previewImage(param.value)">
+                    </div>
                       <div class="mobile-result-actions">
-                        <el-button type="primary" size="mini" @click="downloadImage(param.value, param.key)">
-                          下载
+                      <el-button type="primary" size="mini" @click="downloadImage(param.value, param.key)">下载</el-button>
+                      <el-button 
+                        v-if="index === 0" 
+                        type="success" 
+                        size="mini" 
+                        @click="shareTask" 
+                        :disabled="isShared">
+                        {{ getShareButtonText() }}
                         </el-button>
-                      </div>
                     </div>
                   </template>
                   <!-- 视频类型结果 -->
@@ -220,6 +242,14 @@
                       <div class="mobile-result-actions">
                         <el-button type="primary" size="mini" @click="downloadVideo(param.value, param.key)">
                           下载
+                        </el-button>
+                        <el-button 
+                          v-if="index === 0" 
+                          type="success" 
+                          size="mini" 
+                          @click="shareTask" 
+                          :disabled="isShared">
+                          {{ getShareButtonText() }}
                         </el-button>
                       </div>
                     </div>
@@ -262,6 +292,7 @@
 <script>
 import { getImageProcessingModules, getImageProcessingTaskDetail, retryImageProcessingTask } from '@/utils/imageProcessingApi'
 import { downloadFile, getImageUrl } from '@/utils/fileAccess'
+import { shareTask } from '@/api/share'
 
 export default {
   name: 'ImageProcessingTaskDetail',
@@ -285,7 +316,9 @@ export default {
       // 移动端适配
       screenWidth: window.innerWidth,
       isMobile: false,
-      globalStyleEl: null
+      globalStyleEl: null,
+      // 分享相关状态
+      sharing: false
     }
   },
   computed: {
@@ -294,6 +327,10 @@ export default {
         transform: `scale(${this.zoomLevel}) translate(${this.translateX}px, ${this.translateY}px)`,
         transition: this.isDragging ? 'none' : 'transform 0.3s'
       }
+    },
+    // 是否已分享
+    isShared() {
+      return this.task && (this.task.is_shared || this.sharing)
     }
   },
   
@@ -579,7 +616,8 @@ export default {
             created_at: response.task.created_at,
             input_params: response.task.input_params || '[]',
             output_params: response.task.output_params || '[]',
-            error_msg: response.task.error_msg || ''
+            error_msg: response.task.error_msg || '',
+            task_type: response.task.task_type || 'unknown'
           }
           
           // 使用Vue.set确保响应式更新
@@ -834,6 +872,76 @@ export default {
         this.globalStyleEl.parentNode.removeChild(this.globalStyleEl)
         this.globalStyleEl = null
       }
+    },
+
+    // 分享任务
+    async shareTask() {
+      try {
+        if (!this.task || this.task.status !== 'completed') {
+          this.$message.warning('只能分享已完成的任务')
+          return
+        }
+        
+        this.$confirm('确定要分享此任务到灵感页吗?', '分享确认', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(async () => {
+          this.sharing = true
+          this.$message({
+            type: 'info',
+            message: '正在提交分享请求...',
+            duration: 2000
+          })
+          
+          const result = await shareTask({
+            taskId: this.task.id,
+            mode: 'comfyui',
+            taskType: this.task.task_type,
+          })
+          
+          if (result.success) {
+            this.$message.success(result.message)
+            // 更新本地任务状态
+            this.task.is_shared = true
+            this.task.share_status = 'pending_review'
+            this.task.share_time = new Date().toISOString()
+          } else {
+            this.$message.error('分享失败: ' + (result.message || '未知错误'))
+          }
+        }).catch(error => {
+          if (error === 'cancel') {
+            // 用户取消分享，不执行任何操作
+          } else {
+            this.$message.error('分享操作失败: ' + (error.message || '未知错误'))
+          }
+        }).finally(() => {
+          this.sharing = false
+        })
+      } catch (error) {
+        this.sharing = false
+        this.$message.error('分享过程中发生错误: ' + error.message)
+      }
+    },
+    
+    // 获取分享按钮文本
+    getShareButtonText() {
+      if (!this.task) return '分享到灵感页'
+      
+      // 根据分享状态返回不同文本
+      if (this.task.is_shared) {
+        switch (this.task.share_status) {
+          case 'pending_review':
+            return '审核中'
+          case 'rejected':
+            return '分享被拒绝'
+          case 'approved':
+            return '已分享'
+          default:
+            return '分享到灵感页'
+        }
+      }
+      return '分享到灵感页'
     }
   }
 }

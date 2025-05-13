@@ -61,6 +61,9 @@
           </div>
           <div class="action-buttons">
             <el-button type="primary" @click="downloadResult">下载结果</el-button>
+            <el-button type="success" @click="shareTask" class="share-button" :disabled="isShared">
+              {{ getShareButtonText() }}
+            </el-button>
           </div>
         </div>
         
@@ -81,6 +84,7 @@
 <script>
 import axios from 'axios'
 import { downloadFile, getImageUrl } from '@/utils/fileAccess'
+import { shareTask } from '@/api/share'
 
 export default {
   name: 'AccessoryDetail',
@@ -103,7 +107,9 @@ export default {
       dragStartX: 0,
       dragStartY: 0,
       translateX: 0,
-      translateY: 0
+      translateY: 0,
+      // 分享相关状态
+      sharing: false
     }
   },
   computed: {
@@ -118,6 +124,10 @@ export default {
         transform: `scale(${this.zoomLevel}) translate(${this.translateX}px, ${this.translateY}px)`,
         transition: this.isDragging ? 'none' : 'transform 0.3s'
       }
+    },
+    // 是否已分享
+    isShared() {
+      return this.accessory && (this.accessory.is_shared || this.sharing)
     }
   },
   created() {
@@ -356,6 +366,76 @@ export default {
         'failed': '失败'
       }
       return statusMap[status] || status
+    },
+    
+    // 分享任务
+    async shareTask() {
+      try {
+        if (!this.accessory || this.accessory.status !== 'completed') {
+          this.$message.warning('只能分享已完成的任务')
+          return
+        }
+        
+        this.$confirm('确定要分享此任务到灵感页吗?', '分享确认', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(async () => {
+          this.sharing = true
+          this.$message({
+            type: 'info',
+            text: '正在提交分享请求...',
+            duration: 2000
+          })
+          
+          const result = await shareTask({
+            taskId: this.accessory.id,
+            mode: 'comfyui',
+            taskType: 'accessory'
+          })
+          
+          if (result.success) {
+            this.$message.success(result.message)
+            // 更新本地任务状态
+            this.accessory.is_shared = true
+            this.accessory.share_status = 'pending_review'
+            this.accessory.share_time = new Date().toISOString()
+          } else {
+            this.$message.error('分享失败: ' + (result.message || '未知错误'))
+          }
+        }).catch(error => {
+          if (error === 'cancel') {
+            // 用户取消分享，不执行任何操作
+          } else {
+            this.$message.error('分享操作失败: ' + (error.message || '未知错误'))
+          }
+        }).finally(() => {
+          this.sharing = false
+        })
+      } catch (error) {
+        this.sharing = false
+        this.$message.error('分享过程中发生错误: ' + error.message)
+      }
+    },
+    
+    // 获取分享按钮文本
+    getShareButtonText() {
+      if (!this.accessory) return '分享到灵感页'
+      
+      // 根据分享状态返回不同文本
+      if (this.accessory.is_shared) {
+        switch (this.accessory.share_status) {
+          case 'pending_review':
+            return '审核中'
+          case 'rejected':
+            return '分享被拒绝'
+          case 'approved':
+            return '已分享'
+          default:
+            return '分享到灵感页'
+        }
+      }
+      return '分享到灵感页'
     }
   }
 }

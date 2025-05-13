@@ -93,15 +93,28 @@ type DigitalHuman struct {
 	UserID          uint   `json:"user_id" gorm:"index;not null"`
 	Name            string `json:"name" gorm:"size:100;not null"`
 	Description     string `json:"description" gorm:"size:500"`
-	AudioURL        string `json:"audio_url" gorm:"size:255;not null"`      // 音频文件路径
-	VideoURL        string `json:"video_url" gorm:"size:255;not null"`      // 视频文件路径
-	TaskCode        string `json:"task_code" gorm:"size:100;not null"`      // 任务代码
-	Chaofen         int    `json:"chaofen" gorm:"default:0"`                // 超分参数
-	WatermarkSwitch int    `json:"watermark_switch" gorm:"default:0"`       // 水印开关
-	PN              int    `json:"pn" gorm:"default:1"`                     // PN参数
-	Status          string `json:"status" gorm:"size:20;default:'pending'"` // pending, processing, completed, failed
-	ResultURL       string `json:"result_url" gorm:"size:255"`              // 结果文件URL
-	ErrorMsg        string `json:"error_msg" gorm:"size:500"`
+	AudioURL        string `json:"audio_url" gorm:"size:255;not null"`            // 音频文件路径
+	VideoURL        string `json:"video_url" gorm:"size:255;not null"`            // 视频文件路径
+	TaskCode        string `json:"task_code" gorm:"size:100;not null"`            // 任务代码
+	Chaofen         int    `json:"chaofen" gorm:"default:0"`                      // 超分参数
+	WatermarkSwitch int    `json:"watermark_switch" gorm:"default:0"`             // 水印开关
+	PN              int    `json:"pn" gorm:"default:1"`                           // PN参数
+	Status          string `json:"status" gorm:"size:20;default:'pending'"`       // pending, processing, completed, failed
+	ResultURL       string `json:"result_url" gorm:"size:255"`                    // 结果文件URL
+	ErrorMsg        string `json:"error_msg" gorm:"size:500"`                     //
+	ShareStatus     string `json:"share_status" gorm:"size:20;default:'private'"` // private, pending_review, approved, rejected
+}
+
+type ShareTask struct {
+	ID           uint       `json:"id" gorm:"primaryKey"`                          // 主键ID
+	TaskID       uint       `json:"task_id" gorm:"index;not null"`                 // 任务ID
+	Mode         string     `json:"mode" gorm:"size:20;not null"`                  // comfyui, digital_human
+	TaskType     string     `json:"task_type" gorm:"size:20;not null"`             // 任务类型
+	ShareStatus  string     `json:"share_status" gorm:"size:20;default:'private'"` // private, pending_review, approved, rejected
+	ShareTime    *time.Time `json:"share_time"`                                    // 分享时间
+	ReviewerID   *uint      `json:"reviewer_id" gorm:"index"`                      // 审核人ID
+	ReviewTime   *time.Time `json:"review_time"`                                   // 审核时间
+	RejectReason string     `json:"reject_reason" gorm:"size:200"`                 // 拒绝原因
 }
 
 // VoiceLibrary 音色库模型

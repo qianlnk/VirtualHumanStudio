@@ -141,9 +141,14 @@
               <div class="download-container">
                 <h3>下载视频</h3>
                 <p class="download-tips">合成任务已完成，您可以下载生成的视频文件</p>
+                <div class="action-buttons-group">
                 <el-button type="primary" size="large" @click="downloadResult" class="download-button">
                   <i class="el-icon-download"></i> 下载合成结果
                 </el-button>
+                  <el-button type="success" size="large" @click="shareTask" class="share-button" :disabled="isShared">
+                    <i class="el-icon-share"></i> {{ getShareButtonText() }}
+                  </el-button>
+                </div>
               </div>
             </div>
           </el-card>
@@ -270,13 +275,16 @@
             <!-- 下载结果按钮区域 - 移动端 -->
             <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url" class="mobile-download-section">
               <div class="mobile-download-container">
-                <div class="download-icon">
-                  <i class="el-icon-download"></i>
-                </div>
-                <div class="download-text">合成任务已完成，点击下方按钮下载</div>
-                <el-button type="primary" @click="downloadResult" class="mobile-download-button">
-                  下载合成结果
+                <h3>下载视频</h3>
+                <p>合成任务已完成，您可以下载生成的视频</p>
+                <div class="action-buttons">
+                  <el-button type="primary" @click="downloadResult" class="download-button" block>
+                    <i class="el-icon-download"></i> 下载合成结果
+                  </el-button>
+                  <el-button type="success" @click="shareTask" class="share-button" :disabled="isShared" block style="margin-top: 10px;">
+                    <i class="el-icon-share"></i> {{ getShareButtonText() }}
                 </el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -291,6 +299,7 @@
 <script>
 import axios from 'axios'
 import { getAudioUrl, downloadFile, getDirectFileUrl } from '@/utils/fileAccess'
+import { shareTask } from '@/api/share'
 
 export default {
   name: 'DigitalHumanDetail',
@@ -308,7 +317,12 @@ export default {
       videoLoaded: false,
       resultLoaded: false,
       globalStyleEl: null,
-      isMobile: false
+      isMobile: false,
+      loadingProgress: false,
+      progressTimer: null,
+      error: null,
+      isShared: false,
+      shareStatus: 'private'
     }
   },
   computed: {
@@ -907,7 +921,110 @@ export default {
     // 初始化检测设备类型
     checkDeviceType() {
       this.isMobile = window.innerWidth <= 768; // 假设小于等于768px为移动端
-    }
+    },
+    
+    // 分享任务
+    async shareTask() {
+      try {
+        this.$confirm('确定要分享此任务到灵感页吗?', '分享确认', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(async () => {
+          const loading = this.$loading({
+            lock: true,
+            text: '正在提交分享请求...',
+            spinner: 'el-icon-loading'
+          })
+          
+          try {
+            const result = await shareTask({
+              taskId: this.digitalHuman.id,
+              mode: 'digital_human',
+              taskType: 'digital_human'
+            })
+            
+            loading.close()
+            
+            if (result.success) {
+              this.$message.success(result.message)
+              // 更新本地状态
+              this.digitalHuman.is_shared = true
+              this.digitalHuman.share_status = 'pending_review'
+              // 刷新任务信息
+              await this.fetchDigitalHuman()
+            } else {
+              this.$message.error(result.message)
+            }
+          } catch (error) {
+            loading.close()
+            this.$message.error('分享失败: ' + (error.message || '未知错误'))
+          }
+        }).catch(() => {
+          // 用户取消分享，不执行任何操作
+        })
+      } catch (error) {
+        this.$message.error('分享操作失败: ' + (error.message || '未知错误'))
+      }
+    },
+    
+    // 获取分享按钮文本
+    getShareButtonText() {
+      if (!this.digitalHuman) {
+        return '分享到灵感页'
+      }
+      
+      if (this.digitalHuman.is_shared) {
+        switch (this.digitalHuman.share_status) {
+          case 'pending_review':
+            return '审核中'
+          case 'approved':
+            return '已分享'
+          case 'rejected':
+            return '分享被拒绝'
+          default:
+            return '已分享'
+        }
+      }
+      return '分享到灵感页'
+    },
+    
+    // 获取任务详情
+    async fetchDigitalHuman() {
+      try {
+        this.loading = true
+        const id = this.$route.params.id
+        
+        const response = await axios.get(`/api/digital-human/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        })
+        
+        if (response.data && (response.data.digital_human || response.data)) {
+          this.digitalHuman = response.data.digital_human || response.data
+          
+          // 更新分享状态
+          this.isShared = this.digitalHuman.is_shared || false
+          this.shareStatus = this.digitalHuman.share_status || 'private'
+          
+          // 加载媒体URL
+          this.loadMediaUrls()
+          
+          // 如果任务正在处理中，启动进度查询
+          if (this.digitalHuman && (this.digitalHuman.status === 'pending' || this.digitalHuman.status === 'processing')) {
+            this.startRefreshInterval()
+          }
+        } else {
+          this.$message.error('获取数字人合成任务信息失败')
+        }
+      } catch (error) {
+        console.error('获取数字人合成任务信息失败', error)
+        this.$message.error('获取数字人合成任务信息失败: ' + ((error.response && error.response.data && error.response.data.error) || error.message))
+      } finally {
+        this.loading = false
+      }
+    },
   }
 }
 </script>
@@ -1571,5 +1688,15 @@ video::-webkit-media-controls-play-button {
 
 .digital-human-detail-container .processing {
   border-left: 4px solid #e6a23c;
+}
+
+.action-buttons-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.share-button {
+  margin-left: 10px;
 }
 </style>

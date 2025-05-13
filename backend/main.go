@@ -54,6 +54,7 @@ func main() {
 		&models.MembershipPlan{},
 		&models.MembershipOrder{},
 		&controllers.UserUsage{},
+		&models.ShareTask{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
@@ -119,6 +120,10 @@ func registerRoutes(router *gin.Engine) {
 		public.POST("/register", controllers.Register)
 		public.POST("/login", controllers.Login)
 		public.GET("/file/view", controllers.FileView)
+		// 灵感页面
+		public.GET("/inspiration", controllers.GetInspirationTasks)
+		// 灵感详情页
+		public.GET("/inspiration/:id", controllers.GetInspirationDetail)
 	}
 
 	// 需要认证的路由
@@ -188,6 +193,9 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/message/:id", controllers.GetMessage)
 		protected.GET("/messages", controllers.ListMessages)
 		protected.DELETE("/message/:id", controllers.DeleteMessage)
+
+		// 保护路由中添加分享功能
+		protected.POST("/share", controllers.ShareTask)
 	}
 
 	// 会员中心路由
@@ -224,5 +232,9 @@ func registerRoutes(router *gin.Engine) {
 		admin.POST("/membership/orders/:id/approve", membershipController.ApproveOrder)
 		admin.POST("/membership/orders/:id/reject", membershipController.RejectOrder)
 		admin.GET("/membership/orders", membershipController.GetAllOrders)
+
+		// 管理员路由中添加审核功能
+		admin.GET("/review/pending", controllers.GetPendingReviewTasks)
+		admin.POST("/review", controllers.ReviewTask)
 	}
 }

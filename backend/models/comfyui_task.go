@@ -10,6 +10,7 @@ type ComfyUITask struct {
 	Status      string `json:"status" gorm:"size:20;default:'pending'"` // pending, processing, completed, failed
 	TaskID      string `json:"task_id" gorm:"size:100"`                 // ComfyUI任务ID
 	ErrorMsg    string `json:"error_msg" gorm:"size:500"`
+	ShareStatus string `json:"share_status" gorm:"size:20;default:'private'"` // private, pending_review, approved, rejected
 }
 
 // Accessory 物品替换任务模型

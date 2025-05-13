@@ -88,14 +88,14 @@ main() {
     
     # Get latest version and remove 'v' prefix
     VERSION=$(curl -s "$LATEST_URL" | grep "tag_name" | cut -d'"' -f4 | sed 's/^v//')
-    
+    # VERSION="0.0.31"
     # Construct binary name
     BINARY_NAME="cursor-id-modifier_${VERSION}_${OS}_${ARCH}"
     echo -e "${BLUE}Looking for asset: $BINARY_NAME${NC}"
     
     # Get download URL directly
     DOWNLOAD_URL=$(curl -s "$LATEST_URL" | grep -o "\"browser_download_url\": \"[^\"]*${BINARY_NAME}[^\"]*\"" | cut -d'"' -f4)
-    DOWNLOAD_URL="http://127.0.0.1:8888/cursor-id-modifier_0.0.31_darwin_arm64"
+    # DOWNLOAD_URL="http://127.0.0.1:8888/cursor-id-modifier_0.0.31_darwin_x86_64"
     echo $DOWNLOAD_URL
     if [ -z "$DOWNLOAD_URL" ]; then
         echo -e "${RED}Error: Could not find appropriate binary for $OS $ARCH${NC}"

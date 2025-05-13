@@ -28,6 +28,9 @@ const AdminUsers = () => import('../views/admin/Users.vue')
 const AdminMessages = () => import('../views/admin/Messages.vue')
 const AdminStatistics = () => import('../views/admin/Statistics.vue')
 const AdminMembershipOrders = () => import('../views/admin/MembershipOrders.vue')
+const AdminReviewTasks = () => import('../views/admin/ReviewTasks.vue')
+const Inspiration = () => import('../views/Inspiration.vue')
+const InspirationDetail = () => import('../views/InspirationDetail.vue')
 
 Vue.use(VueRouter)
 
@@ -51,6 +54,16 @@ const baseRoutes = [
         name: 'Home',
         component: Home,
         meta: { requiresAuth: true }
+    },
+    {
+        path: '/inspiration',
+        name: 'Inspiration',
+        component: Inspiration
+    },
+    {
+        path: '/inspiration/:id',
+        name: 'InspirationDetail',
+        component: InspirationDetail
     },
     {
         path: '/login',
@@ -135,6 +148,11 @@ const baseRoutes = [
     {
         path: '/admin/membership-orders',
         component: AdminMembershipOrders,
+        meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/review-tasks',
+        component: AdminReviewTasks,
         meta: { requiresAuth: true, requiresAdmin: true }
     },
     {

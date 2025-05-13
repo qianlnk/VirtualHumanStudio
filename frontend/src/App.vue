@@ -77,7 +77,15 @@
                 <i class="el-icon-s-order"></i>
                 <span>会员订单</span>
               </el-menu-item>
+              <el-menu-item index="/admin/review-tasks">
+                <i class="el-icon-check"></i>
+                <span>分享审核</span>
+              </el-menu-item>
             </el-submenu>
+            <el-menu-item index="/inspiration">
+              <i class="el-icon-magic-stick"></i>
+              <span>灵感空间</span>
+            </el-menu-item>
             <el-menu-item index="/contact">
               <i class="el-icon-phone"></i>
               <span>联系我们</span>
@@ -129,17 +137,17 @@
               <i class="el-icon-microphone"></i>
               <span>音频</span>
             </div>
-            <div class="mobile-nav-item" @click="toggleMobileSubmenu('image')" :class="{'active': isImageActive}">
-              <i class="el-icon-picture"></i>
-              <span>图像</span>
-            </div>
             <div class="mobile-nav-item" @click="navigateTo('/digital-human')" :class="{'active': activeIndex === '/digital-human'}">
               <i class="el-icon-user"></i>
               <span>数字人</span>
             </div>
-            <div class="mobile-nav-item" @click="navigateTo('/membership')" :class="{'active': activeIndex === '/membership'}">
-              <i class="el-icon-medal"></i>
-              <span>会员</span>
+            <div class="mobile-nav-item" @click="toggleMobileSubmenu('image')" :class="{'active': isImageActive}">
+              <i class="el-icon-picture"></i>
+              <span>图像</span>
+            </div>
+            <div class="mobile-nav-item" @click="toggleMobileSubmenu('more')" :class="{'active': isMoreActive}">
+              <i class="el-icon-more"></i>
+              <span>更多</span>
             </div>
           </div>
           
@@ -166,6 +174,30 @@
               <div class="mobile-submenu-item" v-for="module in imageProcessingModules" :key="module.id" @click="navigateTo(module.route)">
                 <i :class="module.icon" v-if="module.icon"></i>
                 <span>{{ module.name }}</span>
+              </div>
+            </div>
+            
+            <!-- 更多选项子菜单 -->
+            <div v-if="activeMobileSubmenu === 'more'" class="mobile-submenu-content">
+              <div class="mobile-submenu-title">
+                <i class="el-icon-back" @click="closeMobileSubmenu"></i>
+                <span>更多功能</span>
+              </div>
+              <div class="mobile-submenu-item" @click="navigateTo('/inspiration')">
+                <i class="el-icon-magic-stick"></i>
+                <span>灵感空间</span>
+              </div>
+              <div class="mobile-submenu-item" @click="navigateTo('/membership')">
+                <i class="el-icon-medal"></i>
+                <span>会员中心</span>
+              </div>
+              <div class="mobile-submenu-item" @click="navigateTo('/contact')">
+                <i class="el-icon-phone"></i>
+                <span>联系我们</span>
+              </div>
+              <div v-if="isAdmin" class="mobile-submenu-item" @click="navigateTo('/admin/review-tasks')">
+                <i class="el-icon-check"></i>
+                <span>分享审核</span>
               </div>
             </div>
           </div>
@@ -206,6 +238,12 @@ export default {
     isImageActive() {
       const imageRoutes = this.imageProcessingModules.map(module => module.route);
       return imageRoutes.some(route => this.activeIndex.includes(route)) || this.activeIndex === '/accessory';
+    },
+    isMoreActive() {
+      return this.activeIndex === '/inspiration' || 
+             this.activeIndex === '/membership' || 
+             this.activeIndex === '/contact' ||
+             this.activeIndex.includes('/admin');
     },
     mobileSubmenuClass() {
       return `mobile-submenu-${this.activeMobileSubmenu}`;
