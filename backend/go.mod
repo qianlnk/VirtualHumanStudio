@@ -10,7 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/gorm v1.9.16
-	github.com/sashabaranov/go-openai v1.38.2
+	github.com/sashabaranov/go-openai v1.39.1
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/crypto v0.37.0
 	gorm.io/driver/mysql v1.5.7

@@ -1,13 +1,13 @@
 <template>
   <div class="inspiration-container">
-    <!-- 更改标题样式，参考ImageProcessingTask -->
+    <!-- 更改标题样式，参考TTS模块 -->
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
         <h2>灵感空间</h2>
-    </div>
+      </div>
       <div class="header-right">
         <p v-if="!isMobile">发现用户分享的精彩创作</p>
-        <el-button type="primary" icon="el-icon-refresh" size="small" @click="refreshData" :loading="loading">刷新</el-button>
+        <!-- <el-button type="primary" icon="el-icon-refresh" size="small" @click="refreshData" :loading="loading">刷新</el-button> -->
       </div>
     </div>
 
@@ -1535,12 +1535,24 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 12px 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
-
 
 .header-left {
   display: flex;
   align-items: center;
+}
+
+.back-icon {
+  font-size: 20px;
+  margin-right: 10px;
+  cursor: pointer;
+  color: #409EFF;
 }
 
 .header-left h2 {
@@ -1551,17 +1563,38 @@ export default {
   -webkit-text-fill-color: transparent;
 }
 
-.back-icon {
-  font-size: 20px;
-  margin-right: 10px;
-  cursor: pointer;
-  color: #409EFF;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-right p {
   font-size: 14px;
   color: #909399;
   margin: 0;
+}
+
+/* 移动端标题栏样式 */
+.mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  border-radius: 0;
+  padding: 8px 10px;
+  margin: 0;
+  background: rgba(156, 16, 16, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-header-placeholder {
+  height: 50px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* 瀑布流布局 */
@@ -1755,31 +1788,31 @@ export default {
 @media (max-width: 576px) {
   .inspiration-container {
     padding: 0;
-  width: 100%;
+    width: 100%;
     overflow-x: hidden;
     overflow-y: auto;
     position: fixed;
-  top: 0;
-  left: 0;
+    top: 0;
+    left: 0;
     right: 0;
     bottom: 0;
     -webkit-overflow-scrolling: touch;
-}
-
+  }
+  
   .mobile-header {
     position: fixed;
-  top: 0;
-  left: 0;
+    top: 0;
+    left: 0;
     right: 0;
     z-index: 999;
     border-radius: 0;
-    padding: 10px 12px;
+    padding: 8px 10px;
     margin: 0;
-    background: rgba(255, 255, 255, 0.98);
+    background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     flex-direction: row;
-  align-items: center;
+    align-items: center;
     height: 50px;
     box-sizing: border-box;
   }
@@ -1859,7 +1892,7 @@ export default {
   }
   
   .detail-meta {
-  flex-direction: column;
+    flex-direction: column;
     gap: 10px;
   }
   
