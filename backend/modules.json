@@ -86,8 +86,8 @@
         },
         {
             "id": "dance",
-            "name": "一键跳舞",
-            "description": "上传人物图片，一键生成跳舞视频",
+            "name": "图生视频",
+            "description": "上传人物图片，一键生成视频",
             "icon": "el-icon-picture",
             "route": "/dance",
             "inputParams": [
@@ -96,7 +96,7 @@
                     "alias": "人物图片",
                     "type": "image",
                     "required": true,
-                    "description": "人物图片，一键生成跳舞视频"
+                    "description": "人物图片，一键生成视频"
                 },
                 {
                     "key": "prompt",
@@ -244,6 +244,210 @@
                 {
                     "key": "57_7",
                     "alias": "结果图片8",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        },
+        {
+            "id": "q_version_ip",
+            "name": "Q版职业IP",
+            "description": "上传人物图片，一键生成Q版职业IP",
+            "icon": "el-icon-picture",
+            "route": "/q_version_ip",
+            "inputParams": [
+                {
+                    "key": "peopleImage",
+                    "alias": "人物图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "人物图片，一键生成跳舞视频"
+                },
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "select",
+                    "required": true,
+                    "description": "提示词，选择职业后，会根据职业生成对应的提示词",
+                    "default": "The cute Q-version doll character, C4D, wears a white doctor's coat over cool streetwear, with a stethoscope around the neck, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their caring and professional vibe.",
+                    "options": [
+                        {
+                            "label": "医生",
+                            "value": "The cute Q-version doll character, C4D, wears a white doctor's coat over cool streetwear, with a stethoscope around the neck, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their caring and professional vibe."
+                        },
+                        {
+                            "label": "教师",
+                            "value": "The cute Q-version doll character, C4D, wears stylish streetwear with a blazer, holding a book, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their wisdom and dynamic personality."
+                        },
+                        {
+                            "label": "厨师",
+                            "value": "The cute Q-version doll character, C4D, wears a chef's apron over trendy streetwear, a tall chef hat, holding a spatula, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their passion for cooking."
+                        },
+                        {
+                            "label": "消防员",
+                            "value": "The cute Q-version doll character, C4D, wears a firefighter jacket styled with streetwear, a red helmet, holding a water hose, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their bravery and action-ready demeanor."
+                        },
+                        {
+                            "label": "程序员",
+                            "value": "The cute Q-version doll character, C4D, wears a hoodie and tech-inspired streetwear, holding a glowing laptop, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their intelligence and focus."
+                        },
+                        {
+                            "label": "警察",
+                            "value": "The cute Q-version doll character, C4D, wears a stylish police uniform with streetwear elements, holding handcuffs, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their sense of justice."
+                        },
+                        {
+                            "label": "艺术家",
+                            "value": "The cute Q-version doll character, C4D, wears streetwear with colorful paint splatters, holding a palette and brush, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their creativity."
+                        },
+                        {
+                            "label": "运动员",
+                            "value": "The cute Q-version doll character, C4D, wears sporty streetwear with a headband and sneakers, holding a basketball, full-length portrait. Rendered in ultra high definition with a minimal light orange background, showcasing their energy and athleticism."
+                        },
+                        {
+                            "label": "科学家",
+                            "value": "The cute Q-version doll character, C4D, wears a lab coat over modern streetwear, holding a test tube, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their curiosity and knowledge."
+                        },
+                        {
+                            "label": "飞行员",
+                            "value": "The cute Q-version doll character, C4D, wears a lab coat over modern streetwear, holding a test tube, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their curiosity and knowledge."
+                        },
+                        {
+                            "label": "护士",
+                            "value": "The cute Q-version doll character, C4D, wears a white nurse's coat over cool streetwear, a nurse cap with a red cross symbol, holding a clipboard, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their gentle and caring personality."
+                        },
+                        {
+                            "label": "宇航员",
+                            "value": "The cute Q-version doll character, C4D, wears a space suit layered over streetwear, holding a small helmet in one hand, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their adventurous and futuristic vibe."
+                        },
+                        {
+                            "label": "农民",
+                            "value": "The cute Q-version doll character, C4D, wears overalls with streetwear elements, a straw hat, holding a pitchfork or basket of crops, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their hardworking and earthy charm."
+                        },
+                        {
+                            "label": "船长",
+                            "value": "The cute Q-version doll character, C4D, wears a captain's uniform styled with streetwear touches, holding a telescope, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their leadership and maritime charm."
+                        },
+                        {
+                            "label": "魔法师",
+                            "value": "The cute Q-version doll character, C4D, wears a wizard robe over cool streetwear, a tall pointed hat, holding a glowing wand, full-length portrait. Rendered in ultra high definition with a minimal light orange background, showcasing their mysterious and magical aura."
+                        },
+                        {
+                            "label": "作家",
+                            "value": "The cute Q-version doll character, C4D, wears cozy streetwear with a scarf and glasses, holding a pen and notebook, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their intellectual and creative charm."
+                        },
+                        {
+                            "label": "摄影师",
+                            "value": "The cute Q-version doll character, C4D, wears modern streetwear with a camera hanging from their neck, holding a tripod, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their passion for capturing moments."
+                        },
+                        {
+                            "label": "舞者",
+                            "value": "The cute Q-version doll character, C4D, wears dynamic streetwear with stylish sneakers, captured mid-dance pose, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their grace and energy."
+                        },
+                        {
+                            "label": "工程师",
+                            "value": "The cute Q-version doll character, C4D, wears a safety jacket over stylish streetwear, holding a wrench or blueprint, full-length portrait. Rendered in ultra high definition with a minimal light orange background, highlighting their technical expertise and innovation."
+                        },
+                        {
+                            "label": "兽医",
+                            "value": "The cute Q-version doll character, C4D, wears a white coat over streetwear, holding a small puppy or kitten, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their warmth and care for animals."
+                        },
+                        {
+                            "label": "快递员",
+                            "value": "The cute Q-version doll character, C4D, wears a courier uniform with streetwear touches, a cap with a logo, holding a delivery package, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their speed and reliability."
+                        },
+                        {
+                            "label": "售货员",
+                            "value": "The cute Q-version doll character, C4D, wears a store apron over streetwear, holding a shopping basket or barcode scanner, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their friendliness and service-oriented attitude."
+                        },
+                        {
+                            "label": "理发师",
+                            "value": "The cute Q-version doll character, C4D, wears a barber's apron over trendy streetwear, holding scissors and a comb, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their style and precision."
+                        },
+                        {
+                            "label": "清洁工",
+                            "value": "The cute Q-version doll character, C4D, wears a reflective vest over casual streetwear, holding a broom or mop, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their diligence and commitment."
+                        },
+                        {
+                            "label": "面包师",
+                            "value": "The cute Q-version doll character, C4D, wears a baker's apron over casual streetwear, a chef's hat, holding a loaf of bread or rolling pin, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their warmth and craftsmanship."
+                        },
+                        {
+                            "label": "修理工",
+                            "value": "The cute Q-version doll character, C4D, wears a mechanic's jumpsuit with streetwear touches, holding a wrench or toolbox, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their technical skills and reliability."
+                        },
+                        {
+                            "label": "外卖员",
+                            "value": "The cute Q-version doll character, C4D, wears a bright delivery uniform with streetwear accents, a helmet with a logo, holding a delivery bag, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their energy and speed."
+                        },
+                        {
+                            "label": "保安",
+                            "value": "The cute Q-version doll character, C4D, wears a security guard uniform with a streetwear twist, holding a walkie-talkie or flashlight, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their responsibility and alertness."
+                        },
+                        {
+                            "label": "水果摊老板",
+                            "value": "The cute Q-version doll character, C4D, wears casual streetwear with a fruit-patterned apron, holding a basket of fresh fruits, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their friendliness and vibrant energy."
+                        },
+                        {
+                            "label": "银行客服",
+                            "value": "The cute Q-version doll character, C4D, wears a professional suit with streetwear-inspired details, a headset on their head, holding a small notebook or a bank card, full-length portrait. Rendered in ultra high definition with a minimal light orange background."
+                        },
+                        {
+                            "label": "小学生",
+                            "value": "The cute Q-version doll character, C4D, wears a school uniform with a colorful backpack, holding a notebook or a pencil, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their youthful innocence and curiosity."
+                        },
+                        {
+                            "label": "研究生",
+                            "value": "The cute Q-version doll character, C4D, wears casual streetwear with a graduation cap, holding a laptop or thick research books, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their determination and intellectual curiosity."
+                        },
+                        {
+                            "label": "足球运动员",
+                            "value": "The cute Q-version doll character, C4D, wears a soccer jersey with sporty streetwear touches, holding a soccer ball, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their athletic energy and team spirit."
+                        },
+                        {
+                            "label": "办公室领导",
+                            "value": "The cute Q-version doll character, C4D, wears a tailored suit with streetwear-inspired details, holding a clipboard or pointing to a chart, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their authority and leadership qualities."
+                        },
+                        {
+                            "label": "花艺师",
+                            "value": "The cute Q-version doll character, C4D, wears a floral-patterned apron over trendy streetwear, holding a bouquet of fresh flowers, full-length portrait. Rendered in ultra high definition with a minimal light orange background, emphasizing their creativity and warmth."
+                        },
+                        {
+                            "label": "街头小子",
+                            "value": "The cute Q-version doll character, C4D, wears cool streetwear, full-length portrait, the character is rendered in ultra high definition against a minimal light orange background with soft lighting, emphasizing the character's lively personality and bold fashion sense."
+                        }
+                    ]
+                },
+                {
+                    "key": "negativePrompt",
+                    "alias": "负面提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "负面提示词，用于生成Q版职业IP",
+                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "36_0",
+                    "alias": "结果图片1",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "36_1",
+                    "alias": "结果图片2",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "36_2",
+                    "alias": "结果图片3",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "36_3",
+                    "alias": "结果图片4",
                     "type": "image",
                     "description": "处理后的结果图片"
                 }

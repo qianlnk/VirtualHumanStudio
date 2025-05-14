@@ -11,6 +11,7 @@
         <el-button @click="goBack" icon="el-icon-back">返回列表</el-button>
         <el-button type="primary" @click="retryTask" :loading="retrying" v-if="task && task.status !== 'processing'">重试任务</el-button>
         <el-button type="primary" @click="refreshTask" icon="el-icon-refresh">刷新</el-button>
+        <el-button type="success" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'">分享</el-button>
       </div>
     </div>
     
@@ -21,6 +22,11 @@
         <span>返回</span>
       </div>
       <h2 class="header-title">{{ currentModule ? currentModule.name : '图像处理' }}任务</h2>
+      <div class="mobile-share-btn" v-if="task && task.status === 'completed'">
+        <el-button type="success" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'" size="small" circle>
+          <i class="el-icon-share"></i>
+        </el-button>
+      </div>
     </div>
     
     <!-- 移动端头部占位 - 只在移动端显示 -->
@@ -44,6 +50,9 @@
               <div class="info-item">
                 <span class="label">状态:</span>
                 <el-tag :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+                <el-tag v-if="task.share_status === 'approved'" type="success" style="margin-left: 8px">已分享</el-tag>
+                <el-tag v-else-if="task.share_status === 'pending_review'" type="warning" style="margin-left: 8px">审核中</el-tag>
+                <el-tag v-else-if="task.share_status === 'rejected'" type="danger" style="margin-left: 8px">已拒绝</el-tag>
               </div>
             </div>
           </div>
@@ -92,14 +101,6 @@
                         <el-button type="primary" size="small" @click="downloadImage(param.value, param.key)">
                           下载
                         </el-button>
-                        <el-button 
-                          v-if="index === 0" 
-                          type="success" 
-                          size="small" 
-                          @click="shareTask" 
-                          :disabled="isShared">
-                          {{ getShareButtonText() }}
-                        </el-button>
                       </div>
                     </template>
                     <!-- 视频类型结果 -->
@@ -117,14 +118,6 @@
                       <div class="result-actions">
                         <el-button type="primary" size="small" @click="downloadVideo(param.value, param.key)">
                           下载
-                        </el-button>
-                        <el-button 
-                          v-if="index === 0" 
-                          type="success" 
-                          size="small" 
-                          @click="shareTask" 
-                          :disabled="isShared">
-                          {{ getShareButtonText() }}
                         </el-button>
                       </div>
                     </template>
@@ -165,6 +158,9 @@
           <div class="basic-info">
             <div class="status-tag">
               <el-tag :type="getStatusType(task.status)">{{ getStatusText(task.status) }}</el-tag>
+              <el-tag v-if="task.share_status === 'approved'" type="success" style="margin-left: 8px">已分享</el-tag>
+              <el-tag v-else-if="task.share_status === 'pending_review'" type="warning" style="margin-left: 8px">审核中</el-tag>
+              <el-tag v-else-if="task.share_status === 'rejected'" type="danger" style="margin-left: 8px">已拒绝</el-tag>
             </div>
             <div class="create-time">创建时间：{{ formatDate(task.created_at) }}</div>
           </div>
@@ -218,14 +214,6 @@
                     </div>
                       <div class="mobile-result-actions">
                       <el-button type="primary" size="mini" @click="downloadImage(param.value, param.key)">下载</el-button>
-                      <el-button 
-                        v-if="index === 0" 
-                        type="success" 
-                        size="mini" 
-                        @click="shareTask" 
-                        :disabled="isShared">
-                        {{ getShareButtonText() }}
-                        </el-button>
                     </div>
                   </template>
                   <!-- 视频类型结果 -->
@@ -242,14 +230,6 @@
                       <div class="mobile-result-actions">
                         <el-button type="primary" size="mini" @click="downloadVideo(param.value, param.key)">
                           下载
-                        </el-button>
-                        <el-button 
-                          v-if="index === 0" 
-                          type="success" 
-                          size="mini" 
-                          @click="shareTask" 
-                          :disabled="isShared">
-                          {{ getShareButtonText() }}
                         </el-button>
                       </div>
                     </div>
@@ -617,7 +597,8 @@ export default {
             input_params: response.task.input_params || '[]',
             output_params: response.task.output_params || '[]',
             error_msg: response.task.error_msg || '',
-            task_type: response.task.task_type || 'unknown'
+            task_type: response.task.task_type || 'unknown',
+            share_status: response.task.share_status || '',
           }
           
           // 使用Vue.set确保响应式更新

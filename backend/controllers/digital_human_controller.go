@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
@@ -30,23 +29,6 @@ type DigitalHumanRequest struct {
 	WatermarkSwitch int    `form:"watermark_switch"`
 	PN              int    `form:"pn"`
 	// 音频和视频文件通过multipart/form-data上传
-}
-
-// DigitalHumanResponse 数字人合成响应
-type DigitalHumanResponse struct {
-	ID              uint      `json:"id"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	AudioURL        string    `json:"audio_url"`
-	VideoURL        string    `json:"video_url"`
-	TaskCode        string    `json:"task_code"`
-	Chaofen         int       `json:"chaofen"`
-	WatermarkSwitch int       `json:"watermark_switch"`
-	PN              int       `json:"pn"`
-	Status          string    `json:"status"`
-	ResultURL       string    `json:"result_url"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // APIDigitalHumanRequest API数字人合成请求
@@ -305,24 +287,13 @@ func CreateDigitalHuman(c *gin.Context) {
 		})
 	}()
 
+	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
+	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
+
 	// 返回响应
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "数字人合成任务已创建",
-		"digital_human": DigitalHumanResponse{
-			ID:              digitalHuman.ID,
-			Name:            digitalHuman.Name,
-			Description:     digitalHuman.Description,
-			AudioURL:        utils.GetFileURL(digitalHuman.AudioURL),
-			VideoURL:        utils.GetFileURL(digitalHuman.VideoURL),
-			TaskCode:        digitalHuman.TaskCode,
-			Chaofen:         digitalHuman.Chaofen,
-			WatermarkSwitch: digitalHuman.WatermarkSwitch,
-			PN:              digitalHuman.PN,
-			Status:          digitalHuman.Status,
-			ResultURL:       digitalHuman.ResultURL,
-			CreatedAt:       digitalHuman.CreatedAt,
-			UpdatedAt:       digitalHuman.UpdatedAt,
-		},
+		"message":       "数字人合成任务已创建",
+		"digital_human": digitalHuman,
 	})
 }
 
@@ -357,22 +328,11 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 
 	// 如果任务已完成或失败，直接返回状态
 	if digitalHuman.Status == "completed" || digitalHuman.Status == "failed" {
+		digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
+		digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
+		digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
 		c.JSON(http.StatusOK, gin.H{
-			"digital_human": DigitalHumanResponse{
-				ID:              digitalHuman.ID,
-				Name:            digitalHuman.Name,
-				Description:     digitalHuman.Description,
-				AudioURL:        utils.GetFileURL(digitalHuman.AudioURL),
-				VideoURL:        utils.GetFileURL(digitalHuman.VideoURL),
-				TaskCode:        digitalHuman.TaskCode,
-				Chaofen:         digitalHuman.Chaofen,
-				WatermarkSwitch: digitalHuman.WatermarkSwitch,
-				PN:              digitalHuman.PN,
-				Status:          digitalHuman.Status,
-				ResultURL:       utils.GetFileURL(digitalHuman.ResultURL),
-				CreatedAt:       digitalHuman.CreatedAt,
-				UpdatedAt:       digitalHuman.UpdatedAt,
-			},
+			"digital_human": digitalHuman,
 		})
 		return
 	}
@@ -502,24 +462,14 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 		digitalHuman.ResultURL = videoFile
 	}
 
+	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
+	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
+	digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
+
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
-		"progress": apiResp.Data.Progress,
-		"digital_human": DigitalHumanResponse{
-			ID:              digitalHuman.ID,
-			Name:            digitalHuman.Name,
-			Description:     digitalHuman.Description,
-			AudioURL:        utils.GetFileURL(digitalHuman.AudioURL),
-			VideoURL:        utils.GetFileURL(digitalHuman.VideoURL),
-			TaskCode:        digitalHuman.TaskCode,
-			Chaofen:         digitalHuman.Chaofen,
-			WatermarkSwitch: digitalHuman.WatermarkSwitch,
-			PN:              digitalHuman.PN,
-			Status:          digitalHuman.Status,
-			ResultURL:       utils.GetFileURL(digitalHuman.ResultURL),
-			CreatedAt:       digitalHuman.CreatedAt,
-			UpdatedAt:       digitalHuman.UpdatedAt,
-		},
+		"progress":      apiResp.Data.Progress,
+		"digital_human": digitalHuman,
 	})
 }
 
@@ -552,23 +502,13 @@ func GetDigitalHuman(c *gin.Context) {
 		return
 	}
 
+	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
+	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
+	digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
+
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
-		"digital_human": DigitalHumanResponse{
-			ID:              digitalHuman.ID,
-			Name:            digitalHuman.Name,
-			Description:     digitalHuman.Description,
-			AudioURL:        utils.GetFileURL(digitalHuman.AudioURL),
-			VideoURL:        utils.GetFileURL(digitalHuman.VideoURL),
-			TaskCode:        digitalHuman.TaskCode,
-			Chaofen:         digitalHuman.Chaofen,
-			WatermarkSwitch: digitalHuman.WatermarkSwitch,
-			PN:              digitalHuman.PN,
-			Status:          digitalHuman.Status,
-			ResultURL:       utils.GetFileURL(digitalHuman.ResultURL),
-			CreatedAt:       digitalHuman.CreatedAt,
-			UpdatedAt:       digitalHuman.UpdatedAt,
-		},
+		"digital_human": digitalHuman,
 	})
 }
 
@@ -596,30 +536,17 @@ func ListDigitalHumans(c *gin.Context) {
 	}
 
 	// 构建响应
-	responses := make([]DigitalHumanResponse, len(digitalHumans))
-	for i, dh := range digitalHumans {
-		responses[i] = DigitalHumanResponse{
-			ID:              dh.ID,
-			Name:            dh.Name,
-			Description:     dh.Description,
-			AudioURL:        utils.GetFileURL(dh.AudioURL),
-			VideoURL:        utils.GetFileURL(dh.VideoURL),
-			TaskCode:        dh.TaskCode,
-			Chaofen:         dh.Chaofen,
-			WatermarkSwitch: dh.WatermarkSwitch,
-			PN:              dh.PN,
-			Status:          dh.Status,
-			ResultURL:       utils.GetFileURL(dh.ResultURL),
-			CreatedAt:       dh.CreatedAt,
-			UpdatedAt:       dh.UpdatedAt,
-		}
+	for i := range digitalHumans {
+		digitalHumans[i].AudioURL = utils.GetFileURL(digitalHumans[i].AudioURL)
+		digitalHumans[i].VideoURL = utils.GetFileURL(digitalHumans[i].VideoURL)
+		digitalHumans[i].ResultURL = utils.GetFileURL(digitalHumans[i].ResultURL)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"total":          count,
 		"page":           page,
 		"size":           size,
-		"digital_humans": responses,
+		"digital_humans": digitalHumans,
 	})
 }
 

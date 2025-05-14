@@ -5,6 +5,7 @@
       <h2>数字人合成任务详情</h2>
       <div>
         <el-button type="primary" @click="goBack">返回列表</el-button>
+        <el-button type="success" @click="shareTask" v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.share_status !== 'approved' && digitalHuman.share_status !== 'pending_review'">分享</el-button>
       </div>
     </div>
     
@@ -15,6 +16,11 @@
         <span>返回</span>
       </div>
       <h2 class="header-title">数字人合成任务</h2>
+      <div class="mobile-share-btn" v-if="digitalHuman && digitalHuman.status === 'completed'">
+        <el-button type="success" @click="shareTask" v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.share_status !== 'approved' && digitalHuman.share_status !== 'pending_review'" size="small" circle>
+          <i class="el-icon-share"></i>
+        </el-button>
+      </div>
     </div>
     
     <!-- 移动端头部占位 - 只在移动端显示 -->
@@ -28,6 +34,9 @@
             <div slot="header" class="card-header">
               <span>{{ digitalHuman.name }}</span>
               <el-tag :type="getStatusType(digitalHuman.status)" class="status-tag">{{ getStatusText(digitalHuman.status) }}</el-tag>
+              <el-tag v-if="digitalHuman.share_status === 'approved'" type="success" class="status-tag" style="margin-left: 8px">已分享</el-tag>
+              <el-tag v-else-if="digitalHuman.share_status === 'pending_review'" type="warning" class="status-tag" style="margin-left: 8px">审核中</el-tag>
+              <el-tag v-else-if="digitalHuman.share_status === 'rejected'" type="danger" class="status-tag" style="margin-left: 8px">已拒绝</el-tag>
             </div>
             
             <div class="task-info">
@@ -145,9 +154,6 @@
                 <el-button type="primary" size="large" @click="downloadResult" class="download-button">
                   <i class="el-icon-download"></i> 下载合成结果
                 </el-button>
-                  <el-button type="success" size="large" @click="shareTask" class="share-button" :disabled="isShared">
-                    <i class="el-icon-share"></i> {{ getShareButtonText() }}
-                  </el-button>
                 </div>
               </div>
             </div>
@@ -163,6 +169,9 @@
             <div class="basic-info">
               <div class="status-tag">
                 <el-tag :type="getStatusType(digitalHuman.status)">{{ getStatusText(digitalHuman.status) }}</el-tag>
+                <el-tag v-if="digitalHuman.share_status === 'approved'" type="success" class="status-tag" style="margin-left: 8px">已分享</el-tag>
+                <el-tag v-else-if="digitalHuman.share_status === 'pending_review'" type="warning" class="status-tag" style="margin-left: 8px">审核中</el-tag>
+                <el-tag v-else-if="digitalHuman.share_status === 'rejected'" type="danger" class="status-tag" style="margin-left: 8px">已拒绝</el-tag>
               </div>
               <div class="create-time">创建时间：{{ formatDate(digitalHuman.created_at) }}</div>
             </div>
@@ -281,9 +290,7 @@
                   <el-button type="primary" @click="downloadResult" class="download-button" block>
                     <i class="el-icon-download"></i> 下载合成结果
                   </el-button>
-                  <el-button type="success" @click="shareTask" class="share-button" :disabled="isShared" block style="margin-top: 10px;">
-                    <i class="el-icon-share"></i> {{ getShareButtonText() }}
-                </el-button>
+
                 </div>
               </div>
             </div>
@@ -321,8 +328,7 @@ export default {
       loadingProgress: false,
       progressTimer: null,
       error: null,
-      isShared: false,
-      shareStatus: 'private'
+      share_status: 'private'
     }
   },
   computed: {
@@ -1005,8 +1011,7 @@ export default {
           this.digitalHuman = response.data.digital_human || response.data
           
           // 更新分享状态
-          this.isShared = this.digitalHuman.is_shared || false
-          this.shareStatus = this.digitalHuman.share_status || 'private'
+          this.share_status = this.digitalHuman.share_status || 'private'
           
           // 加载媒体URL
           this.loadMediaUrls()
@@ -1694,6 +1699,19 @@ video::-webkit-media-controls-play-button {
   display: flex;
   gap: 10px;
   margin-top: 15px;
+}
+
+.mobile-share-btn {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1001;
+}
+
+.mobile-share-btn .el-button {
+  padding: 8px;
+  font-size: 16px;
 }
 
 .share-button {
