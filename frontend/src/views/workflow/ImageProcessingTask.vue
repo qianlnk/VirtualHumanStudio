@@ -136,9 +136,15 @@
           </template>
           <template v-else-if="hasMoreData">
             <p>向下滚动加载更多</p>
+            <el-button v-if="initialLoaded" type="text" @click="loadMoreTasks" :disabled="loadingMore">
+              点击手动加载
+            </el-button>
           </template>
           <template v-else>
             <p>没有更多数据了</p>
+            <el-button v-if="tasks.length > 0" type="text" @click="refreshData" :loading="loading">
+              <i class="el-icon-refresh"></i> 刷新数据
+            </el-button>
           </template>
         </div>
       </div>
@@ -408,7 +414,7 @@ export default {
       lastX: 0,
       lastY: 0,
       // 视图和分页相关
-      isCardView: false,
+      isCardView: true, // 默认使用卡片视图作为瀑布流
       total: 0,
       currentPage: 1,
       pageSize: 10,
@@ -425,7 +431,8 @@ export default {
       carouselTouchStart: null,
       carouselTouchCurrent: null,
       activeCarouselIndex: {},
-      isDraggingCarousel: false
+      // 无限滚动观察器
+      observer: null,
     }
   },
   created() {
@@ -521,6 +528,9 @@ export default {
       // 设置移动端视口
       this.setupMobileViewport()
     }
+    
+    // 在任何情况下，首先检查设备类型
+    this.checkDeviceType()
   },
   
   updated() {
@@ -655,6 +665,12 @@ export default {
             // 初始化表单验证规则
             this.initFormRules()
             this.showModuleList = false
+            
+            // 初始化完成后，加载数据
+            this.$nextTick(() => {
+              this.loadInitialData()
+            })
+            
             return true
           } else {
             console.error('未找到指定的处理模块:', moduleId)
@@ -669,6 +685,12 @@ export default {
           this.currentModule = this.modules[0]
           this.initFormRules()
           this.showModuleList = false
+          
+          // 初始化完成后，加载数据
+          this.$nextTick(() => {
+            this.loadInitialData()
+          })
+          
           // 更新路由（可选）
           // this.$router.replace(`/image-processing/${this.currentModule.id}`)
           return true
@@ -755,6 +777,9 @@ export default {
       
       try {
         console.log('发起API请求:', '页码=', this.currentPage, '每页数量=', this.isCardView ? this.cardPageSize : this.pageSize)
+        const apiUrl = `/api/image-processing/tasks/${this.currentModule.id}?page=${this.currentPage}&size=${this.isCardView ? this.cardPageSize : this.pageSize}`;
+        console.log('请求API URL:', apiUrl);
+        
         const response = await getImageProcessingTasks(this.currentModule.id, {
           page: this.currentPage,
           size: this.isCardView ? this.cardPageSize : this.pageSize
@@ -774,9 +799,18 @@ export default {
             this.tasks = newTasks
           }
           
+          // 标记为已加载初始数据
+          this.initialLoaded = true;
+          
           // 判断是否还有更多数据
           this.hasMoreData = this.tasks.length < this.total
           console.log('更新后的任务列表:', '当前列表长度=', this.tasks.length, '是否还有更多=', this.hasMoreData)
+          
+          // 如果没有更多数据或空数据，设置hasMoreData为false
+          if (this.total === 0 || this.tasks.length >= this.total) {
+            this.hasMoreData = false
+            console.log('设置没有更多数据标志')
+          }
         } else {
           console.error('获取任务列表失败, 服务器返回错误:', response)
           this.$message.error('获取任务列表失败: ' + (response.message || '未知错误'))
@@ -789,12 +823,139 @@ export default {
         this.loadingMore = false
         
         // 在数据加载完成后重新设置观察者
-        if (this.isCardView) {
-          this.$nextTick(() => {
+        this.$nextTick(() => {
+          if (this.isCardView) {
             this.setupIntersectionObserver()
-          })
+          }
+        })
+      }
+    },
+    
+    // 加载初始数据
+    loadInitialData() {
+      if (this.initialLoaded) return;
+      
+      console.log('加载初始数据')
+      this.fetchTasks();
+    },
+    
+    // 确保数据已加载
+    ensureDataLoaded() {
+      if (!this.initialLoaded && this.currentModule && this.tasks.length === 0 && !this.loading && !this.loadingMore) {
+        console.log('检测到数据未加载，自动加载数据');
+        this.loadInitialData();
+      }
+    },
+    
+    // 加载更多任务
+    loadMoreTasks() {
+      // 检查加载条件
+      if (this.loadingMore || !this.hasMoreData) {
+        console.log('跳过加载更多:', 
+                   '加载中=', this.loadingMore, 
+                   '没有更多数据=', !this.hasMoreData);
+        return;
+      }
+      
+      // 增加页码并加载更多
+      console.log('加载更多任务，当前页码:', this.currentPage);
+      this.currentPage++;
+      this.fetchTasks(true);
+    },
+    
+    // 处理滚动事件
+    handleWindowScroll() {
+      // 只有卡片视图启用滚动加载
+      if (!this.isCardView) return;
+      
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
+      
+      // 只有在向下滚动且满足条件时加载更多
+      if (scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 计算距离底部的距离
+        const distanceToBottom = documentHeight - scrollTop - windowHeight;
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (distanceToBottom < this.scrollThreshold) {
+          console.log('触发滚动加载更多:', 
+                     '滚动位置=', scrollTop, 
+                     '窗口高度=', windowHeight, 
+                     '文档高度=', documentHeight, 
+                     '距离底部=', distanceToBottom,
+                     '阈值=', this.scrollThreshold);
+          this.loadMoreTasks();
         }
       }
+    },
+    
+    // 设置交叉观察器监听加载更多触发元素
+    setupIntersectionObserver() {
+      if (!this.isCardView) {
+        console.log('列表视图模式，不设置无限滚动');
+        return;
+      }
+      
+      // 确保DOM元素已更新
+      this.$nextTick(() => {
+        console.log('设置无限滚动观察器');
+        
+        // 获取加载更多触发器元素
+        const loadMoreTrigger = this.$refs.loadMoreTrigger;
+        if (!loadMoreTrigger) {
+          console.error('找不到加载更多触发器元素');
+          return;
+        }
+        
+        // 如果不需要加载更多数据，隐藏触发器
+        if (!this.hasMoreData) {
+          loadMoreTrigger.style.display = 'none';
+          console.log('没有更多数据，隐藏触发器');
+          return;
+        } else {
+          loadMoreTrigger.style.display = 'block';
+        }
+        
+        // 如果IntersectionObserver不可用，回退到滚动事件
+        if (!('IntersectionObserver' in window)) {
+          console.log('不支持IntersectionObserver，使用滚动事件');
+          return;
+        }
+        
+        // 如果已有观察器，先断开连接
+        if (this.observer) {
+          this.observer.disconnect();
+        }
+        
+        // 创建观察器
+        this.observer = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          
+          // 当触发器可见且满足加载条件时，触发加载
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
+            console.log('触发器元素进入视口，加载更多数据');
+            this.loadMoreTasks();
+          }
+        }, {
+          root: null,
+          threshold: 0.1, // 降低阈值，使其更容易触发
+          rootMargin: '200px' // 提前触发距离
+        });
+        
+        // 开始观察触发器元素
+        this.observer.observe(loadMoreTrigger);
+        console.log('开始观察加载更多触发器元素');
+      });
     },
 
     // 显示创建对话框
@@ -1721,6 +1882,38 @@ export default {
           carousel.setActiveItem(index);
         }
       }
+    },
+
+    // 刷新数据
+    refreshData() {
+      console.log('手动刷新数据');
+      // 重置所有状态
+      this.currentPage = 1;
+      this.hasMoreData = true;
+      this.initialLoaded = false;
+      this.loading = true;
+      this.loadingMore = false;
+      this.tasks = [];
+      
+      // 暂停滚动监听，避免刷新过程中触发加载
+      // const pauseScrollListening = true;
+      
+      // 清理观察器
+      if ('IntersectionObserver' in window && this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
+      
+      // 立即获取数据
+      this.$nextTick(() => {
+        console.log('刷新数据：开始获取新数据');
+        this.fetchTasks();
+        
+        // 重新设置观察器
+        setTimeout(() => {
+          this.setupIntersectionObserver();
+        }, 500); // 延迟一点时间确保DOM更新
+      });
     }
   }
 }

@@ -91,7 +91,7 @@
       </div>
       
       <!-- 固定的加载更多触发器 -->
-      <div class="load-more-trigger"></div>
+      <div class="load-more-trigger" ref="loadMoreTrigger"></div>
     </div>
     
     <!-- 加载更多提示 -->
@@ -121,25 +121,15 @@
       <img :src="previewUrl" alt="预览图" class="preview-fullsize">
     </el-dialog>
     
-    <!-- 使用分离的任务详情组件 -->
-    <task-detail-dialog
-      :visible.sync="detailVisible"
-      :task="currentTask"
-      @close="handleDetailClose"
-    />
+
   </div>
 </template>
 
 <script>
 import axios from 'axios'
 import { getDirectFileUrl } from '@/utils/fileAccess'
-import TaskDetailDialog from '@/components/TaskDetailDialog.vue'
-
 export default {
   name: 'Inspiration',
-  components: {
-    TaskDetailDialog
-  },
   data() {
     return {
       tasks: [],
@@ -149,8 +139,7 @@ export default {
       pageSize: 12,
       previewVisible: false,
       previewUrl: '',
-      detailVisible: false,
-      currentTask: null,
+
       videoLoadedMap: {}, // 跟踪每个视频是否已加载
       imageLoadedMap: {}, // 跟踪每个图片是否已加载
       maxConcurrentVideos: 3, // 最大同时加载的视频数量
@@ -424,7 +413,7 @@ export default {
           if (!response || !response.data) throw new Error('无效响应')
           
           const newTasks = response.data.tasks || []
-          this.total = response.data.total
+          this.total = response.data.total || 0
           
           console.log('获取到数据:', '新数据条数=', newTasks.length, '总数=', this.total)
           
@@ -436,10 +425,16 @@ export default {
             this.tasks = newTasks
           }
           
-          // 判断是否还有更多数据
+          // 判断是否还有更多数据 - 修复：比较总数与当前任务数量
           this.hasMoreData = this.tasks.length < this.total
           
-          console.log('数据处理完成:', '当前数据总数=', this.tasks.length, '是否还有更多=', this.hasMoreData)
+          console.log('数据处理完成:', '当前数据总数=', this.tasks.length, '是否还有更多=', this.hasMoreData, '总记录数=', this.total)
+          
+          // 如果没有更多数据但是首次加载，确保设置为没有更多数据
+          if (this.total === 0 || this.tasks.length >= this.total) {
+            this.hasMoreData = false
+            console.log('设置没有更多数据标志')
+          }
           
           // 重置视频加载状态
           this.resetVideoLoadStates(loadMore)
@@ -626,11 +621,12 @@ export default {
     
     // 显示任务详情
     showTaskDetail(task) {
-      this.currentTask = task
-      this.detailVisible = true
-      
-      // 进入详情页后暂停其他视频
-      this.pauseAllVideos()
+      if (!task || !task.id) return;
+      // 跳转到详情页面
+      this.$router.push({
+        name: 'InspirationDetail',
+        params: { id: task.id }
+      });
     },
     
     // 获取任务类型标签类型
@@ -1153,6 +1149,8 @@ export default {
         
         // 获取卡片和网格容器尺寸
         const cards = Array.from(grid.querySelectorAll('.inspiration-card'))
+        if (cards.length === 0) return // 如果没有卡片则退出
+        
         const containerWidth = grid.clientWidth
         
         // 确定列数
@@ -1210,9 +1208,9 @@ export default {
           const newTop = `${y}px`
           
           const hasPositionChanged = !taskId || 
-                                    !cardPositions[taskId] || 
-                                    cardPositions[taskId].left !== newLeft || 
-                                    cardPositions[taskId].top !== newTop
+                                  !cardPositions[taskId] || 
+                                  cardPositions[taskId].left !== newLeft || 
+                                  cardPositions[taskId].top !== newTop
           
           if (hasPositionChanged) {
             // 应用动画过渡效果
@@ -1241,14 +1239,20 @@ export default {
           columnsHeights[minColumnIndex] += card.offsetHeight + margin
         })
         
+        // 计算最大高度
+        const maxColumnHeight = Math.max(...columnsHeights)
+        
         // 设置网格容器高度，确保有额外空间
-        const maxHeight = Math.max(...columnsHeights) + 50 // 添加额外空间
+        const maxHeight = maxColumnHeight + 100 // 添加更多额外空间
         grid.style.height = `${maxHeight}px`
+        
+        // 更新加载更多触发器位置
+        this.updateLoadMoreTriggerPosition()
         
         // 在所有卡片布局完成后，设置视频自动播放观察
         this.$nextTick(() => {
-          this.observeVideosForAutoPlay();
-        });
+          this.observeVideosForAutoPlay()
+        })
       })
     },
     
@@ -1332,8 +1336,22 @@ export default {
     
     // 加载更多数据
     loadMoreTasks() {
+      // 添加更详细的日志以排查问题
+      console.log('尝试加载更多数据，状态:', 
+        'loadingMore=', this.loadingMore, 
+        'hasMoreData=', this.hasMoreData, 
+        'detailVisible=', this.detailVisible,
+        'pauseScrollListening=', this.pauseScrollListening,
+        'currentPage=', this.currentPage,
+        'tasks.length=', this.tasks.length,
+        'total=', this.total)
+      
       if (this.loadingMore || !this.hasMoreData || this.detailVisible || this.pauseScrollListening) {
-        console.log('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData, '详情页打开=', this.detailVisible)
+        console.log('跳过加载更多:', 
+          '加载中=', this.loadingMore, 
+          '没有更多数据=', !this.hasMoreData, 
+          '详情页打开=', this.detailVisible,
+          '暂停滚动监听=', this.pauseScrollListening)
         return
       }
       
@@ -1342,7 +1360,7 @@ export default {
       this.fetchInspiration(true)
     },
     
-    // 处理滚动事件
+    // 处理滚动事件 - 添加更多调试信息
     handleWindowScroll() {
       // 如果滚动监听被暂停或详情页打开，则不处理
       if (this.pauseScrollListening || this.detailVisible) {
@@ -1364,9 +1382,14 @@ export default {
           document.body.clientHeight, document.documentElement.clientHeight
         )
         
+        // 计算距离底部的距离
+        const distanceToBottom = documentHeight - scrollTop - windowHeight
+        
         // 当滚动到距离底部阈值距离时触发加载
-        if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
-          console.log('触发滚动加载更多:', '滚动位置=', scrollTop, '窗口高度=', windowHeight, '文档高度=', documentHeight, '距离底部=', documentHeight - scrollTop - windowHeight)
+        if (distanceToBottom < this.scrollThreshold) {
+          console.log('触发滚动加载更多:', '滚动位置=', scrollTop, '窗口高度=', windowHeight, 
+                    '文档高度=', documentHeight, '距离底部=', distanceToBottom,
+                    '阈值=', this.scrollThreshold, '有更多数据=', this.hasMoreData)
           this.loadMoreTasks()
         }
       }
@@ -1381,47 +1404,65 @@ export default {
       }
       
       this.$nextTick(() => {
-        // 获取或创建一个用于检测底部的元素
-        let loadMoreTrigger = this.$el.querySelector('.load-more-trigger')
-        if (!loadMoreTrigger) {
-          loadMoreTrigger = document.createElement('div')
-          loadMoreTrigger.className = 'load-more-trigger'
-          loadMoreTrigger.style.height = '20px'
-          loadMoreTrigger.style.width = '100%'
-          loadMoreTrigger.style.position = 'absolute'
-          loadMoreTrigger.style.bottom = '0'
-          loadMoreTrigger.style.left = '0'
-          
-          const grid = this.$el.querySelector('.inspiration-grid')
-          if (grid) {
-            grid.appendChild(loadMoreTrigger)
-            console.log('创建加载更多触发器元素')
-          }
+        // 获取网格容器
+        const grid = this.$el.querySelector('.inspiration-grid')
+        if (!grid) {
+          console.error('无法找到网格容器元素')
+          return
         }
         
-        console.log('设置无限滚动观察器')
+        // 获取或创建一个用于检测底部的元素
+        let loadMoreTrigger = this.$refs.loadMoreTrigger
+        if (!loadMoreTrigger) {
+          console.error('无法找到加载更多触发器元素')
+          return
+        }
+        
+        // 确保已有的触发器有正确的样式
+        loadMoreTrigger.style.height = '50px'
+        loadMoreTrigger.style.zIndex = '2'
+        
+        // 检查是否还有更多数据
+        if (!this.hasMoreData) {
+          loadMoreTrigger.style.display = 'none'
+          console.log('没有更多数据，隐藏加载触发器')
+          return
+        } else {
+          loadMoreTrigger.style.display = 'block'
+        }
+        
+        console.log('设置无限滚动观察器', '是否有更多数据=', this.hasMoreData)
         
         // 创建新的IntersectionObserver
         this.observer = new IntersectionObserver((entries) => {
           const entry = entries[0]
-          console.log('触发器元素交叉状态:', '可见=', entry.isIntersecting, '加载中=', this.loadingMore, '有更多数据=', this.hasMoreData)
+          const isVisible = entry.isIntersecting
+          
+          console.log('触发器元素交叉状态:', 
+                      '可见=', isVisible, 
+                      '加载中=', this.loadingMore, 
+                      '有更多数据=', this.hasMoreData, 
+                      '交叉比例=', entry.intersectionRatio)
           
           // 当触发元素进入视口且满足条件时加载更多
-          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData && !this.detailVisible && !this.pauseScrollListening) {
+          if (isVisible && !this.loadingMore && this.hasMoreData && !this.detailVisible && !this.pauseScrollListening) {
             console.log('观察器触发加载更多')
             this.loadMoreTasks()
           }
         }, {
           root: null,
-          threshold: 0,
+          threshold: 0.1, // 降低阈值，使其更容易触发
           rootMargin: '300px' // 增大触发距离
         })
         
         // 开始观察
-        if (loadMoreTrigger) {
-          this.observer.observe(loadMoreTrigger)
-          console.log('开始观察加载更多触发器元素')
-        }
+        this.observer.observe(loadMoreTrigger)
+        console.log('开始观察加载更多触发器元素')
+        
+        // 确保触发器位于正确位置
+        this.$nextTick(() => {
+          this.updateLoadMoreTriggerPosition()
+        })
       })
     },
     
@@ -1473,18 +1514,60 @@ export default {
       this.hasMoreData = true
       this.initialLoaded = false
       this.loading = false
+      this.loadingMore = false
+      this.total = 0
       
-      // 立即获取数据
-      setTimeout(() => {
-        this.fetchInspiration()
-      }, 0)
+      // 重置视频状态
+      this.videoLoadedMap = {}
+      this.imageLoadedMap = {}
+      this.activeVideos = []
+      
+      // 暂停所有视频
+      this.pauseAllVideos()
       
       // 清理观察器并重新设置
       this.cleanupObservers()
+      
+      // 立即获取数据
       this.$nextTick(() => {
-        this.setupIntersectionObserver()
-        this.setupScrollObserver()
+        console.log('刷新数据：开始获取新数据')
+        this.fetchInspiration()
+        
+        // 重新设置观察器
+        setTimeout(() => {
+          this.setupIntersectionObserver()
+          this.setupScrollObserver()
+          this.setupVideoPlayObserver()
+        }, 500) // 延迟一点时间确保DOM更新
       })
+    },
+    
+    // 更新加载更多触发器的位置
+    updateLoadMoreTriggerPosition() {
+      const grid = this.$el.querySelector('.inspiration-grid')
+      const loadMoreTrigger = this.$refs.loadMoreTrigger
+      
+      if (!grid || !loadMoreTrigger) return
+      
+      // 计算网格容器高度
+      const cardsHeight = Array.from(this.$el.querySelectorAll('.inspiration-card'))
+        .reduce((maxHeight, card) => {
+          const bottom = card.offsetTop + card.offsetHeight
+          return Math.max(maxHeight, bottom)
+        }, 0)
+      
+      // 确保网格高度足够
+      const gridHeight = Math.max(cardsHeight + 100, 200) // 至少200px高
+      grid.style.height = `${gridHeight}px`
+      
+      // 设置触发器位置在内容底部
+      loadMoreTrigger.style.top = `${cardsHeight}px`
+      loadMoreTrigger.style.bottom = 'auto'
+      
+      console.log('更新加载触发器位置:', 
+                  '卡片总高度=', cardsHeight, 
+                  '网格高度=', gridHeight, 
+                  '触发器位置=', `${cardsHeight}px`)
     },
   }
 }
@@ -1706,14 +1789,19 @@ export default {
   color: #409EFF;
 }
 
-/* 加载更多触发器 */
+/* 加载更多触发器 - 修改样式使其更明显 */
 .load-more-trigger {
   width: 100%;
-  height: 20px;
-  position: relative;
-  z-index: 1;
-  margin-top: 20px;
-  background: transparent;
+  height: 50px; /* 增加高度 */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  background: rgba(64, 158, 255, 0.1); /* 轻微背景色以便调试 */
+  border-top: 1px dashed rgba(64, 158, 255, 0.3); /* 添加虚线边框 */
+  text-align: center;
+  line-height: 50px;
+  font-size: 0; /* 正常情况下隐藏文本 */
 }
 
 /* 加载更多容器 */

@@ -107,7 +107,7 @@
         <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
           <div class="task-card" v-for="item in tasks" :key="item.id">
             <div class="task-card-header">
-              <h3 class="task-card-title">{{ item.name }}</h3>
+              <h3 class="task-card-title">{{ item.speaker_name }}</h3>
               <div class="status-icon">
                 <i v-if="item.status === 'completed'" class="el-icon-check" style="color: #67c23a;"></i>
                 <i v-else-if="item.status === 'failed'" class="el-icon-close" style="color: #f56c6c;"></i>

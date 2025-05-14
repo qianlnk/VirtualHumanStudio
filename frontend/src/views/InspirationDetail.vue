@@ -3,12 +3,11 @@
     <!-- 标题 -->
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
-        <i class="el-icon-arrow-left back-icon" @click="goBack"></i>
+        <i class="el-icon-arrow-left back-icon" @click="goBack">返回</i>
         <h2>灵感详情</h2>
       </div>
       <div class="header-right">
-        <p v-if="!isMobile">查看创作详情内容</p>
-        <i class="el-icon-refresh refresh-icon" @click="refreshContent" :class="{'is-loading': loading}"></i>
+        <!-- <i class="el-icon-refresh refresh-icon" @click="refreshContent" :class="{'is-loading': loading}"></i> -->
       </div>
     </div>
 
@@ -40,7 +39,6 @@
       <div class="detail-preview">
         <!-- 数字人视频 -->
         <div v-if="task.type === 'digital_human'" class="detail-video">
-          <h3>合成视频</h3>
           <div class="video-placeholder" v-if="!detailVideoLoaded" @click="loadDetailVideo">
             <div class="loading-indicator">
               <i class="el-icon-video-play"></i>
@@ -65,8 +63,11 @@
         
         <!-- 图像处理结果 -->
         <div v-else class="detail-image">
-          <h3>处理结果</h3>
-          <img :src="task.result_url" :alt="task.name" class="full-image" @click="previewImage(task.result_url)">
+          <el-carousel height="400px" :interval="3000" arrow="always">
+            <el-carousel-item>
+              <img :src="task.result_url" :alt="task.name" class="full-image" @click="previewImage(task.result_url)">
+            </el-carousel-item>
+          </el-carousel>
         </div>
       </div>
       
@@ -157,21 +158,25 @@
       </div>
       
       <div class="detail-meta">
-        <div class="meta-item">
-          <span class="meta-label">创建者：</span>
-          <span class="meta-value">{{ task.username }}</span>
+        <div class="meta-info">
+          <div class="meta-user">
+            <i class="el-icon-user"></i>
+            <span>{{ task.username }}</span>
+          </div>
+          <div class="meta-likes">
+            <i class="el-icon-star-off" :class="{'is-liked': task.is_liked}" @click="toggleLike"></i>
+            <span>{{ task.likes || 0 }}</span>
+          </div>
         </div>
-        <div class="meta-item">
-          <span class="meta-label">创建时间：</span>
-          <span class="meta-value">{{ formatDate(task.created_at) }}</span>
+        <div class="meta-time">
+          <i class="el-icon-time"></i>
+          <span>{{ formatDate(task.created_at) }}</span>
         </div>
-        <div class="meta-item">
-          <span class="meta-label">任务类型：</span>
-          <span class="meta-value">
-            <el-tag size="mini" :type="getTaskTypeTag(task)">
-              {{ getTaskTypeText(task) }}
-            </el-tag>
-          </span>
+        <div class="meta-actions">
+          <el-button type="primary" size="small" @click="createSimilar">
+            <i class="el-icon-magic-stick"></i>
+            画同款
+          </el-button>
         </div>
       </div>
 
@@ -199,6 +204,7 @@
 <script>
 import { getDirectFileUrl } from '@/utils/fileAccess'
 import axios from 'axios'
+import { mapState } from 'vuex'
 
 export default {
   name: 'InspirationDetail',
@@ -212,7 +218,8 @@ export default {
       previewUrl: '',
       isMobile: false,
       taskCache: {},
-      retryCount: 0
+      retryCount: 0,
+      isLiked: false
     }
   },
   created() {
@@ -225,6 +232,11 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.checkMobileDevice)
     this.cleanupVideoResources()
+  },
+  computed: {
+    ...mapState({
+      currentUser: state => state.user.currentUser
+    })
   },
   methods: {
     async fetchTaskDetail() {
@@ -460,6 +472,41 @@ export default {
       return getDirectFileUrl(url) + `&_t=${timestamp}`
     },
     
+    async toggleLike() {
+      if (!this.currentUser) {
+        this.$message.warning('请先登录')
+        return
+      }
+      try {
+        const response = await axios.post(`/api/inspiration/${this.task.id}/like`)
+        if (response.data.success) {
+          this.task.is_liked = !this.task.is_liked
+          this.task.likes = this.task.is_liked ? (this.task.likes || 0) + 1 : (this.task.likes || 1) - 1
+        }
+      } catch (error) {
+        console.error('点赞失败:', error)
+        this.$message.error('操作失败，请稍后重试')
+      }
+    },
+
+    createSimilar() {
+      const route = this.task.type === 'digital_human' ? '/digital-human/create' : '/image/create'
+      let prompt = ''
+      if (this.task.input_params && Array.isArray(this.task.input_params)) {
+        const promptParam = this.task.input_params.find(param => param.key === 'prompt')
+        if (promptParam) {
+          prompt = promptParam.value || ''
+        }
+      }
+      
+      this.$router.push({
+        path: route,
+        query: {
+          prompt: prompt
+        }
+      })
+    },
+
     cleanupVideoResources() {
       if (this.$refs.detailVideo) {
         try {
@@ -532,6 +579,7 @@ export default {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
+  min-height: calc(100vh - 40px);
 }
 
 /* 页面标题样式 */
@@ -540,36 +588,57 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #ebeef5;
+  padding: 16px 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 .header-left {
   display: flex;
   align-items: center;
+  gap: 15px;
 }
 
 .back-icon {
   font-size: 20px;
-  margin-right: 15px;
   cursor: pointer;
-  color: #409EFF;
+  color: #606266;
+  transition: color 0.3s ease;
 }
 
 .back-icon:hover {
-  color: #66b1ff;
+  color: #409EFF;
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   color: #303133;
+  font-weight: 600;
 }
 
-.header-right p {
-  margin: 0;
+.refresh-icon {
+  font-size: 18px;
   color: #909399;
-  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.refresh-icon:hover {
+  color: #409EFF;
+  background-color: #ecf5ff;
+}
+
+.refresh-icon.is-loading {
+  animation: rotating 2s linear infinite;
+}
+
+@keyframes rotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* 移动端标题样式 */
@@ -579,52 +648,56 @@ export default {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  padding: 10px 15px;
-  border-bottom: 1px solid #ebeef5;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .mobile-header h2 {
   font-size: 18px;
+  font-weight: 600;
 }
 
 .mobile-header-placeholder {
-  height: 50px;
-  margin-bottom: 10px;
+  height: 56px;
+  margin-bottom: 16px;
 }
 
 /* 加载动画容器 */
 .loading-container {
-  padding: 20px;
+  padding: 24px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* 详情页样式 */
 .task-detail {
   background-color: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  padding: 20px;
 }
 
 .detail-header {
-  text-align: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  padding: 24px;
   border-bottom: 1px solid #ebeef5;
+  background-color: #fafafa;
 }
 
 .detail-header h2 {
-  margin: 0 0 10px;
-  font-size: 22px;
+  margin: 0 0 12px;
+  font-size: 24px;
   color: #303133;
+  font-weight: 600;
 }
 
 .detail-header p {
   color: #606266;
   font-size: 14px;
   margin: 0;
+  line-height: 1.6;
 }
 
 /* 预览区域 */
@@ -635,25 +708,13 @@ export default {
   position: relative;
 }
 
-.detail-preview h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
-  color: #303133;
-}
-
 .full-image {
   width: 100%;
-  max-height: 400px;
+  height: 100%;
   object-fit: contain;
   cursor: pointer;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   background-color: #f8f8f8;
   transition: transform 0.3s ease;
-}
-
-.full-image:hover {
-  transform: scale(1.02);
 }
 
 .full-video {
@@ -664,7 +725,6 @@ export default {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   z-index: 1;
   object-fit: contain;
-  filter: brightness(1.2);
 }
 
 .detail-video {
@@ -717,10 +777,85 @@ export default {
   color: #409EFF;
 }
 
-.loading-indicator.small i {
-  font-size: 24px;
-  margin-bottom: 4px;
+/* 元信息样式 */
+.detail-meta {
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 20px;
 }
+
+.meta-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.meta-user, .meta-likes {
+  display: flex;
+  align-items: center;
+  color: #606266;
+}
+
+.meta-user i, .meta-likes i {
+  margin-right: 5px;
+  font-size: 16px;
+}
+
+.meta-likes i {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.meta-likes i:hover {
+  color: #f56c6c;
+  transform: scale(1.1);
+}
+
+.meta-likes i.is-liked {
+  color: #f56c6c;
+}
+
+.meta-time {
+  display: flex;
+  align-items: center;
+  color: #909399;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.meta-time i {
+  margin-right: 5px;
+}
+
+.meta-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.meta-actions .el-button {
+  padding: 8px 20px;
+}
+
+.meta-actions .el-button i {
+  margin-right: 5px;
+}
+
+/* 轮播图样式 */
+.el-carousel {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.el-carousel__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f8f8;
+}
+
 
 /* 参数展示 */
 .detail-params {
@@ -958,4 +1093,4 @@ export default {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-</style> 
+</style>
