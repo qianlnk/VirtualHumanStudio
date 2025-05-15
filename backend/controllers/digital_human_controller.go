@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
@@ -24,7 +25,7 @@ import (
 type DigitalHumanRequest struct {
 	Name            string `form:"name" binding:"required"`
 	Description     string `form:"description"`
-	TaskCode        string `form:"task_code" binding:"required"`
+	TaskCode        string `form:"task_code"`
 	Chaofen         int    `form:"chaofen"`
 	WatermarkSwitch int    `form:"watermark_switch"`
 	PN              int    `form:"pn"`
@@ -54,6 +55,11 @@ func CreateDigitalHuman(c *gin.Context) {
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数无效: " + err.Error()})
 		return
+	}
+
+	// 如果task_code为空，则生成一个随机任务码
+	if req.TaskCode == "" {
+		req.TaskCode = uuid.New().String()
 	}
 
 	// 获取上传的音频文件
@@ -287,6 +293,28 @@ func CreateDigitalHuman(c *gin.Context) {
 		})
 	}()
 
+	go func() {
+
+		time.Sleep(time.Second * 3)
+		// 轮询查询任务状态
+		for {
+			progress, err := queryProgress(&digitalHuman, true)
+			if err != nil {
+				db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
+					"status":    "failed",
+					"error_msg": "查询任务进度失败: " + err.Error(),
+				})
+				return
+			}
+
+			if progress >= 100 {
+				break
+			}
+
+			time.Sleep(time.Second * 5)
+		}
+	}()
+
 	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
 	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
 
@@ -309,8 +337,8 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 	id := c.Param("id")
 
 	// 查询任务
-	var digitalHuman models.DigitalHuman
-	result := db.DB.First(&digitalHuman, id)
+	var digitalHuman = &models.DigitalHuman{}
+	result := db.DB.First(digitalHuman, id)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "数字人合成任务不存在"})
@@ -337,30 +365,45 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 		return
 	}
 
+	progress, err := queryProgress(digitalHuman, false)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询进度失败: " + err.Error()})
+		return
+	}
+
+	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
+	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
+	digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
+
+	// 返回响应
+	c.JSON(http.StatusOK, gin.H{
+		"progress":      progress,
+		"digital_human": digitalHuman,
+	})
+}
+
+func queryProgress(digitalHuman *models.DigitalHuman, save bool) (float64, error) {
 	// 构建查询URL
 	queryURL := fmt.Sprintf("%s?code=%s", config.AppConfig.DigitalHumanQuery, digitalHuman.TaskCode)
-
+	fmt.Println("正在查询进度：", queryURL)
 	// 创建请求
 	req, err := http.NewRequest("GET", queryURL, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建请求失败: " + err.Error()})
-		return
+		return 0, err
 	}
 
 	// 发送请求
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询进度失败: " + err.Error()})
-		return
+		return 0, nil
 	}
 	defer resp.Body.Close()
 
 	// 读取响应
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取响应失败: " + err.Error()})
-		return
+		return 0, err
 	}
 
 	// 解析响应
@@ -379,8 +422,7 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 
 	var apiResp QueryResponse
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析响应失败: " + err.Error()})
-		return
+		return 0, err
 	}
 
 	// 检查响应状态
@@ -389,44 +431,45 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 			"status":    "failed",
 			"error_msg": fmt.Sprintf("API返回错误: %d %s", resp.StatusCode, string(respBody)),
 		})
-		return
+
+		return 0, err
 	}
 
 	// 检查是否完成
-	if apiResp.Data.Progress >= 100 {
+	if apiResp.Data.Progress >= 100 && save {
 		// 任务完成，构建结果URL
 		downloadURL := fmt.Sprintf("%s/v1/file/view?key=temp%s", config.AppConfig.FileServerBaseURL, apiResp.Data.Result)
-		videoDir := filepath.Join(fmt.Sprint(userID), config.AppConfig.VideoDir)
+		videoDir := filepath.Join(fmt.Sprint(digitalHuman.UserID), config.AppConfig.VideoDir)
 		fullVideoDir := filepath.Join(config.AppConfig.DataDir, videoDir)
 
 		if err := os.MkdirAll(fullVideoDir, os.ModePerm); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建目录失败: " + err.Error()})
 			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
 				"status":    "failed",
 				"error_msg": "创建目录失败: " + err.Error(),
 			})
 
-			return
+			return 0, err
 		}
+
+		// 下载文件
+		fmt.Println("正在下载文件：", downloadURL)
 
 		downloadResp, err := http.Get(downloadURL)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "下载文件失败: " + err.Error()})
 			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
 				"status":    "failed",
 				"error_msg": "下载文件失败: " + err.Error(),
 			})
-			return
+			return 0, err
 		}
 		defer downloadResp.Body.Close()
 
 		if downloadResp.StatusCode != http.StatusOK {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "下载文件失败，状态码: " + downloadResp.Status})
 			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
 				"status":    "failed",
 				"error_msg": "下载文件失败，状态码: " + downloadResp.Status,
 			})
-			return
+			return 0, err
 		}
 
 		// 保存文件
@@ -434,22 +477,20 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 		fullVideoFile := filepath.Join(config.AppConfig.DataDir, videoFile)
 		out, err := os.Create(fullVideoFile)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建文件失败: " + err.Error()})
 			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
 				"status":    "failed",
 				"error_msg": "创建文件失败: " + err.Error(),
 			})
-			return
+			return 0, err
 		}
 		defer out.Close()
 		_, err = io.Copy(out, downloadResp.Body)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
 			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
 				"status":    "failed",
 				"error_msg": "保存文件失败: " + err.Error(),
 			})
-			return
+			return 0, err
 		}
 
 		// 更新任务状态
@@ -462,15 +503,7 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 		digitalHuman.ResultURL = videoFile
 	}
 
-	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
-	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
-	digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
-
-	// 返回响应
-	c.JSON(http.StatusOK, gin.H{
-		"progress":      apiResp.Data.Progress,
-		"digital_human": digitalHuman,
-	})
+	return apiResp.Data.Progress, nil
 }
 
 // GetDigitalHuman 获取数字人合成任务

@@ -83,11 +83,11 @@
               :style="{width: '100%', height: 'auto'}">
           </div>
         </div>
-        <div class="task-type-tag">
-          <el-tag size="mini" :type="getTaskTypeTag(task)">
+        <!-- <div class="task-type-tag">
+          <el-tag size="mini">
             {{ getTaskTypeText(task) }}
           </el-tag>
-        </div>
+        </div> -->
       </div>
       
       <!-- 固定的加载更多触发器 -->
