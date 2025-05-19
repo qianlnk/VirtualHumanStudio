@@ -30,3 +30,4 @@ backend/uploads/*
 .DS_Store
 Thumbs.db
 backend/config.json
+backend/vhs

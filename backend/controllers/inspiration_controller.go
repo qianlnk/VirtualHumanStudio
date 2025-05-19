@@ -251,3 +251,296 @@ func convertDigitalHumanToResponse(dh models.DigitalHuman) InspirationTaskRespon
 		CreatedAt:    dh.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
+
+type ShareTaskID struct {
+	ShareTaskID uint `json:"share_task_id"`
+}
+
+// CreateShareTaskLike 创建点赞
+func CreateShareTaskLike(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var shareTaskID ShareTaskID
+	if err := c.ShouldBindJSON(&shareTaskID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	err := db.DB.Create(&models.ShareTaskLike{
+		UserID:      userID.(uint),
+		ShareTaskID: shareTaskID.ShareTaskID,
+	}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "点赞失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "点赞成功",
+	})
+}
+
+// DeleteShareTaskLike 删除点赞
+func DeleteShareTaskLike(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	shareTaskID := c.Param("share_task_id")
+	shareTaskIDInt, err := strconv.Atoi(shareTaskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	err = db.DB.Where("user_id = ? AND share_task_id = ?", userID.(uint), uint(shareTaskIDInt)).Delete(&models.ShareTaskLike{}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "取消点赞失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "取消点赞成功",
+	})
+}
+
+// CreateShareTaskFavorite 创建收藏
+func CreateShareTaskFavorite(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var shareTaskID ShareTaskID
+	if err := c.ShouldBindJSON(&shareTaskID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	err := db.DB.Create(&models.ShareTaskFavorite{
+		UserID:      userID.(uint),
+		ShareTaskID: shareTaskID.ShareTaskID,
+	}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "收藏失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "收藏成功",
+	})
+}
+
+// DeleteShareTaskFavorite 删除收藏
+func DeleteShareTaskFavorite(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	shareTaskID := c.Param("share_task_id")
+	shareTaskIDInt, err := strconv.Atoi(shareTaskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	err = db.DB.Where("user_id = ? AND share_task_id = ?", userID.(uint), uint(shareTaskIDInt)).Delete(&models.ShareTaskFavorite{}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "取消收藏失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "取消收藏成功",
+	})
+}
+
+// CreateShareTaskComment 创建评论
+func CreateShareTaskComment(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var shareTaskComment = struct {
+		ShareTaskID uint   `json:"share_task_id"`
+		Content     string `json:"content"`
+	}{
+		ShareTaskID: 0,
+		Content:     "",
+	}
+
+	if err := c.ShouldBindJSON(&shareTaskComment); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	var user models.User
+	db.DB.Where("id = ?", userID.(uint)).First(&user)
+
+	err := db.DB.Create(&models.ShareTaskComment{
+		UserID:      userID.(uint),
+		ShareTaskID: shareTaskComment.ShareTaskID,
+		Content:     shareTaskComment.Content,
+	}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "评论失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "评论成功",
+	})
+}
+
+// DeleteShareTaskComment 删除评论
+func DeleteShareTaskComment(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	shareTaskCommentID := c.Param("share_task_comment_id")
+	shareTaskCommentIDInt, err := strconv.Atoi(shareTaskCommentID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	err = db.DB.Where("id = ? AND user_id = ?", uint(shareTaskCommentIDInt), userID.(uint)).Delete(&models.ShareTaskComment{}).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除评论失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "删除评论成功",
+	})
+}
+
+// GetShareTaskLikes 获取点赞列表
+func GetShareTaskLikes(c *gin.Context) {
+	shareTaskID := c.Param("share_task_id")
+	shareTaskIDInt, err := strconv.Atoi(shareTaskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	likes := []*models.ShareTaskLike{}
+	db.DB.Where("share_task_id = ?", uint(shareTaskIDInt)).Find(&likes)
+
+	users := []*models.User{}
+
+	var userIDs []uint
+	for _, like := range likes {
+		userIDs = append(userIDs, like.UserID)
+	}
+
+	err = db.DB.Where("id IN (?)", userIDs).Find(&users).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户信息失败"})
+		return
+	}
+
+	userInfos := []*models.UserInfo{}
+	for _, user := range users {
+		userInfos = append(userInfos, &models.UserInfo{
+			UserID:   user.ID,
+			Username: user.Username,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_infos": userInfos,
+	})
+}
+
+// GetShareTaskFavorites 获取收藏列表
+func GetShareTaskFavorites(c *gin.Context) {
+	shareTaskID := c.Param("share_task_id")
+	shareTaskIDInt, err := strconv.Atoi(shareTaskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	favorites := []*models.ShareTaskFavorite{}
+	db.DB.Where("share_task_id = ?", uint(shareTaskIDInt)).Find(&favorites)
+
+	users := []*models.User{}
+
+	var userIDs []uint
+	for _, favorite := range favorites {
+		userIDs = append(userIDs, favorite.UserID)
+	}
+
+	err = db.DB.Where("id IN (?)", userIDs).Find(&users).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户信息失败"})
+		return
+	}
+
+	userInfos := []*models.UserInfo{}
+	for _, user := range users {
+		userInfos = append(userInfos, &models.UserInfo{
+			UserID:   user.ID,
+			Username: user.Username,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_infos": userInfos,
+	})
+}
+
+// GetShareTaskComments 获取评论列表
+func GetShareTaskComments(c *gin.Context) {
+	shareTaskID := c.Param("share_task_id")
+	shareTaskIDInt, err := strconv.Atoi(shareTaskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	comments := []*models.ShareTaskComment{}
+	db.DB.Where("share_task_id = ? AND deleted_at IS NULL", uint(shareTaskIDInt)).Find(&comments)
+
+	users := []*models.User{}
+
+	var userIDs []uint
+	for _, comment := range comments {
+		userIDs = append(userIDs, comment.UserID)
+	}
+
+	err = db.DB.Where("id IN (?)", userIDs).Find(&users).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户信息失败"})
+		return
+	}
+
+	userInfos := []*models.UserInfo{}
+	for _, user := range users {
+		userInfos = append(userInfos, &models.UserInfo{
+			UserID:   user.ID,
+			Username: user.Username,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"comments":   comments,
+		"user_infos": userInfos,
+	})
+
+}

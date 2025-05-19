@@ -91,3 +91,161 @@ export const reviewTask = (data) => {
       message: (error.response && error.response.data && error.response.data.error) || '审核失败'
     }))
 }
+
+/**
+ * 点赞灵感内容
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 点赞结果
+ */
+export const likeShareTask = (shareTaskId) => {
+  return axios.post(`/api/share/like`, { share_task_id: shareTaskId })
+    .then(response => ({
+      success: true,
+      message: response.data.message || '点赞成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '点赞失败'
+    }))
+}
+
+/**
+ * 取消点赞灵感内容
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 取消点赞结果
+ */
+export const unlikeShareTask = (shareTaskId) => {
+  return axios.delete(`/api/share/like/${shareTaskId}`)
+    .then(response => ({
+      success: true,
+      message: response.data.message || '取消点赞成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '取消点赞失败'
+    }))
+}
+
+/**
+ * 收藏灵感内容
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 收藏结果
+ */
+export const favoriteShareTask = (shareTaskId) => {
+  return axios.post(`/api/share/favorite`, { share_task_id: shareTaskId })
+    .then(response => ({
+      success: true,
+      message: response.data.message || '收藏成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '收藏失败'
+    }))
+}
+
+/**
+ * 取消收藏灵感内容
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 取消收藏结果
+ */
+export const unfavoriteShareTask = (shareTaskId) => {
+  return axios.delete(`/api/share/favorite/${shareTaskId}`)
+    .then(response => ({
+      success: true,
+      message: response.data.message || '取消收藏成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '取消收藏失败'
+    }))
+}
+
+/**
+ * 添加评论
+ * @param {number} shareTaskId - 分享任务ID
+ * @param {string} content - 评论内容
+ * @returns {Promise<Object>} 评论结果
+ */
+export const addComment = (shareTaskId, content) => {
+  return axios.post(`/api/share/comment`, {
+    share_task_id: shareTaskId,
+    content: content
+  })
+    .then(response => ({
+      success: true,
+      message: response.data.message || '评论成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '评论失败'
+    }))
+}
+
+/**
+ * 删除评论
+ * @param {number} commentId - 评论ID
+ * @returns {Promise<Object>} 删除结果
+ */
+export const deleteComment = (commentId) => {
+  return axios.delete(`/api/share/comment/${commentId}`)
+    .then(response => ({
+      success: true,
+      message: response.data.message || '删除评论成功'
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '删除评论失败'
+    }))
+}
+
+/**
+ * 获取点赞列表
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 点赞列表
+ */
+export const getLikes = (shareTaskId) => {
+  return axios.get(`/api/share/likes/${shareTaskId}`)
+    .then(response => ({
+      success: true,
+      userInfos: response.data.user_infos || []
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '获取点赞列表失败'
+    }))
+}
+
+/**
+ * 获取收藏列表
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 收藏列表
+ */
+export const getFavorites = (shareTaskId) => {
+  return axios.get(`/api/share/favorites/${shareTaskId}`)
+    .then(response => ({
+      success: true,
+      userInfos: response.data.user_infos || []
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '获取收藏列表失败'
+    }))
+}
+
+/**
+ * 获取评论列表
+ * @param {number} shareTaskId - 分享任务ID
+ * @returns {Promise<Object>} 评论列表
+ */
+export const getComments = (shareTaskId) => {
+  return axios.get(`/api/share/comments/${shareTaskId}`)
+    .then(response => ({
+      success: true,
+      comments: response.data.comments || [],
+      userInfos: response.data.user_infos || []
+    }))
+    .catch(error => ({
+      success: false,
+      message: (error.response && error.response.data && error.response.data.error) || '获取评论列表失败'
+    }))
+}

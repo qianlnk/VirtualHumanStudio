@@ -10,7 +10,8 @@ import (
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
+	// "gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -58,6 +59,9 @@ func InitDB() error {
 			&models.DigitalHuman{},
 			&models.ASRTask{},             // 添加ASR任务表迁移
 			&models.ComfyUIWorkflowTask{}, // 添加通用工作流任务表迁移
+			&models.ShareTaskLike{},
+			&models.ShareTaskFavorite{},
+			&models.ShareTaskComment{},
 		)
 		if err != nil {
 			return fmt.Errorf("数据库迁移失败: %v", err)

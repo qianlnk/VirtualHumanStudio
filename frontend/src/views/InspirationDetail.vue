@@ -185,9 +185,9 @@
             <i class="el-icon-user"></i>
             <span>{{ task.username }}</span>
           </div>
-          <div class="meta-likes">
-            <i class="el-icon-star-off" :class="{'is-liked': task.is_liked}" @click="toggleLike"></i>
-            <span>{{ task.likes || 0 }}</span>
+          <div class="meta-likes" v-if="!isMobile">
+            <i class="el-icon-star-off" :class="{'is-liked': isLiked}" @click="toggleLike"></i>
+            <span>{{ likeCount || 0 }}</span>
           </div>
         </div>
         <div class="meta-time">
@@ -196,12 +196,163 @@
         </div>
       </div>
 
-      <!-- 底部固定按钮 - 移动端 -->
-      <div class="mobile-fixed-bottom" v-if="isMobile">
-        <el-button type="primary" size="medium" @click="createSimilar" class="create-similar-btn">
+      <!-- 社交互动区域 - PC端 -->
+      <div class="social-interaction" :class="{'mobile-social': isMobile}" v-if="!isMobile">
+        <div class="interaction-buttons">
+          <el-button type="text" class="interaction-btn" @click="toggleLike" :class="{'active': isLiked}">
+            <i class="el-icon-star-off"></i>
+            {{ isLiked ? '已点赞' : '点赞' }} ({{ likeCount || 0 }})
+          </el-button>
+          <el-button type="text" class="interaction-btn" @click="toggleFavorite" :class="{'active': isFavorited}">
+            <i class="el-icon-collection"></i>
+            {{ isFavorited ? '已收藏' : '收藏' }} ({{ favoriteCount || 0 }})
+          </el-button>
+          <el-button type="text" class="interaction-btn" @click="handleCommentsClick">
+            <i class="el-icon-chat-dot-round"></i>
+            评论 ({{ commentCount || 0 }})
+          </el-button>
+        </div>
+
+        <!-- 评论区域 - PC端 -->
+        <div class="comments-section" v-show="showComments">
+          <div class="comment-header">
+            <h3>评论 ({{ commentCount || 0 }})</h3>
+          </div>
+
+          <!-- 评论输入框 -->
+          <div class="comment-input" v-if="isUserLoggedIn">
+            <el-input 
+              type="textarea" 
+              :rows="2" 
+              placeholder="说点什么..." 
+              v-model="newComment"
+              maxlength="200"
+              show-word-limit
+              resize="none"
+            ></el-input>
+            <div class="comment-submit">
+              <el-button 
+                type="primary" 
+                size="small" 
+                @click="submitComment" 
+                :loading="submittingComment"
+                :disabled="!newComment.trim()"
+              >
+                发表评论
+              </el-button>
+            </div>
+          </div>
+          <div class="login-to-comment" v-else>
+            <p>请先<a href="javascript:void(0)" @click="goToLogin">登录</a>后再发表评论</p>
+          </div>
+
+          <!-- 评论列表 -->
+          <div class="comments-list">
+            <div v-if="loadingComments" class="loading-comments">
+              <i class="el-icon-loading"></i>
+              <span>加载评论中...</span>
+            </div>
+            <el-empty description="暂无评论" v-else-if="comments.length === 0"></el-empty>
+            <div v-else class="comment-item" v-for="comment in comments" :key="comment.id || comment.ID">
+              <div class="comment-author">
+                <span class="username">{{ getCommentUsername(comment.user_id) }}</span>
+                <div class="comment-actions" v-if="isCommentAuthor(comment)">
+                  <el-button type="text" size="mini" @click="deleteComment(comment.id || comment.ID)">
+                    <i class="el-icon-delete"></i>
+                  </el-button>
+                </div>
+              </div>
+              <div class="comment-content">{{ comment.content || comment.Content }}</div>
+              <div class="comment-time">{{ formatCommentTime(comment.created_at || comment.CreatedAt) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 移动端垂直悬浮按钮 -->
+      <div class="mobile-float-buttons" v-if="isMobile">
+        <div class="float-button" @click="toggleLike" :class="{'active': isLiked}">
+          <div class="icon-container">
+            <i class="el-icon-star-off"></i>
+          </div>
+          <span class="count">{{ likeCount || 0 }}</span>
+        </div>
+        
+        <div class="float-button" @click="toggleFavorite" :class="{'active': isFavorited}">
+          <div class="icon-container">
+            <i class="el-icon-collection"></i>
+          </div>
+          <span class="count">{{ favoriteCount || 0 }}</span>
+        </div>
+        
+        <div class="float-button" @click="handleMobileCommentsClick">
+          <div class="icon-container">
+            <i class="el-icon-chat-dot-round"></i>
+          </div>
+          <span class="count">{{ commentCount || 0 }}</span>
+        </div>
+      </div>
+
+      <!-- 移动端画同款按钮 -->
+      <div class="mobile-create-similar" v-if="isMobile" @click="createSimilar">
+        <div class="create-similar-btn">
           <i class="el-icon-magic-stick"></i>
-          画同款
-        </el-button>
+          <span>画同款</span>
+        </div>
+      </div>
+
+      <!-- 移动端评论弹出层 -->
+      <div class="mobile-comments-drawer" :class="{'active': showMobileComments}" v-if="isMobile">
+        <div class="drawer-overlay" @click="closeMobileComments"></div>
+        <div class="drawer-content">
+          <div class="drawer-header">
+            <span>评论 ({{ commentCount || 0 }})</span>
+            <i class="el-icon-close" @click="closeMobileComments"></i>
+          </div>
+          
+          <div class="mobile-comments-container">
+            <!-- 评论列表 -->
+            <div class="mobile-comments-list">
+              <div v-if="loadingComments" class="loading-comments">
+                <i class="el-icon-loading"></i>
+                <span>加载评论中...</span>
+              </div>
+              <el-empty description="暂无评论" v-else-if="comments.length === 0"></el-empty>
+              <div v-else class="mobile-comment-item" v-for="comment in comments" :key="comment.id || comment.ID">
+                <div class="comment-author">
+                  <span class="username">{{ getCommentUsername(comment.user_id) }}</span>
+                  <div class="comment-actions" v-if="isCommentAuthor(comment)">
+                    <el-button type="text" size="mini" @click="deleteComment(comment.id || comment.ID)">
+                      <i class="el-icon-delete"></i>
+                    </el-button>
+                  </div>
+                </div>
+                <div class="comment-content">{{ comment.content || comment.Content }}</div>
+                <div class="comment-time">{{ formatCommentTime(comment.created_at || comment.CreatedAt) }}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 移动端评论输入区 -->
+          <div class="mobile-comment-input-container">
+            <div v-if="isUserLoggedIn">
+              <div class="mobile-comment-input">
+                <el-input 
+                  type="textarea" 
+                  :rows="2" 
+                  placeholder="说点什么..." 
+                  v-model="newComment"
+                  maxlength="200"
+                  resize="none"
+                  @keyup.enter.native="submitComment"
+                ></el-input>
+              </div>
+            </div>
+            <div class="login-to-comment" v-else>
+              <p>请先<a href="javascript:void(0)" @click="goToLogin">登录</a>后再发表评论</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PC端按钮 -->
@@ -209,6 +360,16 @@
         <el-button type="primary" size="small" @click="createSimilar">
           <i class="el-icon-magic-stick"></i>
           画同款
+        </el-button>
+        
+        <el-button type="info" size="small" @click="toggleLike" :class="{'is-liked': isLiked}">
+          <i class="el-icon-star-off"></i>
+          {{ isLiked ? '已点赞' : '点赞' }}
+        </el-button>
+        
+        <el-button type="info" size="small" @click="toggleFavorite" :class="{'is-favorited': isFavorited}">
+          <i class="el-icon-collection"></i>
+          {{ isFavorited ? '已收藏' : '收藏' }}
         </el-button>
       </div>
 
@@ -239,6 +400,7 @@
 import { getDirectFileUrl } from '@/utils/fileAccess'
 import axios from 'axios'
 import { mapState } from 'vuex'
+import { likeShareTask, unlikeShareTask, favoriteShareTask, unfavoriteShareTask, addComment, deleteComment, getLikes, getFavorites, getComments } from '@/api/share'
 
 export default {
   name: 'InspirationDetail',
@@ -255,6 +417,7 @@ export default {
       taskCache: {},
       retryCount: 0,
       isLiked: false,
+      isFavorited: false,
       outputImages: [],
       hasVideoOutput: false,
       previewImageStyle: {},
@@ -265,7 +428,21 @@ export default {
       touchStartY: 0,
       currentCarouselIndex: 0,
       videoSource: '',
-      showOutputParams: false
+      showOutputParams: false,
+      // 社交互动相关数据
+      likeCount: 0,
+      favoriteCount: 0,
+      commentCount: 0,
+      comments: [],
+      userInfoMap: {},
+      showComments: false,
+      showMobileComments: false, // 移动端评论显示状态
+      newComment: '',
+      submittingComment: false,
+      // 加载状态
+      loadingComments: false,
+      loadingLikes: false,
+      loadingFavorites: false
     }
   },
   created() {
@@ -275,12 +452,33 @@ export default {
   mounted() {
     window.addEventListener('resize', this.checkMobileDevice)
     
+    // 刷新用户信息以确保用户状态最新
+    if (this.$store.getters.isAuthenticated) {
+      this.$store.dispatch('refreshUserInfo')
+        .then(() => {
+          console.log('用户信息刷新成功');
+          this.logUserStatus();
+          console.log('登录状态判断(mounted):', this.isUserLoggedIn);
+          this.debugState();
+        })
+        .catch(error => {
+          console.error('刷新用户信息失败:', error);
+        });
+    } else {
+      console.log('用户未登录，不需要刷新用户信息');
+      console.log('登录状态判断(mounted):', this.isUserLoggedIn);
+      this.debugState();
+    }
+    
     // 等待DOM完全渲染后再初始化视频
     this.$nextTick(() => {
       // 初始化轮播图当前索引
       if (this.$refs.imageCarousel) {
         this.currentCarouselIndex = this.$refs.imageCarousel.activeIndex;
       }
+      
+      // 调试当前用户登录状态
+      this.logUserStatus();
     })
   },
   updated() {
@@ -293,6 +491,11 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.checkMobileDevice)
     this.cleanupVideoResources()
+    
+    // 确保组件销毁时移除body类，防止页面滚动被锁定
+    if (this.showMobileComments) {
+      document.body.classList.remove('comment-drawer-open');
+    }
   },
   computed: {
     ...mapState({
@@ -336,6 +539,18 @@ export default {
       }
       // 兜底使用result_url
       return this.task.result_url || '';
+    },
+    // 判断用户是否已登录的可靠方法
+    isUserLoggedIn() {
+      const isAuthenticated = this.$store.getters.isAuthenticated;
+      const token = localStorage.getItem('token');
+      const userObj = this.currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+      const hasId = userObj && userObj.id;
+      
+      // 记录日志用于调试
+      console.log('用户登录状态判断:', { isAuthenticated, hasToken: !!token, hasId });
+      
+      return isAuthenticated && !!token && !!hasId;
     }
   },
   methods: {
@@ -344,6 +559,14 @@ export default {
       this.retryCount = 0; // 重置重试计数
       this.outputImages = []; // 重置输出图片列表
       this.hasVideoOutput = false; // 重置视频输出标志
+      
+      // 重置社交互动状态，确保每次加载详情都有正确状态
+      this.isLiked = false;
+      this.isFavorited = false;
+      this.comments = [];
+      this.likeCount = 0;
+      this.favoriteCount = 0;
+      this.commentCount = 0;
       
       try {
         const taskId = this.$route.params.id
@@ -363,6 +586,9 @@ export default {
           setTimeout(() => {
             this.checkAndPreloadVideo();
           }, 300);
+          
+          // 加载社交数据
+          await this.fetchSocialData(taskId);
           
           return
         }
@@ -384,6 +610,9 @@ export default {
         setTimeout(() => {
           this.checkAndPreloadVideo();
         }, 300);
+        
+        // 加载社交数据
+        await this.fetchSocialData(taskId);
         
       } catch (error) {
         console.error('获取任务详情失败:', error.response && error.response.status || '未知错误', error.message)
@@ -676,24 +905,103 @@ export default {
       return getDirectFileUrl(url) + `&_t=${timestamp}`
     },
     
-    async toggleLike() {
-      if (!this.currentUser) {
-        this.$message.warning('请先登录')
-        return
+    // 添加一个获取分享任务ID的方法
+    getShareTaskId() {
+      // 优先使用share_id，这是正确的分享任务ID
+      if (this.task && this.task.share_id) {
+        console.log('使用task.share_id作为分享任务ID:', this.task.share_id);
+        return this.task.share_id;
       }
+      
+      // 如果没有share_id，退回到使用id
+      if (this.task && this.task.id) {
+        console.log('警告：使用task.id作为分享任务ID:', this.task.id);
+        return this.task.id;
+      }
+      
+      // 都没有，使用路由参数
+      const routeId = this.$route.params.id;
+      console.log('警告：使用路由参数作为分享任务ID:', routeId);
+      return routeId;
+    },
+    
+    // 修改toggleLike方法
+    async toggleLike() {
+      this.logUserStatus(); // 打印调试信息
+      
+      const isAuthenticated = this.$store.getters.isAuthenticated;
+      const token = localStorage.getItem('token');
+      
+      // 如果用户未登录，引导用户登录
+      if (!isAuthenticated || !token) {
+        this.$confirm('登录后才能点赞，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(() => {
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {});
+        return;
+      }
+      
       try {
-        const response = await axios.post(`/api/inspiration/${this.task.id}/like`)
-        if (response.data.success) {
-          this.task.is_liked = !this.task.is_liked
-          this.task.likes = this.task.is_liked ? (this.task.likes || 0) + 1 : (this.task.likes || 1) - 1
+        // 获取正确的分享任务ID
+        const shareTaskId = this.getShareTaskId();
+        console.log('执行点赞操作，使用ID:', shareTaskId);
+        
+        // 用户已登录，进行点赞/取消点赞操作
+        if (this.isLiked) {
+          // 取消点赞
+          const result = await unlikeShareTask(shareTaskId);
+          if (result.success) {
+            this.isLiked = false;
+            this.likeCount = Math.max(0, this.likeCount - 1);
+            this.$message.success('已取消点赞');
+          } else {
+            // 处理API错误
+            this.handleApiError(result, '取消点赞失败');
+          }
+        } else {
+          // 添加点赞
+          const result = await likeShareTask(shareTaskId);
+          if (result.success) {
+            this.isLiked = true;
+            this.likeCount += 1;
+            this.$message.success('点赞成功');
+          } else {
+            // 处理API错误
+            this.handleApiError(result, '点赞失败');
+          }
         }
       } catch (error) {
-        console.error('点赞失败:', error)
-        this.$message.error('操作失败，请稍后重试')
+        console.error('点赞操作失败:', error);
+        // 检查是否是401错误
+        if (error.response && error.response.status === 401) {
+          this.handleUnauthorized();
+        } else {
+          this.$message.error('操作失败，请稍后重试');
+        }
       }
     },
 
     createSimilar() {
+      // 使用getUserData获取用户数据
+      const userData = this.getUserData();
+      if (!userData || !userData.id) {
+        // 替换警告消息为更友好的交互
+        this.$confirm('登录后才能使用此功能，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(() => {
+          // 保存当前页面URL以便登录后返回
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {});
+        return;
+      }
+
       const route = this.task.type === 'digital_human' ? '/digital-human/create' : '/image/create'
       let prompt = ''
       if (this.task.input_params && Array.isArray(this.task.input_params)) {
@@ -752,6 +1060,14 @@ export default {
         
         // 重置重试计数
         this.retryCount = 0;
+        
+        // 重置社交互动状态
+        this.isLiked = false;
+        this.isFavorited = false;
+        this.comments = [];
+        this.likeCount = 0;
+        this.favoriteCount = 0;
+        this.commentCount = 0;
         
         // 重新获取任务详情
         this.fetchTaskDetail();
@@ -1017,6 +1333,512 @@ export default {
       
       console.log('没有找到需要预加载的视频');
     },
+
+    // 切换收藏状态
+    async toggleFavorite() {
+      this.logUserStatus(); // 打印调试信息
+      
+      const isAuthenticated = this.$store.getters.isAuthenticated;
+      const token = localStorage.getItem('token');
+      
+      // 如果用户未登录，引导用户登录
+      if (!isAuthenticated || !token) {
+        this.$confirm('登录后才能收藏，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(() => {
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {});
+        return;
+      }
+      
+      try {
+        // 获取正确的分享任务ID
+        const shareTaskId = this.getShareTaskId();
+        console.log('执行收藏操作，使用ID:', shareTaskId);
+        
+        // 用户已登录，进行收藏/取消收藏操作
+        if (this.isFavorited) {
+          // 取消收藏
+          const result = await unfavoriteShareTask(shareTaskId);
+          if (result.success) {
+            this.isFavorited = false;
+            this.favoriteCount = Math.max(0, this.favoriteCount - 1);
+            this.$message.success('已取消收藏');
+          } else {
+            // 处理API错误
+            this.handleApiError(result, '取消收藏失败');
+          }
+        } else {
+          // 添加收藏
+          const result = await favoriteShareTask(shareTaskId);
+          if (result.success) {
+            this.isFavorited = true;
+            this.favoriteCount += 1;
+            this.$message.success('收藏成功');
+          } else {
+            // 处理API错误
+            this.handleApiError(result, '收藏失败');
+          }
+        }
+      } catch (error) {
+        console.error('收藏操作失败:', error);
+        // 检查是否是401错误
+        if (error.response && error.response.status === 401) {
+          this.handleUnauthorized();
+        } else {
+          this.$message.error('操作失败，请稍后重试');
+        }
+      }
+    },
+
+    // 新增处理API错误的方法
+    handleApiError(result, defaultMessage) {
+      // 如果错误消息包含登录相关内容，处理为未授权错误
+      if (result.message && (result.message.includes('登录') || result.message.includes('认证') || result.message.includes('授权'))) {
+        this.handleUnauthorized();
+      } else {
+        this.$message.error(result.message || defaultMessage);
+      }
+    },
+
+    // 新增处理未授权错误的方法
+    handleUnauthorized() {
+      // 清除本地认证信息
+      this.$store.commit('clearAuth');
+      this.$confirm('登录状态已失效，请重新登录', '提示', {
+        confirmButtonText: '去登录',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+        this.$router.push('/login');
+      }).catch(() => {});
+    },
+
+    // 提交评论
+    async submitComment() {
+      const isAuthenticated = this.$store.getters.isAuthenticated;
+      const token = localStorage.getItem('token');
+      
+      if (!isAuthenticated || !token) {
+        this.$confirm('登录后才能发表评论，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(() => {
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {});
+        return;
+      }
+      
+      if (!this.newComment.trim()) {
+        this.$message.warning('评论内容不能为空');
+        return;
+      }
+      
+      this.submittingComment = true;
+      
+      try {
+        // 获取正确的分享任务ID
+        const shareTaskId = this.getShareTaskId();
+        console.log('提交评论，使用ID:', shareTaskId);
+        
+        const result = await addComment(shareTaskId, this.newComment.trim());
+        if (result.success) {
+          this.$message.success('评论成功');
+          // 重新获取评论列表
+          await this.fetchComments();
+          // 清空评论框
+          this.newComment = '';
+        } else {
+          // 处理API错误
+          this.handleApiError(result, '评论提交失败');
+        }
+      } catch (error) {
+        console.error('评论提交失败:', error);
+        // 检查是否是401错误
+        if (error.response && error.response.status === 401) {
+          this.handleUnauthorized();
+        } else {
+          this.$message.error('评论提交失败，请稍后重试');
+        }
+      } finally {
+        this.submittingComment = false;
+      }
+    },
+
+    // 删除评论
+    async deleteComment(commentId) {
+      const isAuthenticated = this.$store.getters.isAuthenticated;
+      const token = localStorage.getItem('token');
+      
+      if (!isAuthenticated || !token) {
+        this.$confirm('登录后才能删除评论，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '取消',
+          type: 'info'
+        }).then(() => {
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {});
+        return;
+      }
+      
+      try {
+        const result = await this.$confirm('确定要删除这条评论吗?', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        
+        if (result === 'confirm') {
+          const deleteResult = await deleteComment(commentId);
+          if (deleteResult.success) {
+            this.$message.success('评论已删除');
+            // 更新评论列表 - 直接从服务器重新获取最新评论列表
+            await this.fetchComments();
+            // 更新评论计数
+            this.commentCount = this.comments.length;
+          } else {
+            // 处理API错误
+            this.handleApiError(deleteResult, '删除评论失败');
+          }
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('删除评论失败:', error);
+          // 检查是否是401错误
+          if (error.response && error.response.status === 401) {
+            this.handleUnauthorized();
+          } else {
+            this.$message.error('删除评论失败，请稍后重试');
+          }
+        }
+      }
+    },
+
+    // 新增单独获取评论方法
+    async fetchComments() {
+      if (!this.task) return;
+      
+      const shareTaskId = this.getShareTaskId();
+      console.log('获取评论列表，使用ID:', shareTaskId);
+      
+      this.loadingComments = true;
+      try {
+        const commentsResult = await getComments(shareTaskId);
+        if (commentsResult.success) {
+          this.comments = commentsResult.comments || [];
+          this.commentCount = this.comments.length;
+          
+          // 更新用户信息映射
+          commentsResult.userInfos.forEach(user => {
+            this.$set(this.userInfoMap, user.user_id, user);
+          });
+          
+          // 按时间排序评论，最新的在前面
+          this.comments.sort((a, b) => new Date(b.created_at || b.CreatedAt) - new Date(a.created_at || a.CreatedAt));
+        }
+      } catch (error) {
+        console.error('获取评论数据失败:', error);
+      } finally {
+        this.loadingComments = false;
+      }
+    },
+
+    // 格式化评论时间
+    formatCommentTime(timeStr) {
+      const now = new Date();
+      const commentTime = new Date(timeStr);
+      const diffMs = now - commentTime;
+      
+      // 转换为秒
+      const diffSec = Math.floor(diffMs / 1000);
+      
+      if (diffSec < 60) {
+        return '刚刚';
+      } else if (diffSec < 3600) {
+        return `${Math.floor(diffSec / 60)}分钟前`;
+      } else if (diffSec < 86400) {
+        return `${Math.floor(diffSec / 3600)}小时前`;
+      } else if (diffSec < 86400 * 7) {
+        return `${Math.floor(diffSec / 86400)}天前`;
+      } else {
+        return this.formatDate(timeStr);
+      }
+    },
+
+    // 获取评论用户名
+    getCommentUsername(userId) {
+      console.log('获取评论用户名，使用ID:', userId);
+      console.log('userInfoMap:', this.userInfoMap);
+      if (this.userInfoMap[userId]) {
+        console.log('userInfoMap[userId]:', this.userInfoMap[userId]);
+        return this.userInfoMap[userId].username || '用户';
+      }
+      console.log('userInfoMap[userId]不存在');
+      return '用户';
+    },
+
+    // 判断当前用户是否是评论作者
+    isCommentAuthor(comment) {
+      if (!this.isUserLoggedIn) return false;
+      
+      try {
+        // 使用getUserData确保能获取到用户信息
+        const userData = this.getUserData();
+        if (!userData || !userData.id) return false;
+        
+        // 确保用相同的数据类型比较ID
+        const commentUserId = comment.user_id ? parseInt(comment.user_id) : null;
+        const currentUserId = userData.id ? parseInt(userData.id) : null;
+        
+        const match = commentUserId !== null && currentUserId !== null && currentUserId === commentUserId;
+        console.log(`评论作者判断: 评论UserID=${commentUserId}, 当前用户ID=${currentUserId}, 匹配结果=${match}`);
+        
+        return match;
+      } catch (e) {
+        console.error('判断评论作者错误:', e);
+        return false;
+      }
+    },
+
+    // 修改fetchSocialData方法
+    async fetchSocialData(taskId) {
+      if (!taskId) return;
+      
+      // 获取正确的分享任务ID
+      // 注意：这里可能需要先请求详情来获取share_id
+      const shareTaskId = this.task ? this.getShareTaskId() : taskId;
+      console.log('获取社交数据，使用ID:', shareTaskId);
+      
+      // 确保用户信息是最新的
+      if (this.$store.getters.isAuthenticated) {
+        try {
+          await this.$store.dispatch('refreshUserInfo');
+          console.log('社交数据获取前刷新用户信息成功');
+        } catch (error) {
+          console.error('刷新用户信息失败:', error);
+        }
+      }
+      
+      // 调试当前用户登录状态
+      this.logUserStatus();
+      
+      // 获取用户数据 - 即使this.currentUser为undefined也能获取
+      const userData = this.getUserData();
+      
+      try {
+        // 并行获取所有社交数据，提高加载速度
+        const [likesResult, favoritesResult, commentsResult] = await Promise.all([
+          getLikes(shareTaskId),
+          getFavorites(shareTaskId),
+          getComments(shareTaskId)
+        ]);
+        
+        // 处理点赞数据
+        if (likesResult.success) {
+          this.likeCount = likesResult.userInfos.length;
+          // 更新用户信息映射
+          likesResult.userInfos.forEach(user => {
+            this.$set(this.userInfoMap, user.user_id, user);
+          });
+          
+          // 检查当前用户是否已点赞
+          if (this.isUserLoggedIn && userData && userData.id) {
+            // 修复点赞检查逻辑，使用user_id
+            this.isLiked = likesResult.userInfos.some(user => {
+              // 确保用相同的数据类型比较ID
+              const userId = parseInt(user.user_id);
+              const currentUserId = parseInt(userData.id);
+              const match = userId === currentUserId;
+              console.log(`比较点赞用户ID: ${userId} vs ${currentUserId}, 匹配结果: ${match}`);
+              return match;
+            });
+            console.log('当前用户ID:', userData.id, '是否已点赞:', this.isLiked);
+          }
+        }
+        
+        // 处理收藏数据
+        if (favoritesResult.success) {
+          this.favoriteCount = favoritesResult.userInfos.length;
+          // 更新用户信息映射
+          favoritesResult.userInfos.forEach(user => {
+            this.$set(this.userInfoMap, user.user_id, user);
+          });
+          
+          // 检查当前用户是否已收藏
+          if (this.isUserLoggedIn && userData && userData.id) {
+            // 修复收藏检查逻辑，使用user_id
+            this.isFavorited = favoritesResult.userInfos.some(user => {
+              // 确保用相同的数据类型比较ID
+              const userId = parseInt(user.user_id);
+              const currentUserId = parseInt(userData.id);
+              const match = userId === currentUserId;
+              console.log(`比较收藏用户ID: ${userId} vs ${currentUserId}, 匹配结果: ${match}`);
+              return match;
+            });
+            console.log('当前用户ID:', userData.id, '是否已收藏:', this.isFavorited);
+          }
+        }
+        
+        // 处理评论数据
+        if (commentsResult.success) {
+          this.comments = commentsResult.comments || [];
+          this.commentCount = this.comments.length;
+          
+          // 更新用户信息映射
+          commentsResult.userInfos.forEach(user => {
+            this.$set(this.userInfoMap, user.user_id, user);
+          });
+          
+          // 按时间排序评论，最新的在前面
+          this.comments.sort((a, b) => new Date(b.created_at || b.CreatedAt) - new Date(a.created_at || a.CreatedAt));
+        }
+      } catch (error) {
+        console.error('获取社交数据失败:', error);
+        this.$message.error('获取社交数据失败，请刷新页面重试');
+      }
+    },
+
+    // 修改showComments的切换处理
+    handleCommentsClick() {
+      // 使用计算属性判断用户是否登录
+      if (!this.isUserLoggedIn) {
+        // 更友好的交互，提供用户选择
+        this.$confirm('登录后才能发表评论，是否前往登录?', '提示', {
+          confirmButtonText: '去登录',
+          cancelButtonText: '只看评论',
+          type: 'info'
+        }).then(() => {
+          sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+          this.$router.push('/login');
+        }).catch(() => {
+          // 用户选择"只看评论"，也触发评论加载
+          this.showComments = !this.showComments;
+          if (this.showComments && this.comments.length === 0) {
+            this.fetchComments();
+          }
+        });
+      } else {
+        // 已登录用户直接切换评论显示状态
+        this.showComments = !this.showComments;
+        if (this.showComments && this.comments.length === 0) {
+          this.fetchComments();
+        }
+      }
+    },
+
+    // 移动端评论点击处理
+    handleMobileCommentsClick() {
+      // 显示移动端评论抽屉
+      this.showMobileComments = true;
+      document.body.classList.add('comment-drawer-open'); // 添加阻止滚动的类
+      
+      // 确保页面滚动到顶部
+      setTimeout(() => {
+        // 如果有评论列表容器，重置其滚动位置
+        const commentsContainer = document.querySelector('.mobile-comments-container');
+        if (commentsContainer) {
+          commentsContainer.scrollTop = 0;
+        }
+      }, 100);
+      
+      // 如果评论还未加载，则加载评论
+      if (this.comments.length === 0) {
+        this.fetchComments();
+      }
+    },
+    
+    // 关闭移动端评论
+    closeMobileComments() {
+      this.showMobileComments = false;
+      document.body.classList.remove('comment-drawer-open'); // 移除阻止滚动的类
+      
+      // 允许评论区内容自然渐隐
+      const drawerContent = document.querySelector('.drawer-content');
+      if (drawerContent) {
+        drawerContent.style.transform = 'translateY(100%)';
+      }
+    },
+
+    // 添加方法跳转到登录页面
+    goToLogin() {
+      // 保存当前页面URL以便登录后返回
+      sessionStorage.setItem('redirect_after_login', this.$route.fullPath);
+      this.$router.push('/login');
+    },
+
+    // 调试用户登录状态
+    logUserStatus() {
+      const userData = this.getUserData();
+      console.log('当前用户信息:', userData || this.currentUser);
+      
+      // 检查Vuex存储的用户信息
+      console.log('Vuex存储用户状态:', this.$store.getters.isAuthenticated);
+      console.log('localStorage中的token:', localStorage.getItem('token'));
+      
+      const userStr = localStorage.getItem('user');
+      console.log('localStorage中的user字符串:', userStr);
+      
+      try {
+        const userObj = JSON.parse(userStr || '{}');
+        console.log('解析后的user对象:', userObj);
+        console.log('是否有ID:', !!userObj.id);
+        
+        if (userData) {
+          console.log('用户ID:', userData.id, '类型:', typeof userData.id);
+          console.log('userData是否有ID属性:', 'id' in userData);
+        } else if (this.currentUser) {
+          console.log('用户ID:', this.currentUser.id, '类型:', typeof this.currentUser.id);
+          console.log('this.currentUser是否有ID属性:', 'id' in this.currentUser);
+        } else {
+          console.log('userData和this.currentUser都为空或未定义');
+        }
+      } catch(e) {
+        console.error('解析user对象失败:', e);
+      }
+    },
+
+    // 添加新的调试方法
+    debugState() {
+      console.log('----------- 调试状态信息 -----------');
+      console.log('isUserLoggedIn:', this.isUserLoggedIn);
+      console.log('当前用户信息:', this.currentUser);
+      console.log('localStorage中用户信息:', localStorage.getItem('user'));
+      console.log('localStorage中token:', localStorage.getItem('token'));
+      console.log('Vuex中的认证状态:', this.$store.getters.isAuthenticated);
+      console.log('--------------------------------------');
+    },
+
+    // 添加获取用户数据的方法，兼容this.currentUser为undefined的情况
+    getUserData() {
+      // 尝试从Vuex获取
+      if (this.currentUser && this.currentUser.id) {
+        console.log('从Vuex获取用户数据:', this.currentUser);
+        return this.currentUser;
+      }
+      
+      // 尝试从localStorage获取
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          console.log('从localStorage获取用户数据:', userData);
+          return userData;
+        }
+      } catch (error) {
+        console.error('解析localStorage用户数据失败:', error);
+      }
+      
+      // 都失败则返回null
+      console.log('无法获取用户数据');
+      return null;
+    }
   },
   watch: {
     '$route.params.id': {
@@ -1024,6 +1846,14 @@ export default {
         if (newId && newId !== oldId) {
           console.log('路由参数变化，重新获取任务详情:', newId)
           this.fetchTaskDetail()
+          
+          // 重置社交互动状态，确保当返回列表页再进入时状态正确
+          this.isLiked = false
+          this.isFavorited = false
+          this.comments = []
+          this.likeCount = 0
+          this.favoriteCount = 0
+          this.commentCount = 0
         }
       },
       immediate: false
@@ -1036,6 +1866,13 @@ export default {
         }
       },
       deep: true
+    }
+  },
+  // 在activated钩子中刷新社交数据，确保在从缓存中恢复时状态最新
+  activated() {
+    if (this.$route.params.id) {
+      // 只刷新社交数据，不重新加载整个任务详情
+      this.fetchSocialData(this.$route.params.id)
     }
   }
 }
@@ -1081,10 +1918,10 @@ export default {
 
 
 .mobile-container {
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  max-width: 100%;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100vw !important; /* 使用视口宽度单位确保占满屏幕 */
+  max-width: 100vw !important;
   min-height: 100vh;
   position: fixed;
   top: 0;
@@ -1095,6 +1932,7 @@ export default {
   z-index: 2000;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* 增强iOS滚动体验 */
 }
 
 /* 页面标题样式 */
@@ -1213,24 +2051,58 @@ export default {
     z-index: 2002 !important;
     background-color: #fff !important;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+    padding: 0;
 }
 
-.create-similar-btn {
-  width: 100%;
-  height: 56px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 0;
-  margin: 0;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
-  border: none;
-  color: #fff;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+.mobile-interaction-buttons {
+    display: flex;
+    width: 100%;
+    height: 56px;
+    align-items: center;
+}
+
+.mobile-interaction-buttons .interaction-btn {
+    flex: 1;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 12px;
+}
+
+.mobile-interaction-buttons .interaction-btn i {
+    font-size: 18px;
+    margin-right: 0;
+    margin-bottom: 3px;
+}
+
+.mobile-interaction-buttons .interaction-btn.active {
+    color: #409EFF;
+}
+
+.mobile-interaction-buttons .create-similar-btn {
+    flex: 2;
+    height: 56px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 0;
+    margin: 0;
+    background: linear-gradient(135deg, #1976d2, #64b5f6);
+    border: none;
+    color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-interaction-buttons .create-similar-btn i {
+    margin-right: 5px;
+    margin-bottom: 0;
 }
 
 /* 加载动画容器 */
@@ -1250,9 +2122,12 @@ export default {
 }
 
 .mobile-detail {
-  border-radius: 0;
-  box-shadow: none;
-  padding-bottom: 80px; /* 为固定底部按钮留出空间 */
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw !important;
+  padding-bottom: 120px !important; /* 为底部画同款按钮留出更多空间 */
 }
 
 .detail-header {
@@ -1289,9 +2164,9 @@ export default {
 }
 
 .mobile-preview {
-  margin: 0;
-  padding: 0;
-  border-bottom: none;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .detail-image {
@@ -1299,9 +2174,7 @@ export default {
 }
 
 .mobile-image {
-  width: 100%;
-  margin: 0;
-  overflow: hidden;
+  width: 100vw !important;
 }
 
 .mobile-image .el-carousel {
@@ -1853,14 +2726,33 @@ export default {
 .meta-actions {
   display: flex;
   justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
 }
 
 .meta-actions .el-button {
-  padding: 8px 20px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
 }
 
 .meta-actions .el-button i {
   margin-right: 5px;
+}
+
+.meta-actions .el-button.is-liked,
+.meta-actions .el-button.is-favorited {
+  background-color: #409EFF;
+  border-color: #409EFF;
+  color: #fff;
+}
+
+.meta-actions .el-button:hover {
+  background-color: #64b5f6;
+}
+
+.meta-actions .el-button:active {
+  background-color: #409EFF;
 }
 
 /* 轮播图样式 */
@@ -1932,5 +2824,549 @@ export default {
 
 .loading-indicator.small i {
   font-size: 24px;
+}
+
+/* 社交互动区域 */
+.social-interaction {
+  margin-top: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.mobile-social {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.interaction-buttons {
+  display: flex;
+  justify-content: space-around;
+  padding: 15px 0;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.interaction-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  transition: all 0.3s ease;
+}
+
+.interaction-btn:hover {
+  color: #409EFF;
+  background: rgba(64, 158, 255, 0.1);
+  border-radius: 20px;
+}
+
+.interaction-btn.active {
+  color: #409EFF;
+  font-weight: 500;
+}
+
+.interaction-btn i {
+  margin-right: 5px;
+  font-size: 18px;
+}
+
+/* 评论区域 */
+.comments-section {
+  padding: 20px;
+  background-color: #fff;
+}
+
+.comment-header {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+  padding-bottom: 10px;
+}
+
+.comment-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+
+.comment-input {
+  margin-bottom: 20px;
+}
+
+.comment-submit {
+  text-align: right;
+  margin-top: 10px;
+}
+
+.login-to-comment {
+  text-align: center;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.login-to-comment a {
+  color: #409EFF;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.comments-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.loading-comments {
+  text-align: center;
+  padding: 20px;
+  color: #909399;
+}
+
+.loading-comments i {
+  margin-right: 8px;
+  font-size: 20px;
+}
+
+.comment-item {
+  padding: 15px;
+  border-bottom: 1px solid #f2f2f2;
+  transition: background-color 0.3s ease;
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-item:hover {
+  background-color: #f8f9fa;
+}
+
+.comment-author {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.comment-author .username {
+  font-weight: 500;
+  color: #303133;
+}
+
+.comment-content {
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.comment-time {
+  color: #909399;
+  font-size: 12px;
+}
+
+.comment-actions {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.comment-item:hover .comment-actions {
+  opacity: 1;
+}
+
+@media (max-width: 576px) {
+  .social-interaction {
+    margin-top: 10px;
+  }
+  
+  .interaction-buttons {
+    padding: 10px 0;
+  }
+  
+  .interaction-btn {
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+  
+  .comments-section {
+    padding: 15px;
+  }
+  
+  .comment-item {
+    padding: 10px;
+  }
+  
+  .comment-actions {
+    opacity: 1;
+  }
+}
+
+/* 移动端底部固定按钮 - 不再需要 */
+.mobile-fixed-bottom {
+  display: none;
+}
+
+/* 移动端垂直悬浮按钮 */
+.mobile-float-buttons {
+  position: fixed;
+  right: 16px;
+  bottom: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1000;
+  pointer-events: none; /* 防止影响下方内容的点击 */
+}
+
+.float-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+  cursor: pointer;
+  pointer-events: auto; /* 恢复按钮自身的点击 */
+}
+
+.icon-container {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 20px;
+  margin-bottom: 4px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.float-button:active .icon-container {
+  transform: scale(0.9);
+}
+
+.float-button.active .icon-container {
+  background-color: #409EFF;
+}
+
+.float-button .count {
+  color: white;
+  font-size: 12px;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* 移动端画同款按钮 */
+.mobile-create-similar {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 0 20px;
+  pointer-events: none; /* 防止影响下方内容的点击 */
+}
+
+.create-similar-btn {
+  width: 100%;
+  max-width: 300px;
+  height: 50px;
+  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  color: white;
+  border-radius: 25px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: auto; /* 恢复按钮自身的点击 */
+}
+
+.create-similar-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.create-similar-btn i {
+  margin-right: 8px;
+  font-size: 20px;
+}
+
+/* 移动端评论抽屉 */
+.mobile-comments-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-comments-drawer.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-overlay {
+  position: fixed; /* 使用fixed定位替代absolute */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2001;
+  touch-action: none; /* 禁止在遮罩上的所有触摸操作 */
+}
+
+.drawer-content {
+  position: fixed; /* 使用fixed定位替代absolute */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 70%;
+  background-color: white;
+  border-radius: 16px 16px 0 0;
+  z-index: 2002;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.mobile-comments-drawer.active .drawer-content {
+  transform: translateY(0);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ebeef5;
+  flex-shrink: 0; /* 防止header被压缩 */
+}
+
+.drawer-header span {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.drawer-header i {
+  font-size: 20px;
+  color: #909399;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.mobile-comments-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  height: calc(100% - 120px); /* 留出评论输入区域的高度 */
+  position: relative;
+  touch-action: pan-y; /* 只允许垂直滑动 */
+  -webkit-overflow-scrolling: touch; /* 增强iOS滚动体验 */
+}
+
+.mobile-comments-drawer .drawer-content {
+  display: flex;
+  flex-direction: column;
+  height: 70%; /* 提高高度，占据更多屏幕空间 */
+  max-height: 70%; /* 限制最大高度 */
+  overflow: hidden;
+}
+
+.mobile-comments-list {
+  padding: 0 16px 120px 16px; /* 增加底部空间，防止内容被遮挡 */
+  transform: translate3d(0, 0, 0); /* 强制使用硬件加速，提高滚动性能 */
+}
+
+.mobile-comment-input-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-top: 1px solid #ebeef5;
+  padding: 12px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 2003; /* 确保在最上层 */
+}
+
+.mobile-comment-input {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* 居中输入框 */
+}
+
+.mobile-comment-input .el-input {
+  width: 100%;
+  max-width: 450px; /* 限制最大宽度，在大屏幕上也能居中 */
+}
+
+.mobile-comment-input .el-textarea__inner {
+  min-height: 60px !important;
+  font-size: 16px !important; /* 使用!important确保字体大小不变 */
+  padding: 12px;
+  border-radius: 18px;
+  resize: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 适配调整 */
+.mobile-detail {
+  padding-bottom: 120px; /* 增加底部空间，确保内容不被底部按钮遮挡 */
+}
+
+@media (max-width: 576px) {
+  .task-detail {
+    padding-right: 15px;
+  }
+  
+  /* 确保登录提示文字居中 */
+.login-to-comment {
+  text-align: center;
+    padding: 12px 0;
+  }
+}
+
+/* 防止移动端输入框放大 */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important; /* 大于16px的字体不会触发iOS自动缩放 */
+  }
+
+  .el-textarea__inner {
+    font-size: 16px !important;
+  }
+  
+  /* 确保评论抽屉内的文本区域不缩放 */
+  :deep(.mobile-comments-drawer .el-textarea__inner) {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+</style>
+
+<!-- 添加全局样式，确保评论抽屉内的文本区域不缩放 -->
+<style>
+.mobile-comments-drawer .el-textarea__inner {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 修复页面整体偏左和滚动条问题 */
+body.comment-drawer-open {
+  overflow: hidden !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%; /* 确保占满整个视口高度 */
+  touch-action: none !important; /* 完全禁止背景滚动 */
+}
+
+/* 在移动端隐藏浏览器滚动条，使用更现代的方式 */
+html, body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  overscroll-behavior: none; /* 防止iOS橡皮筋效果 */
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar,
+.mobile-container::-webkit-scrollbar,
+.mobile-comments-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+.inspiration-detail-container {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* 修复评论区域滚动问题 */
+.mobile-comments-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  height: calc(100% - 120px); /* 留出评论输入区域的高度 */
+  position: relative;
+}
+
+.mobile-comments-drawer .drawer-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 60%; /* 限制最大高度 */
+}
+
+.mobile-comment-input-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border-top: 1px solid #ebeef5;
+  padding: 12px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+}
+
+/* 恢复移动端评论输入框样式 */
+.mobile-comment-input {
+  display: flex;
+  align-items: center;
+  width: 92%;
+  max-width: 600px;
+  padding: 0;
+  margin: 0 auto;
+}
+
+.mobile-comment-input .el-input {
+  width: 100%;
+}
+
+.mobile-comment-input .el-textarea__inner {
+  min-height: 45px !important;
+  font-size: 16px !important;
+  padding: 10px 15px;
+  border-radius: 18px;
+  resize: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 </style>

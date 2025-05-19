@@ -117,6 +117,28 @@ type ShareTask struct {
 	RejectReason string     `json:"reject_reason" gorm:"size:200"`                 // 拒绝原因
 }
 
+// 点赞
+type ShareTaskLike struct {
+	BaseModel
+	UserID      uint `json:"user_id" gorm:"index;not null"`       // 用户ID
+	ShareTaskID uint `json:"share_task_id" gorm:"index;not null"` // 分享任务ID
+}
+
+// 收藏
+type ShareTaskFavorite struct {
+	BaseModel
+	UserID      uint `json:"user_id" gorm:"index;not null"`       // 用户ID
+	ShareTaskID uint `json:"share_task_id" gorm:"index;not null"` // 分享任务ID
+}
+
+// 评论
+type ShareTaskComment struct {
+	BaseModel
+	UserID      uint   `json:"user_id" gorm:"index;not null"`       // 用户ID
+	ShareTaskID uint   `json:"share_task_id" gorm:"index;not null"` // 分享任务ID
+	Content     string `json:"content" gorm:"size:500"`             // 评论内容
+}
+
 // VoiceLibrary 音色库模型
 type VoiceLibrary struct {
 	BaseModel
@@ -144,4 +166,10 @@ type MembershipPlan struct {
 	IsActive     bool            `json:"is_active" gorm:"default:true"`  // 是否激活
 	WechatQRCode string          `json:"wechat_qr_code" gorm:"size:255"` // 微信支付二维码图片URL
 	AlipayQRCode string          `json:"alipay_qr_code" gorm:"size:255"` // 支付宝支付二维码图片URL
+}
+
+// 简洁的用户信息
+type UserInfo struct {
+	UserID   uint   `json:"user_id"`
+	Username string `json:"username"`
 }

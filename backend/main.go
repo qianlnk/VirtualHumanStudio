@@ -196,6 +196,27 @@ func registerRoutes(router *gin.Engine) {
 
 		// 保护路由中添加分享功能
 		protected.POST("/share", controllers.ShareTask)
+
+		// 点赞
+		protected.POST("/share/like", controllers.CreateShareTaskLike)
+		protected.DELETE("/share/like/:share_task_id", controllers.DeleteShareTaskLike)
+
+		// 收藏
+		protected.POST("/share/favorite", controllers.CreateShareTaskFavorite)
+		protected.DELETE("/share/favorite/:share_task_id", controllers.DeleteShareTaskFavorite)
+
+		// 评论
+		protected.POST("/share/comment", controllers.CreateShareTaskComment)
+		protected.DELETE("/share/comment/:share_task_comment_id", controllers.DeleteShareTaskComment)
+
+		// 获取点赞列表
+		protected.GET("/share/likes/:share_task_id", controllers.GetShareTaskLikes)
+
+		// 获取收藏列表
+		protected.GET("/share/favorites/:share_task_id", controllers.GetShareTaskFavorites)
+
+		// 获取评论列表
+		protected.GET("/share/comments/:share_task_id", controllers.GetShareTaskComments)
 	}
 
 	// 会员中心路由
