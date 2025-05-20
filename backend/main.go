@@ -139,7 +139,8 @@ func registerRoutes(router *gin.Engine) {
 		protected.PUT("/user/password", controllers.ChangePassword)
 
 		// 音色克隆
-		protected.POST("/voice/clone", controllers.CreateVoiceClone)
+		// 添加限制中间件
+		protected.POST("/voice/clone", middleware.VoiceCloneCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateVoiceClone)
 		protected.GET("/voice/clone/:id", controllers.GetVoiceClone)
 		protected.GET("/voice/clones", controllers.ListVoiceClones)
 		protected.DELETE("/voice/clone/:id", controllers.DeleteVoiceClone)
@@ -152,19 +153,19 @@ func registerRoutes(router *gin.Engine) {
 		protected.DELETE("/voice/:id", controllers.DeleteVoice)
 
 		// TTS
-		protected.POST("/tts", controllers.CreateTTSTask)
+		protected.POST("/tts", middleware.TTSCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateTTSTask)
 		protected.GET("/tts/:id", controllers.GetTTSTask)
 		protected.GET("/tts", controllers.ListTTSTasks)
 		protected.DELETE("/tts/:id", controllers.DeleteTTSTask)
 
 		// ASR
-		protected.POST("/asr", controllers.CreateASRTask)
+		protected.POST("/asr", middleware.ASRCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateASRTask)
 		protected.GET("/asr/:id", controllers.GetASRTask)
 		protected.GET("/asr", controllers.ListASRTasks)
 		protected.DELETE("/asr/:id", controllers.DeleteASRTask)
 
 		// 数字人
-		protected.POST("/digital-human", controllers.CreateDigitalHuman)
+		protected.POST("/digital-human", middleware.DigitalHumanCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateDigitalHuman)
 		protected.GET("/digital-human/:id", controllers.GetDigitalHuman)
 		protected.GET("/digital-human/:id/progress", controllers.QueryDigitalHumanProgress)
 		protected.GET("/digital-human", controllers.ListDigitalHumans)
@@ -183,7 +184,7 @@ func registerRoutes(router *gin.Engine) {
 		// 图像处理API
 		protected.GET("/image-processing/modules", controllers.GetImageProcessingModules)
 		protected.GET("/image-processing/tasks/:moduleId", controllers.GetImageProcessingTasks)
-		protected.POST("/image-processing/tasks/:moduleId", controllers.CreateImageProcessingTask)
+		protected.POST("/image-processing/tasks/:moduleId", middleware.ImageProcessCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateImageProcessingTask)
 		protected.GET("/image-processing/tasks/:moduleId/:taskId", controllers.GetImageProcessingTask)
 		protected.DELETE("/image-processing/tasks/:moduleId/:taskId", controllers.DeleteImageProcessingTask)
 		protected.POST("/image-processing/tasks/:moduleId/:taskId/retry", controllers.RetryImageProcessingTask)

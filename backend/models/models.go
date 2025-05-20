@@ -155,17 +155,24 @@ type VoiceLibrary struct {
 // MembershipPlan 会员计划模型
 type MembershipPlan struct {
 	BaseModel
-	Name         string          `json:"name" gorm:"size:50;not null"`   // 计划名称
-	Level        MembershipLevel `json:"level" gorm:"size:20;not null"`  // 会员等级
-	Price        float64         `json:"price"`                          // 价格
-	Duration     int             `json:"duration"`                       // 持续时间(天)
-	TaskPriority int             `json:"task_priority" gorm:"default:0"` // 任务优先级
-	DailyLimit   int             `json:"daily_limit"`                    // 每日使用次数限制
-	Description  string          `json:"description" gorm:"size:500"`    // 描述
-	Features     string          `json:"features" gorm:"type:text"`      // 功能特性(JSON格式)
-	IsActive     bool            `json:"is_active" gorm:"default:true"`  // 是否激活
-	WechatQRCode string          `json:"wechat_qr_code" gorm:"size:255"` // 微信支付二维码图片URL
-	AlipayQRCode string          `json:"alipay_qr_code" gorm:"size:255"` // 支付宝支付二维码图片URL
+	Name                    string          `json:"name" gorm:"size:50;not null"`   // 计划名称
+	Level                   MembershipLevel `json:"level" gorm:"size:20;not null"`  // 会员等级
+	Price                   float64         `json:"price"`                          // 价格
+	Duration                int             `json:"duration"`                       // 持续时间(天)
+	TaskPriority            int             `json:"task_priority" gorm:"default:0"` // 任务优先级
+	DailyLimit              int             `json:"daily_limit"`                    // 每日使用次数限制
+	Description             string          `json:"description" gorm:"size:500"`    // 描述
+	Features                string          `json:"features" gorm:"type:text"`      // 功能特性(JSON格式)
+	IsActive                bool            `json:"is_active" gorm:"default:true"`  // 是否激活
+	WechatQRCode            string          `json:"wechat_qr_code" gorm:"size:255"` // 微信支付二维码图片URL
+	AlipayQRCode            string          `json:"alipay_qr_code" gorm:"size:255"` // 支付宝支付二维码图片URL
+	VoiceClonePerDay        int             `json:"voice_clone_per_day"`            // 每天音色克隆次数
+	TTSWordsPerDay          int             `json:"tts_words_per_day"`              // 每天语音合成字数
+	ASRTimesPerDay          int             `json:"asr_times_per_day"`              // 每天语音识别次数
+	ASRMaxDuration          int             `json:"asr_max_duration"`               // 最大语音识别时长
+	DigitalHumanPerDay      int             `json:"digital_human_per_day"`          // 每天合成数字人次数
+	DigitalHumanMaxDuration int             `json:"digital_human_max_duration"`     // 最大合成数字人时长
+	ImageProcessPerDay      int             `json:"image_process_per_day"`          // 每天图片处理次数
 }
 
 // 简洁的用户信息

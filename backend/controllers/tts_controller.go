@@ -77,6 +77,8 @@ func CreateTTSTask(c *gin.Context) {
 		return
 	}
 
+	c.Set("usage_value", len([]rune(req.InputText)))
+
 	// 异步处理TTS任务
 	ctx := context.WithValue(context.Background(), "user_id", userID)
 	go processTTSTask(ctx, ttsTask)
