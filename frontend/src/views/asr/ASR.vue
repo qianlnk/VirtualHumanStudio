@@ -25,7 +25,7 @@
         <el-table-column prop="name" label="任务名称" width="150"></el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template slot-scope="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+            <el-tag :type="getStatusType(scope.row.status)">{{ getStatusText(scope.row.status, scope.row) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
@@ -92,7 +92,7 @@
               <div class="status-icon">
                 <i v-if="item.status === 'completed'" class="el-icon-check" style="color: #67c23a;"></i>
                 <i v-else-if="item.status === 'failed'" class="el-icon-close" style="color: #f56c6c;"></i>
-                <el-tag v-else :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+                <el-tag v-else :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status, item) }}</el-tag>
               </div>
             </div>
             <div class="task-card-content">
@@ -548,13 +548,19 @@ export default {
     },
 
     // 状态文本
-    getStatusText(status) {
+    getStatusText(status, task) {
       const statusMap = {
-        pending: '等待中',
+        pending: '等待处理',
         processing: '处理中',
         completed: '已完成',
         failed: '失败'
       }
+
+      // 如果状态是pending且有排队位置信息，则显示排队位置
+      if (status === 'pending' && task && task.queue_position) {
+        return `等待处理 (排队位置: ${task.queue_position})`
+      }
+
       return statusMap[status] || status
     },
     

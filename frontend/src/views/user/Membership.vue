@@ -65,15 +65,79 @@
           </div>
           <div v-loading="usageLoading" class="usage-content">
             <div class="usage-progress-container">
-              <el-progress 
-                :percentage="usagePercentage" 
-                :color="usageColor"
-                :format="formatUsage"
-                :stroke-width="18"></el-progress>
-                
-              <div class="usage-info">
-                <span>{{ usageCountText }}</span>
-                <span>{{ remainingText }}</span>
+              <!-- 语音识别使用量 -->
+              <div class="usage-item">
+                <div class="usage-label">语音识别</div>
+                <div class="usage-bar-wrap">
+                  <el-progress 
+                    :percentage="getUsagePercentage(dailyUsage.asr_times_used || 0, dailyUsage.asr_times_per_day || 0)" 
+                    :color="getUsageColor(dailyUsage.asr_times_used || 0, dailyUsage.asr_times_per_day || 0)"
+                    :stroke-width="12"
+                    :show-text="false"
+                  ></el-progress>
+                  <span class="usage-value">{{ dailyUsage.asr_times_used || 0 }} / {{ dailyUsage.asr_times_per_day || 0 }}</span>
+                  <span class="usage-percent">{{ getUsagePercentage(dailyUsage.asr_times_used || 0, dailyUsage.asr_times_per_day || 0).toFixed(0) }}%</span>
+                </div>
+              </div>
+
+              <!-- 数字人使用量 -->
+              <div class="usage-item">
+                <div class="usage-label">数字人</div>
+                <div class="usage-bar-wrap">
+                  <el-progress 
+                    :percentage="getUsagePercentage(dailyUsage.digital_human_used || 0, dailyUsage.digital_human_per_day || 0)" 
+                    :color="getUsageColor(dailyUsage.digital_human_used || 0, dailyUsage.digital_human_per_day || 0)"
+                    :stroke-width="12"
+                    :show-text="false"
+                  ></el-progress>
+                  <span class="usage-value">{{ dailyUsage.digital_human_used || 0 }} / {{ dailyUsage.digital_human_per_day || 0 }}</span>
+                  <span class="usage-percent">{{ getUsagePercentage(dailyUsage.digital_human_used || 0, dailyUsage.digital_human_per_day || 0).toFixed(0) }}%</span>
+                </div>
+              </div>
+
+              <!-- 图像处理使用量 -->
+              <div class="usage-item">
+                <div class="usage-label">图像处理</div>
+                <div class="usage-bar-wrap">
+                  <el-progress 
+                    :percentage="getUsagePercentage(dailyUsage.image_process_used || 0, dailyUsage.image_process_per_day || 0)" 
+                    :color="getUsageColor(dailyUsage.image_process_used || 0, dailyUsage.image_process_per_day || 0)"
+                    :stroke-width="12"
+                    :show-text="false"
+                  ></el-progress>
+                  <span class="usage-value">{{ dailyUsage.image_process_used || 0 }} / {{ dailyUsage.image_process_per_day || 0 }}</span>
+                  <span class="usage-percent">{{ getUsagePercentage(dailyUsage.image_process_used || 0, dailyUsage.image_process_per_day || 0).toFixed(0) }}%</span>
+                </div>
+              </div>
+
+              <!-- 语音合成使用量 -->
+              <div class="usage-item">
+                <div class="usage-label">语音合成</div>
+                <div class="usage-bar-wrap">
+                  <el-progress 
+                    :percentage="getUsagePercentage(dailyUsage.tts_words_used || 0, dailyUsage.tts_words_per_day || 0)" 
+                    :color="getUsageColor(dailyUsage.tts_words_used || 0, dailyUsage.tts_words_per_day || 0)"
+                    :stroke-width="12"
+                    :show-text="false"
+                  ></el-progress>
+                  <span class="usage-value">{{ dailyUsage.tts_words_used || 0 }} / {{ dailyUsage.tts_words_per_day || 0 }}</span>
+                  <span class="usage-percent">{{ getUsagePercentage(dailyUsage.tts_words_used || 0, dailyUsage.tts_words_per_day || 0).toFixed(2) }}%</span>
+                </div>
+              </div>
+
+              <!-- 语音克隆使用量 -->
+              <div class="usage-item">
+                <div class="usage-label">语音克隆</div>
+                <div class="usage-bar-wrap">
+                  <el-progress 
+                    :percentage="getUsagePercentage(dailyUsage.voice_clone_used || 0, dailyUsage.voice_clone_per_day || 0)" 
+                    :color="getUsageColor(dailyUsage.voice_clone_used || 0, dailyUsage.voice_clone_per_day || 0)"
+                    :stroke-width="12"
+                    :show-text="false"
+                  ></el-progress>
+                  <span class="usage-value">{{ dailyUsage.voice_clone_used || 0 }} / {{ dailyUsage.voice_clone_per_day || 0 }}</span>
+                  <span class="usage-percent">{{ getUsagePercentage(dailyUsage.voice_clone_used || 0, dailyUsage.voice_clone_per_day || 0).toFixed(0) }}%</span>
+                </div>
               </div>
             </div>
           </div>
@@ -705,10 +769,20 @@ export default {
       return days + '天'
     },
     
-    // 格式化使用量显示
-    formatUsage(percentage) {
-      if (this.dailyUsage.daily_limit < 0) return '无限制'
-      return `${percentage}%`
+    // 获取使用量百分比
+    getUsagePercentage(used, total) {
+      if (!total || total <= 0) return 0
+      const percentage = (used / total) * 100
+      return Math.min(percentage, 100)
+    },
+    
+    // 获取使用量颜色
+    getUsageColor(used, total) {
+      if (!total || total <= 0) return '#67c23a'
+      const percentage = (used / total) * 100
+      if (percentage < 50) return '#67c23a'
+      if (percentage < 80) return '#e6a23c'
+      return '#f56c6c'
     },
     
     // 格式化日期时间
@@ -777,7 +851,7 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 220px; /* 固定最小高度 */
+  min-height: 300px; /* 固定最小高度 */
   padding: 15px;
 }
 
@@ -786,23 +860,61 @@ export default {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-around;
   padding: 20px 0;
 }
 
-/* 使用量信息 */
-.usage-info {
+.usage-item {
   display: flex;
-  justify-content: space-between;
-  margin-top: 15px;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.usage-item:last-child {
+  margin-bottom: 0;
+}
+
+.usage-label {
+  width: 80px;
+  min-width: 60px;
+  font-size: 14px;
+  color: #606266;
+  flex-shrink: 0;
+}
+
+.usage-bar-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 12px;
+}
+
+.usage-bar-wrap .el-progress {
+  max-width: 560px;
+  min-width: 240px;
+  width: 80%;
+}
+
+.usage-value {
   color: #606266;
   font-size: 14px;
+  min-width: 70px;
+  text-align: right;
+}
+
+.usage-percent {
+  color: #909399;
+  font-size: 13px;
+  min-width: 40px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .membership-header, .usage-header, .plans-header {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+  position: relative;
 }
 
 .membership-header i, .usage-header i, .plans-header i {
@@ -818,7 +930,10 @@ export default {
 
 /* 刷新按钮样式 */
 .refresh-btn {
-  margin-left: auto;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   padding: 0;
   font-size: 12px;
 }

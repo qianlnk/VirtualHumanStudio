@@ -8,7 +8,9 @@ type ComfyUIWorkflowTask struct {
 	// 工作流输入参数，JSON格式存储
 	InputParams string `json:"input_params" gorm:"type:text"`
 	// 工作流输出参数，JSON格式存储
-	OutputParams string `json:"output_params" gorm:"type:text"`
+	OutputParams  string `json:"output_params" gorm:"type:text"`
+	QueuePosition int    `json:"queue_position" gorm:"-"`
+	QueueType     string `json:"queue_type" gorm:"-"`
 }
 
 type InputParam struct {

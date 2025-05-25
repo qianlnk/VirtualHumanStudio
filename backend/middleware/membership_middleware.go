@@ -161,3 +161,12 @@ func MembershipAccess(minLevel string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func IsMember(userID uint) bool {
+	membership, err := membershipServiceInstance.GetMembershipInfo(userID)
+	if err != nil {
+		return false
+	}
+
+	return membership.Level != models.MembershipFree
+}

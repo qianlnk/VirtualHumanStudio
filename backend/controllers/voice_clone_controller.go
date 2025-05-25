@@ -12,11 +12,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +29,13 @@ import (
 
 const (
 	exsample_text = "你好，我是你的朋友，我能克隆你的声音，也能合成数字人，让我们一起探索人工智能的无限可能！"
+
+	// 任务状态
+	StatusPending    = "pending"
+	StatusQueued     = "queued"
+	StatusProcessing = "processing"
+	StatusCompleted  = "completed"
+	StatusFailed     = "failed"
 )
 
 // VoiceCloneRequest 音色克隆请求
@@ -40,18 +50,20 @@ type VoiceCloneRequest struct {
 
 // VoiceCloneResponse 音色克隆响应
 type VoiceCloneResponse struct {
-	ID          uint      `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	ModelName   string    `json:"model_name"`
-	PromptFile  string    `json:"prompt_file"`
-	PromptText  string    `json:"prompt_text"`
-	SpeakerName string    `json:"speaker_name"`
-	Status      string    `json:"status"`
-	Result      string    `json:"result"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	SampleFile  string    `json:"sample_file"`
+	ID            uint      `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	ModelName     string    `json:"model_name"`
+	PromptFile    string    `json:"prompt_file"`
+	PromptText    string    `json:"prompt_text"`
+	SpeakerName   string    `json:"speaker_name"`
+	Status        string    `json:"status"`
+	Result        string    `json:"result"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	SampleFile    string    `json:"sample_file"`
+	QueuePosition int       `json:"queue_position,omitempty"` // 队列位置
+	QueueType     string    `json:"queue_type,omitempty"`     // 队列类型：member或non_member
 }
 
 // APIVoiceCloneRequest API音色克隆请求
@@ -106,6 +118,19 @@ func CreateVoiceClone(c *gin.Context) {
 		return
 	}
 
+	// 检查用户是否为会员
+	var user models.User
+	result := db.DB.First(&user, userID)
+	if result.Error != nil {
+		// 删除已上传的文件
+		os.Remove(fullFilePath)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户信息失败: " + result.Error.Error()})
+		return
+	}
+
+	// 判断是否为会员（会员等级大于0）
+	isMember := middleware.IsMember(user.ID)
+
 	// 创建音色克隆记录
 	voiceClone := models.VoiceClone{
 		UserID:      userID.(uint),
@@ -115,10 +140,10 @@ func CreateVoiceClone(c *gin.Context) {
 		PromptFile:  filePath,
 		PromptText:  req.PromptText,
 		SpeakerName: req.SpeakerName,
-		Status:      "pending",
+		Status:      StatusQueued, // 设置状态为排队中
 	}
 
-	result := db.DB.Create(&voiceClone)
+	result = db.DB.Create(&voiceClone)
 	if result.Error != nil {
 		// 删除已上传的文件
 		os.Remove(fullFilePath)
@@ -126,31 +151,42 @@ func CreateVoiceClone(c *gin.Context) {
 		return
 	}
 
-	ctx := context.WithValue(context.Background(), "user_id", userID)
-	// 调用音色克隆API
-	go func() {
-		// 更新状态为处理中
-		db.DB.Model(&voiceClone).Update("status", "processing")
+	// 添加到队列
+	ctx := context.Background()
+	err = services.AddToVoiceCloneQueue(ctx, voiceClone.ID, userID.(uint), isMember)
+	if err != nil {
+		// 更新任务状态为失败
+		db.DB.Model(&voiceClone).Updates(map[string]interface{}{
+			"status":    StatusFailed,
+			"error_msg": "添加到队列失败: " + err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加到队列失败: " + err.Error()})
+		return
+	}
 
-		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(ctx, &voiceClone)
-	}()
+	// 获取队列位置
+	position, queueType, err := services.GetVoiceCloneQueuePosition(ctx, voiceClone.ID)
+	if err != nil {
+		log.Printf("获取队列位置失败: %v\n", err)
+	}
 
 	// 返回响应
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "音色克隆任务已创建",
+		"message": "音色克隆任务已创建并加入队列",
 		"voice_clone": VoiceCloneResponse{
-			ID:          voiceClone.ID,
-			Name:        voiceClone.Name,
-			Description: voiceClone.Description,
-			ModelName:   voiceClone.ModelName,
-			PromptFile:  voiceClone.PromptFile,
-			PromptText:  voiceClone.PromptText,
-			SpeakerName: voiceClone.SpeakerName,
-			Status:      voiceClone.Status,
-			Result:      voiceClone.Result,
-			CreatedAt:   voiceClone.CreatedAt,
-			UpdatedAt:   voiceClone.UpdatedAt,
+			ID:            voiceClone.ID,
+			Name:          voiceClone.Name,
+			Description:   voiceClone.Description,
+			ModelName:     voiceClone.ModelName,
+			PromptFile:    voiceClone.PromptFile,
+			PromptText:    voiceClone.PromptText,
+			SpeakerName:   voiceClone.SpeakerName,
+			Status:        voiceClone.Status,
+			Result:        voiceClone.Result,
+			CreatedAt:     voiceClone.CreatedAt,
+			UpdatedAt:     voiceClone.UpdatedAt,
+			QueuePosition: position,
+			QueueType:     queueType,
 		},
 	})
 }
@@ -184,22 +220,35 @@ func GetVoiceClone(c *gin.Context) {
 		return
 	}
 
+	// 构建响应
+	response := VoiceCloneResponse{
+		ID:          voiceClone.ID,
+		Name:        voiceClone.Name,
+		Description: voiceClone.Description,
+		ModelName:   voiceClone.ModelName,
+		PromptFile:  utils.GetFileURL(voiceClone.PromptFile),
+		PromptText:  voiceClone.PromptText,
+		SpeakerName: voiceClone.SpeakerName,
+		Status:      voiceClone.Status,
+		Result:      voiceClone.Result,
+		CreatedAt:   voiceClone.CreatedAt,
+		UpdatedAt:   voiceClone.UpdatedAt,
+		SampleFile:  utils.GetFileURL(voiceClone.SampleFile),
+	}
+
+	// 如果任务状态为排队中，获取队列位置
+	if voiceClone.Status == StatusQueued {
+		ctx := context.Background()
+		position, queueType, err := services.GetVoiceCloneQueuePosition(ctx, voiceClone.ID)
+		if err == nil {
+			response.QueuePosition = position
+			response.QueueType = queueType
+		}
+	}
+
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
-		"voice_clone": VoiceCloneResponse{
-			ID:          voiceClone.ID,
-			Name:        voiceClone.Name,
-			Description: voiceClone.Description,
-			ModelName:   voiceClone.ModelName,
-			PromptFile:  utils.GetFileURL(voiceClone.PromptFile),
-			PromptText:  voiceClone.PromptText,
-			SpeakerName: voiceClone.SpeakerName,
-			Status:      voiceClone.Status,
-			Result:      voiceClone.Result,
-			CreatedAt:   voiceClone.CreatedAt,
-			UpdatedAt:   voiceClone.UpdatedAt,
-			SampleFile:  utils.GetFileURL(voiceClone.SampleFile),
-		},
+		"voice_clone": response,
 	})
 }
 
@@ -242,6 +291,17 @@ func ListVoiceClones(c *gin.Context) {
 			CreatedAt:   vc.CreatedAt,
 			UpdatedAt:   vc.UpdatedAt,
 			SampleFile:  utils.GetFileURL(vc.SampleFile),
+		}
+
+		// 如果任务状态为排队中，获取队列位置
+		if vc.Status == "pending" {
+			// 获取队列位置
+			position, queueType, err := services.GetVoiceCloneQueuePosition(context.Background(), vc.ID)
+			if err != nil {
+				continue
+			}
+			responses[i].QueuePosition = position
+			responses[i].QueueType = queueType
 		}
 	}
 
@@ -374,6 +434,64 @@ func AddVoiceToLibrary(c *gin.Context) {
 			"created_at":  voiceLibrary.CreatedAt,
 		},
 	})
+}
+
+// GetVoiceCloneQueueStatus 获取音色克隆队列状态
+func GetVoiceCloneQueueStatus(c *gin.Context) {
+	// 获取队列信息
+	ctx := context.Background()
+	info, err := services.GetVoiceCloneQueueInfo(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取队列信息失败: " + err.Error()})
+		return
+	}
+
+	// 返回队列信息
+	c.JSON(http.StatusOK, gin.H{
+		"queue_info": info,
+	})
+}
+
+func GetVoiceCloneQueue(c *gin.Context) {
+	taskID := c.Param("id")
+	id, err := strconv.Atoi(taskID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务ID"})
+		return
+	}
+
+	position, _, err := services.GetVoiceCloneQueuePosition(c.Request.Context(), uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取队列位置失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"position": position,
+	})
+}
+
+// 处理音色克隆任务
+func processVoiceCloneTask(ctx context.Context, taskID uint) error {
+	// 查询任务
+	var voiceClone models.VoiceClone
+	result := db.DB.First(&voiceClone, taskID)
+	if result.Error != nil {
+		return fmt.Errorf("查询任务失败: %v", result.Error)
+	}
+
+	// 更新状态为处理中
+	db.DB.Model(&voiceClone).Update("status", StatusProcessing)
+
+	// 处理任务
+	handleVoiceCloneAPI(ctx, &voiceClone)
+
+	return nil
+}
+
+// 初始化音色克隆队列消费者
+func InitVoiceCloneQueueConsumer() {
+	ctx := context.Background()
+	services.StartVoiceCloneQueueConsumer(ctx, processVoiceCloneTask)
 }
 
 // handleVoiceCloneAPI 处理音色克隆API调用
@@ -565,7 +683,7 @@ func handleVoiceCloneAPI(ctx context.Context, voiceClone *models.VoiceClone) {
 		Language:    "mandarin",
 		SpkRate:     1.0,
 	}
-
+	ctx = context.WithValue(ctx, "user_id", voiceClone.UserID)
 	sampleAudioFile, err := ttsInvoke(ctx, &sampleAudioReq, false)
 	if err != nil {
 		log.Println("生成示例音频失败:", err)
@@ -627,14 +745,25 @@ func RetryVoiceClone(c *gin.Context) {
 	}
 
 	// 检查任务状态
-	if voiceClone.Status != "failed" {
+	if voiceClone.Status != StatusFailed {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "只能重试失败的任务"})
 		return
 	}
 
+	// 检查用户是否为会员
+	var user models.User
+	result = db.DB.First(&user, userID)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户信息失败: " + result.Error.Error()})
+		return
+	}
+
+	// 判断是否为会员（会员等级大于0）
+	isMember := middleware.IsMember(user.ID)
+
 	// 重置任务状态
 	updates := map[string]interface{}{
-		"status":    "pending",
+		"status":    StatusQueued,
 		"error_msg": "",
 	}
 	result = db.DB.Model(&voiceClone).Updates(updates)
@@ -643,14 +772,25 @@ func RetryVoiceClone(c *gin.Context) {
 		return
 	}
 
-	// 重新提交任务
-	go func() {
-		// 更新状态为处理中
-		db.DB.Model(&voiceClone).Update("status", "processing")
+	// 添加到队列
+	ctx := context.Background()
+	err := services.AddToVoiceCloneQueue(ctx, voiceClone.ID, userID.(uint), isMember)
+	if err != nil {
+		// 更新任务状态为失败
+		db.DB.Model(&voiceClone).Updates(map[string]interface{}{
+			"status":    StatusFailed,
+			"error_msg": "添加到队列失败: " + err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加到队列失败: " + err.Error()})
+		return
+	}
 
-		// 重用现有的API调用逻辑
-		handleVoiceCloneAPI(c, &voiceClone)
-	}()
+	// 获取队列位置
+	position, queueType, err := services.GetVoiceCloneQueuePosition(ctx, voiceClone.ID)
 
-	c.JSON(http.StatusOK, gin.H{"message": "任务已重新提交"})
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "任务已重新提交并加入队列",
+		"queue_position": position,
+		"queue_type":     queueType,
+	})
 }

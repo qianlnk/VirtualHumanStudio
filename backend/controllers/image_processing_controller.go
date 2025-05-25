@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,12 +10,18 @@ import (
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+func InitImageProcessingConsumer() {
+	services.StartImageProcessQueueConsumer(context.Background(), processImageTask)
+}
 
 // GetImageProcessingTask 获取特定图像处理任务的详细信息
 func GetImageProcessingTask(c *gin.Context) {
@@ -61,6 +68,10 @@ func GetImageProcessingTask(c *gin.Context) {
 
 	task.InputParams = utils.ToJSONString(inputParams)
 	task.OutputParams = utils.ToJSONString(outputParams)
+
+	position, queueType, _ := services.GetImageProcessQueuePosition(context.Background(), task.ID)
+	task.QueuePosition = position
+	task.QueueType = queueType
 
 	// 返回任务详情
 	c.JSON(200, gin.H{
@@ -166,6 +177,12 @@ func GetImageProcessingTasks(c *gin.Context) {
 		}
 		tasks[i].InputParams = utils.ToJSONString(inputParams)
 		tasks[i].OutputParams = utils.ToJSONString(outputParams)
+
+		if task.Status == "pending" {
+			position, queueType, _ := services.GetImageProcessQueuePosition(context.Background(), task.ID)
+			tasks[i].QueuePosition = position
+			tasks[i].QueueType = queueType
+		}
 	}
 
 	// 返回任务列表
@@ -297,8 +314,16 @@ func CreateImageProcessingTask(c *gin.Context) {
 		return
 	}
 
-	// 异步处理图像处理任务
-	go processImageTask(task.ID)
+	// 添加到任务队列
+	isMember := middleware.IsMember(task.UserID)
+	err := services.AddToImageProcessQueue(context.Background(), task.ID, task.UserID, isMember)
+	if err != nil {
+		db.DB.Model(&task).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "添加到队列失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加任务到队列失败: " + err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
@@ -337,7 +362,7 @@ func RetryImageProcessingTask(c *gin.Context) {
 	task.Status = "pending"
 	db.DB.Save(&task)
 	// 异步处理图像处理任务
-	go processImageTask(task.ID)
+	go processImageTask(context.Background(), task.ID)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "任务已重新提交",

@@ -10,6 +10,7 @@ import (
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
 	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/redis"
 	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 
 	"github.com/gin-contrib/cors"
@@ -61,8 +62,16 @@ func main() {
 	}
 
 	// 初始化Redis
-	middleware.InitRedis()
+	redis.InitRedis()
+	middleware.Init()
 	middleware.InitRateLimiter()
+
+	// 初始队列消费者
+	controllers.InitVoiceCloneQueueConsumer()
+	controllers.InitTTSQueueConsumer()
+	controllers.InitASRQueueConsumer()
+	controllers.InitDigitalHumanConsumer()
+	controllers.InitImageProcessingConsumer()
 
 	// 初始化Promptt
 	controllers.InitPromptt()
@@ -146,6 +155,7 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/voice/clones", controllers.ListVoiceClones)
 		protected.DELETE("/voice/clone/:id", controllers.DeleteVoiceClone)
 		protected.POST("/voice/clone/:id/retry", controllers.RetryVoiceClone)
+		protected.GET("/voice/clone/queue/status", controllers.GetVoiceCloneQueueStatus)
 		protected.POST("/voice/clone/:id/add_to_library", controllers.AddVoiceToLibrary) // 添加到音色库
 
 		// 音色库

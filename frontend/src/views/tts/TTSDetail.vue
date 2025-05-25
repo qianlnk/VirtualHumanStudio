@@ -310,6 +310,12 @@ export default {
         'completed': '已完成',
         'failed': '失败'
       }
+      
+      // 如果状态是pending且有排队位置信息，则显示排队位置
+      if (status === 'pending' && this.task && this.task.queue_position) {
+        return `等待处理 (排队位置: ${this.task.queue_position})`
+      }
+      
       return statusTextMap[status] || status
     },
     

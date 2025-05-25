@@ -589,20 +589,6 @@ func (c *MembershipController) GetDailyUsage(ctx *gin.Context) {
 
 	today := time.Now().Format("2006-01-02")
 
-	var usage UserUsage
-	if err := c.DB.Where("user_id = ? AND date = ?", userID, today).First(&usage).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			usage = UserUsage{
-				UserID:     userID,
-				Date:       time.Now(),
-				UsageCount: 0,
-			}
-		} else {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取使用量失败"})
-			return
-		}
-	}
-
 	// 获取用户会员信息
 	var membership models.Membership
 	if err := c.DB.Where("user_id = ?", userID).First(&membership).Error; err != nil {
@@ -610,10 +596,45 @@ func (c *MembershipController) GetDailyUsage(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"usage_count": usage.UsageCount,
-		"daily_limit": membership.DailyLimit,
-	})
+	// 获取会员计划详情
+	var plan models.MembershipPlan
+	if err := c.DB.Where("level = ?", membership.Level).First(&plan).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取会员计划失败"})
+		return
+	}
+
+	// 获取用户今日使用量
+	var usages []*models.FeatureUsage
+	result := c.DB.Where("user_id =? AND date =?", userID, today).Find(&usages)
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取用户今日使用量失败"})
+		return
+	}
+
+	res := map[string]interface{}{
+		"voice_clone_per_day":   plan.VoiceClonePerDay,
+		"tts_words_per_day":     plan.TTSWordsPerDay,
+		"asr_times_per_day":     plan.ASRTimesPerDay,
+		"digital_human_per_day": plan.DigitalHumanPerDay,
+		"image_process_per_day": plan.ImageProcessPerDay,
+	}
+
+	for _, ug := range usages {
+		switch ug.FeatureType {
+		case "voice_clone":
+			res["voice_clone_used"] = ug.UsageCount
+		case "tts":
+			res["tts_words_used"] = ug.UsageValue
+		case "asr":
+			res["asr_times_used"] = ug.UsageCount
+		case "digital_human":
+			res["digital_human_used"] = ug.UsageCount
+		case "image_process":
+			res["image_process_used"] = ug.UsageCount
+		}
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }
 
 // IncrementUsage 增加用户使用量

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +43,10 @@ type APIDigitalHumanRequest struct {
 	Chaofen         int    `json:"chaofen"`
 	WatermarkSwitch int    `json:"watermark_switch"`
 	PN              int    `json:"pn"`
+}
+
+func InitDigitalHumanConsumer() {
+	services.StartDigitalHumanQueueConsumer(context.Background(), processDigitalHumanTask)
 }
 
 // CreateDigitalHuman 创建数字人合成任务
@@ -100,41 +107,6 @@ func CreateDigitalHuman(c *gin.Context) {
 		return
 	}
 
-	// 上传音频文件到远程服务器
-	audioBody := &bytes.Buffer{}
-	audioWriter := multipart.NewWriter(audioBody)
-	audioFileHandle, err := audioFile.Open()
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开音频文件失败: " + err.Error()})
-		return
-	}
-	defer audioFileHandle.Close()
-
-	part, err := audioWriter.CreateFormFile("attachment", audioFileName)
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建音频表单失败: " + err.Error()})
-		return
-	}
-	if _, err = io.Copy(part, audioFileHandle); err != nil {
-		os.Remove(fullAudioFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "复制音频文件失败: " + err.Error()})
-		return
-	}
-
-	audioUploadPath := fmt.Sprintf("vhs/%d/audios", userID)
-	audioWriter.WriteField("path", audioUploadPath)
-	audioWriter.Close()
-
-	audioResp, err := http.Post(config.AppConfig.FileUploadAPI, audioWriter.FormDataContentType(), audioBody)
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传音频文件到远程服务器失败: " + err.Error()})
-		return
-	}
-	defer audioResp.Body.Close()
-
 	// 生成唯一文件名并保存视频文件
 	videoUniqueID := uuid.New().String()
 	videoFileName := fmt.Sprintf("%s%s", videoUniqueID, videoExt)
@@ -146,45 +118,6 @@ func CreateDigitalHuman(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存视频文件失败: " + err.Error()})
 		return
 	}
-
-	// 上传视频文件到远程服务器
-	videoBody := &bytes.Buffer{}
-	videoWriter := multipart.NewWriter(videoBody)
-	videoFileHandle, err := videoFile.Open()
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		os.Remove(fullVideoFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开视频文件失败: " + err.Error()})
-		return
-	}
-	defer videoFileHandle.Close()
-
-	part, err = videoWriter.CreateFormFile("attachment", videoFileName)
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		os.Remove(fullVideoFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建视频表单失败: " + err.Error()})
-		return
-	}
-	if _, err = io.Copy(part, videoFileHandle); err != nil {
-		os.Remove(fullAudioFilePath)
-		os.Remove(fullVideoFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "复制视频文件失败: " + err.Error()})
-		return
-	}
-
-	videoUploadPath := fmt.Sprintf("vhs/%d/videos", userID)
-	videoWriter.WriteField("path", videoUploadPath)
-	videoWriter.Close()
-
-	videoResp, err := http.Post(config.AppConfig.FileUploadAPI, videoWriter.FormDataContentType(), videoBody)
-	if err != nil {
-		os.Remove(fullAudioFilePath)
-		os.Remove(fullVideoFilePath)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传视频文件到远程服务器失败: " + err.Error()})
-		return
-	}
-	defer videoResp.Body.Close()
 
 	// 创建数字人合成记录
 	digitalHuman := models.DigitalHuman{
@@ -209,111 +142,17 @@ func CreateDigitalHuman(c *gin.Context) {
 		return
 	}
 
-	// 异步调用数字人合成API
-	go func() {
-		// 更新状态为处理中
-		db.DB.Model(&digitalHuman).Update("status", "processing")
-
-		// 构建API请求
-		apiReq := APIDigitalHumanRequest{
-			AudioURL:        filepath.Join("/code/data/", audioUploadPath, audioFileName),
-			VideoURL:        filepath.Join("/code/data/", videoUploadPath, videoFileName),
-			Code:            req.TaskCode,
-			Chaofen:         req.Chaofen,
-			WatermarkSwitch: req.WatermarkSwitch,
-			PN:              req.PN,
-		}
-
-		// 序列化请求
-		reqData, err := json.Marshal(apiReq)
-		if err != nil {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "序列化请求失败: " + err.Error(),
-			})
-			return
-		}
-
-		// 发送请求
-		client := &http.Client{}
-		req, err := http.NewRequest("POST", config.AppConfig.DigitalHumanAPI, bytes.NewBuffer(reqData))
-		if err != nil {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "创建请求失败: " + err.Error(),
-			})
-			return
-		}
-
-		// 设置请求头
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "调用API失败: " + err.Error(),
-			})
-			return
-		}
-		defer resp.Body.Close()
-
-		// 读取响应
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "读取API响应失败: " + err.Error(),
-			})
-			return
-		}
-
-		// 解析响应
-		var apiResp map[string]interface{}
-		if err := json.Unmarshal(respBody, &apiResp); err != nil {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": "解析API响应失败: " + err.Error(),
-			})
-			return
-		}
-
-		// 检查响应状态
-		if resp.StatusCode != http.StatusOK {
-			db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-				"status":    "failed",
-				"error_msg": fmt.Sprintf("API返回错误: %d %s", resp.StatusCode, string(respBody)),
-			})
-			return
-		}
-
-		// 更新任务状态为进行中，等待后续查询结果
+	// 添加到任务队列
+	isMember := middleware.IsMember(digitalHuman.UserID)
+	err = services.AddToDigitalHumanQueue(context.Background(), digitalHuman.ID, digitalHuman.UserID, isMember)
+	if err != nil {
 		db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-			"status": "processing",
+			"status":    "failed",
+			"error_msg": "添加到队列失败: " + err.Error(),
 		})
-	}()
-
-	go func() {
-
-		time.Sleep(time.Second * 3)
-		// 轮询查询任务状态
-		for {
-			progress, err := queryProgress(&digitalHuman, true)
-			if err != nil {
-				db.DB.Model(&digitalHuman).Updates(map[string]interface{}{
-					"status":    "failed",
-					"error_msg": "查询任务进度失败: " + err.Error(),
-				})
-				return
-			}
-
-			if progress >= 100 {
-				break
-			}
-
-			time.Sleep(time.Second * 5)
-		}
-	}()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加到数字人合成队列失败"})
+		return
+	}
 
 	digitalHuman.AudioURL = utils.GetFileURL(digitalHuman.AudioURL)
 	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
@@ -323,6 +162,199 @@ func CreateDigitalHuman(c *gin.Context) {
 		"message":       "数字人合成任务已创建",
 		"digital_human": digitalHuman,
 	})
+}
+
+func processDigitalHumanTask(ctx context.Context, taskID uint) error {
+	// 查询任务
+	var digitalHuman = &models.DigitalHuman{}
+	result := db.DB.First(digitalHuman, taskID)
+	if result.Error != nil {
+		return fmt.Errorf("查询任务失败: %v", result.Error)
+	}
+
+	// 更新任务状态为进行中
+	result = db.DB.Model(digitalHuman).Update("status", "processing")
+	if result.Error != nil {
+		return fmt.Errorf("更新任务状态失败: %v", result.Error)
+	}
+
+	// 上传音频文件到远程服务器
+	fullAudioFilePath := filepath.Join(config.AppConfig.DataDir, digitalHuman.AudioURL)
+	audioFileName := filepath.Base(digitalHuman.AudioURL)
+	audioBody := &bytes.Buffer{}
+	audioWriter := multipart.NewWriter(audioBody)
+	audioFileHandle, err := os.Open(fullAudioFilePath)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "打开音频文件失败: " + err.Error(),
+		})
+
+		return err
+	}
+	defer audioFileHandle.Close()
+
+	part, err := audioWriter.CreateFormFile("attachment", audioFileName)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "创建音频表单失败: " + err.Error(),
+		})
+		return err
+	}
+	if _, err = io.Copy(part, audioFileHandle); err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "复制音频文件失败: " + err.Error(),
+		})
+		return err
+	}
+
+	audioUploadPath := fmt.Sprintf("vhs/%d/audios", digitalHuman.UserID)
+	audioWriter.WriteField("path", audioUploadPath)
+	audioWriter.Close()
+
+	audioResp, err := http.Post(config.AppConfig.FileUploadAPI, audioWriter.FormDataContentType(), audioBody)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "上传音频文件到远程服务器失败: " + err.Error(),
+		})
+		return err
+	}
+	defer audioResp.Body.Close()
+
+	// 上传视频文件到远程服务器
+	fullVideoFilePath := filepath.Join(config.AppConfig.DataDir, digitalHuman.VideoURL)
+	videoFileName := filepath.Base(digitalHuman.VideoURL)
+	videoBody := &bytes.Buffer{}
+	videoWriter := multipart.NewWriter(videoBody)
+	videoFileHandle, err := os.Open(fullVideoFilePath)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "打开视频文件失败: " + err.Error(),
+		})
+		return err
+	}
+	defer videoFileHandle.Close()
+
+	part, err = videoWriter.CreateFormFile("attachment", videoFileName)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "创建视频表单失败: " + err.Error(),
+		})
+		return err
+	}
+	if _, err = io.Copy(part, videoFileHandle); err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "复制视频文件失败: " + err.Error(),
+		})
+		return err
+	}
+
+	videoUploadPath := fmt.Sprintf("vhs/%d/videos", digitalHuman.UserID)
+	videoWriter.WriteField("path", videoUploadPath)
+	videoWriter.Close()
+
+	videoResp, err := http.Post(config.AppConfig.FileUploadAPI, videoWriter.FormDataContentType(), videoBody)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "上传视频文件到远程服务器失败: " + err.Error(),
+		})
+		return err
+	}
+	defer videoResp.Body.Close()
+
+	// 构建API请求
+	apiReq := APIDigitalHumanRequest{
+		AudioURL:        filepath.Join("/code/data/", audioUploadPath, audioFileName),
+		VideoURL:        filepath.Join("/code/data/", videoUploadPath, videoFileName),
+		Code:            digitalHuman.TaskCode,
+		Chaofen:         digitalHuman.Chaofen,
+		WatermarkSwitch: digitalHuman.WatermarkSwitch,
+		PN:              digitalHuman.PN,
+	}
+
+	// 序列化请求
+	reqData, err := json.Marshal(apiReq)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "序列化请求失败: " + err.Error(),
+		})
+		return fmt.Errorf("序列化请求失败: %v", err)
+	}
+
+	// 发送请求
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", config.AppConfig.DigitalHumanAPI, bytes.NewBuffer(reqData))
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "创建请求失败: " + err.Error(),
+		})
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "调用API失败: " + err.Error(),
+		})
+		return fmt.Errorf("调用API失败: %v", err)
+	}
+	defer resp.Body.Close()
+	// 读取响应
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "读取API响应失败: " + err.Error(),
+		})
+		return fmt.Errorf("读取API响应失败: %v", err)
+	}
+	// 解析响应
+	var apiResp map[string]interface{}
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "解析API响应失败: " + err.Error(),
+		})
+		return fmt.Errorf("解析API响应失败: %v", err)
+	}
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": fmt.Sprintf("API返回错误: %d %s", resp.StatusCode, string(respBody)),
+		})
+		return fmt.Errorf("API返回错误: %d %s", resp.StatusCode, string(respBody))
+	}
+
+	// 轮询查询任务状态
+	for {
+		progress, err := queryProgress(digitalHuman, true)
+		if err != nil {
+			db.DB.Model(digitalHuman).Updates(map[string]interface{}{
+				"status":    "failed",
+				"error_msg": "查询任务进度失败: " + err.Error(),
+			})
+			return fmt.Errorf("查询任务进度失败: %v", err)
+		}
+
+		if progress >= 100 {
+			break
+		}
+		time.Sleep(time.Second * 5)
+	}
+
+	return nil
 }
 
 // QueryDigitalHumanProgress 查询数字人合成进度
@@ -365,7 +397,7 @@ func QueryDigitalHumanProgress(c *gin.Context) {
 		return
 	}
 
-	progress, err := queryProgress(digitalHuman, false)
+	progress, err := queryProgress(digitalHuman, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询进度失败: " + err.Error()})
 		return
@@ -539,6 +571,10 @@ func GetDigitalHuman(c *gin.Context) {
 	digitalHuman.VideoURL = utils.GetFileURL(digitalHuman.VideoURL)
 	digitalHuman.ResultURL = utils.GetFileURL(digitalHuman.ResultURL)
 
+	position, queueType, _ := services.GetDigitalHumanQueuePosition(context.Background(), digitalHuman.ID)
+	digitalHuman.QueuePosition = position
+	digitalHuman.QueueType = queueType
+
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
 		"digital_human": digitalHuman,
@@ -573,6 +609,12 @@ func ListDigitalHumans(c *gin.Context) {
 		digitalHumans[i].AudioURL = utils.GetFileURL(digitalHumans[i].AudioURL)
 		digitalHumans[i].VideoURL = utils.GetFileURL(digitalHumans[i].VideoURL)
 		digitalHumans[i].ResultURL = utils.GetFileURL(digitalHumans[i].ResultURL)
+
+		if digitalHumans[i].Status == "pending" {
+			position, queueType, _ := services.GetDigitalHumanQueuePosition(context.Background(), digitalHumans[i].ID)
+			digitalHumans[i].QueuePosition = position
+			digitalHumans[i].QueueType = queueType
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

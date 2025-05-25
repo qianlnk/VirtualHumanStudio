@@ -103,6 +103,8 @@ type DigitalHuman struct {
 	ResultURL       string `json:"result_url" gorm:"size:255"`                    // 结果文件URL
 	ErrorMsg        string `json:"error_msg" gorm:"size:500"`                     //
 	ShareStatus     string `json:"share_status" gorm:"size:20;default:'private'"` // private, pending_review, approved, rejected
+	QueuePosition   int    `json:"queue_position" gorm:"-"`                       // 队列位置
+	QueueType       string `json:"queue_type" gorm:"-"`                           // normal, priority
 }
 
 type ShareTask struct {

@@ -263,6 +263,8 @@ export default {
     // 初始加载数据
     this.fetchDigitalHumans()
   },
+  
+  // mounted钩子已移至下方合并
   methods: {
     // 检查设备类型
     checkDeviceType() {
@@ -302,9 +304,6 @@ export default {
         // 尝试不同的API端点，找到一个可用的
         const endpoints = [
           '/api/digital-human',
-          '/api/digitalhuman',
-          '/api/digital_human',
-          '/api/digital-humans'
         ]
         
         let response = null
@@ -347,69 +346,12 @@ export default {
         // 检查不同的响应结构
         let newTasks = []
         let totalCount = 0
+
+        newTasks = response.data.digital_humans || []
+        totalCount = response.data.total || 0
+
+        console.log('数字人任务列表:', newTasks)
         
-        // 测试在渲染前强制将数据转换为数组
-        if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
-          if (response.data.items && Array.isArray(response.data.items)) {
-            // 标准结构: {items: [...], total: 100}
-            console.log('检测到标准响应结构: {items: [...], total: 100}')
-            newTasks = response.data.items
-            totalCount = response.data.total || 0
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            // {data: [...], total: 100} 结构
-            console.log('检测到data字段响应结构: {data: [...], total: 100}')
-            newTasks = response.data.data
-            totalCount = response.data.total || 0
-          } else if (response.data.list && Array.isArray(response.data.list)) {
-            // {list: [...], total: 100} 结构
-            console.log('检测到list字段响应结构: {list: [...], total: 100}')
-            newTasks = response.data.list
-            totalCount = response.data.total || response.data.totalCount || response.data.count || 0
-          } else if (response.data.records && Array.isArray(response.data.records)) {
-            // {records: [...], total: 100} 结构 (MyBatis-Plus分页)
-            console.log('检测到MyBatis-Plus分页结构: {records: [...], total: 100}')
-            newTasks = response.data.records
-            totalCount = response.data.total || 0
-          } else if (response.data.content && Array.isArray(response.data.content)) {
-            // Spring Data分页结构
-            console.log('检测到Spring Data分页结构')
-            newTasks = response.data.content
-            totalCount = response.data.totalElements || 0
-          } else {
-            // 如果是对象但没有识别出结构，尝试强制转换
-            console.log('尝试从对象转换:', response.data)
-            // 将对象的所有值合并为数组
-            const objectValues = Object.values(response.data).filter(val => val && typeof val === 'object')
-            if (objectValues.length > 0) {
-              // 取第一个有效对象
-              const firstValidValue = objectValues[0]
-              if (Array.isArray(firstValidValue)) {
-                console.log('从对象中提取数组:', firstValidValue)
-                newTasks = firstValidValue
-                totalCount = firstValidValue.length
-              }
-            }
-          }
-        } else if (Array.isArray(response.data)) {
-          // 数组结构: [{...}, {...}]
-          console.log('检测到数组响应结构: [{...}, {...}]')
-          newTasks = response.data
-          totalCount = response.headers['x-total-count'] || newTasks.length
-        } else {
-          console.error('无法识别的响应格式:', response.data)
-          console.log('响应数据类型:', typeof response.data)
-          if (typeof response.data === 'object') {
-            console.log('响应数据键:', Object.keys(response.data))
-          }
-          
-          // 尝试添加一些测试数据以便进行可视化调试
-          console.log('添加模拟数据用于测试视图渲染')
-          newTasks = [
-            { id: 1, name: '测试任务1', status: 'completed', created_at: new Date().toISOString() },
-            { id: 2, name: '测试任务2', status: 'processing', created_at: new Date().toISOString() }
-          ]
-          totalCount = 2
-        }
         
         console.log('解析后数据数量:', newTasks.length, '总数:', totalCount)
         if (newTasks.length > 0) {
@@ -429,6 +371,16 @@ export default {
         // 判断是否还有更多数据
         const hasMore = this.digitalHumans.length < totalCount
         this.hasMoreData = hasMore
+        
+        // 如果是加载更多且没有获取到新数据，但理论上还有更多数据，尝试再次加载
+        if (loadMore && newTasks.length === 0 && hasMore) {
+          console.log('未获取到新数据，但理论上还有更多数据，尝试再次加载')
+          this.currentPage++
+          // 延迟一点时间再次尝试加载
+          setTimeout(() => {
+            this.fetchDigitalHumans(true)
+          }, 500)
+        }
         
         console.log('更新后数据量：', this.digitalHumans.length, '总数：', this.total, '是否还有更多：', this.hasMoreData)
         console.log('===== 数据请求完成 =====')
@@ -454,9 +406,10 @@ export default {
         this.loading = false
         this.loadingMore = false
         
-        // 在数据加载完成后重新设置观察者
+        // 在数据加载完成后初始化瀑布流布局并重新设置观察者
         if (this.isCardView) {
           this.$nextTick(() => {
+            this.initWaterfallLayout()
             this.setupIntersectionObserver()
           })
         }
@@ -465,14 +418,45 @@ export default {
     
     // 加载更多数据
     loadMoreTasks() {
-      if (this.loadingMore || !this.hasMoreData) {
-        console.log('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData)
+      if (this.loadingMore || !this.hasMoreData || this.dialogVisible) {
+        console.log('跳过加载更多:', '加载中=', this.loadingMore, '没有更多数据=', !this.hasMoreData, '对话框打开=', this.dialogVisible)
         return
       }
       
-      console.log('开始加载更多数据，当前页码：', this.currentPage)
+      console.log('开始加载更多数据，当前页码：', this.currentPage, '当前数据量：', this.digitalHumans.length, '总数：', this.total)
       this.currentPage++
       this.fetchDigitalHumans(true)
+    },
+    
+    // 初始化瀑布流布局
+    initWaterfallLayout() {
+      console.log('初始化瀑布流布局')
+      // 确保卡片容器存在
+      const cardContainer = this.$refs.cardContainer
+      if (!cardContainer) {
+        console.log('没有找到卡片容器元素')
+        return
+      }
+      
+      // 强制重新计算布局
+      this.$forceUpdate()
+      
+      // 添加一个小延迟，确保DOM已完全更新
+      setTimeout(() => {
+        // 触发窗口resize事件，帮助某些浏览器重新计算布局
+        window.dispatchEvent(new Event('resize'))
+        
+        // 确保所有卡片元素都已正确渲染
+        this.digitalHumans.forEach((item, index) => {
+          const cardRef = this.$refs[`taskCard_${item.id || index}`]
+          if (cardRef && cardRef[0]) {
+            // 确保卡片可见
+            cardRef[0].style.opacity = '1'
+          }
+        })
+        
+        console.log('瀑布流布局初始化完成')
+      }, 100)
     },
     
     // 设置IntersectionObserver
@@ -501,17 +485,18 @@ export default {
             '加载中=', this.loadingMore, 
             '有更多数据=', this.hasMoreData,
             '当前页=', this.currentPage,
-            '已有数据=', this.digitalHumans.length)
+            '已有数据=', this.digitalHumans.length,
+            '总数=', this.total)
             
-          // 只有在元素可见、不在加载中、有更多数据且当前有数据时才触发加载
-          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData && this.digitalHumans.length > 0) {
+          // 只有在元素可见、不在加载中、有更多数据且对话框未显示时才触发加载
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData && !this.dialogVisible) {
             console.log('IntersectionObserver触发加载更多')
             this.loadMoreTasks()
           }
         }, {
           root: null,
-          threshold: 0.5, // 更改阈值，至少看到50%时才触发
-          rootMargin: '100px' // 增加根元素边距
+          threshold: 0, // 降低阈值，只要元素开始出现在视口中就触发
+          rootMargin: '200px' // 增加根元素边距，提前触发加载
         })
         
         // 开始观察
@@ -521,6 +506,11 @@ export default {
     
     // 处理窗口滚动事件
     handleWindowScroll() {
+      // 如果对话框打开，不处理滚动事件
+      if (this.dialogVisible) {
+        return
+      }
+      
       // 记录滚动方向
       const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop
       const scrollingDown = currentScrollTop > this.lastScrollTop
@@ -543,7 +533,7 @@ export default {
         
         // 当滚动到距离底部阈值距离时触发加载
         if (documentHeight - scrollTop - windowHeight < this.scrollThreshold) {
-          console.log('滚动触发加载更多, 距离底部:', documentHeight - scrollTop - windowHeight)
+          console.log('滚动触发加载更多，距底部：', documentHeight - scrollTop - windowHeight)
           this.loadMoreTasks()
         }
       }
@@ -572,9 +562,10 @@ export default {
       // 重新加载第一页数据
       this.fetchDigitalHumans()
       
-      // 如果切换到卡片视图，设置IntersectionObserver用于无限滚动
+      // 如果切换到卡片视图，初始化瀑布流布局并设置IntersectionObserver用于无限滚动
       if (this.isCardView) {
         this.$nextTick(() => {
+          this.initWaterfallLayout()
           this.setupIntersectionObserver()
         })
       }
@@ -808,7 +799,7 @@ export default {
     }
   },
   mounted() {
-    console.log('===== DigitalHuman组件已挂载 =====')
+    console.log('===== DigitalHuman组件已挂载 =====');
     console.log('初始数据状态:', this.digitalHumans)
     
     // 添加滚动事件监听器
@@ -822,6 +813,14 @@ export default {
     // 设置移动端视口
     if (this.isMobile) {
       this.setupMobileViewport();
+    }
+    
+    // 如果是卡片视图，初始化瀑布流布局
+    if (this.isCardView) {
+      this.$nextTick(() => {
+        this.initWaterfallLayout()
+        this.setupIntersectionObserver()
+      })
     }
   },
   

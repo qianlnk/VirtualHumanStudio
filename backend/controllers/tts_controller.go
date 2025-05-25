@@ -9,7 +9,9 @@ import (
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -26,15 +28,17 @@ type TTSRequest struct {
 
 // TTSResponse TTS响应
 type TTSResponse struct {
-	ID          uint      `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	InputText   string    `json:"input_text"`
-	OutputFile  string    `json:"output_file,omitempty"`
-	SpeakerName string    `json:"speaker_name"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            uint      `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	InputText     string    `json:"input_text"`
+	OutputFile    string    `json:"output_file,omitempty"`
+	SpeakerName   string    `json:"speaker_name"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	QueuePosition int       `json:"queue_position,omitempty"` // 队列位置
+	QueueType     string    `json:"queue_type,omitempty"`     // 队列类型：member或non_member
 }
 
 // APITTSRequest API TTS请求
@@ -44,6 +48,10 @@ type APITTSRequest struct {
 	Text        string  `json:"text"`         // 输入文本
 	Language    string  `json:"language"`     // 语言，如mandarin
 	SpkRate     float64 `json:"spk_rate"`     // 语速
+}
+
+func InitTTSQueueConsumer() {
+	services.StartTTSQueueConsumer(context.Background(), processTTSTask)
 }
 
 // CreateTTSTask 创建TTS任务
@@ -79,29 +87,49 @@ func CreateTTSTask(c *gin.Context) {
 
 	c.Set("usage_value", len([]rune(req.InputText)))
 
-	// 异步处理TTS任务
-	ctx := context.WithValue(context.Background(), "user_id", userID)
-	go processTTSTask(ctx, ttsTask)
+	// 添加到任务队列
+	isMember := middleware.IsMember(ttsTask.UserID)
+	err := services.AddToTTSQueue(context.Background(), ttsTask.ID, ttsTask.UserID, isMember)
+	if err != nil {
+		db.DB.Model(&ttsTask).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "添加到队列失败: " + err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加任务到队列失败: " + err.Error()})
+		return
+	}
+
+	// 获取队列位置
+	position, queueType, err := services.GetTTSQueuePosition(context.Background(), ttsTask.ID)
 
 	// 返回响应
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "TTS任务已创建",
 		"tts_task": TTSResponse{
-			ID:          ttsTask.ID,
-			Name:        ttsTask.Name,
-			Description: ttsTask.Description,
-			InputText:   ttsTask.InputText,
-			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
-			SpeakerName: ttsTask.SpeakerName,
-			Status:      ttsTask.Status,
-			CreatedAt:   ttsTask.CreatedAt,
-			UpdatedAt:   ttsTask.UpdatedAt,
+			ID:            ttsTask.ID,
+			Name:          ttsTask.Name,
+			Description:   ttsTask.Description,
+			InputText:     ttsTask.InputText,
+			OutputFile:    utils.GetFileURL(ttsTask.OutputFile),
+			SpeakerName:   ttsTask.SpeakerName,
+			Status:        ttsTask.Status,
+			CreatedAt:     ttsTask.CreatedAt,
+			UpdatedAt:     ttsTask.UpdatedAt,
+			QueuePosition: position,
+			QueueType:     queueType,
 		},
 	})
 }
 
 // processTTSTask 处理TTS任务
-func processTTSTask(ctx context.Context, task models.TTSTask) {
+func processTTSTask(ctx context.Context, taskID uint) error {
+	// 查询任务
+	var task models.TTSTask
+	result := db.DB.First(&task, taskID)
+	if result.Error != nil {
+		return fmt.Errorf("查询任务失败: %v", result.Error)
+	}
+
 	// 更新状态为处理中
 	db.DB.Model(&task).Update("status", "processing")
 
@@ -127,19 +155,26 @@ func processTTSTask(ctx context.Context, task models.TTSTask) {
 		SpkRate:     1.0,
 	}
 
+	ctx = context.WithValue(ctx, "user_id", task.UserID)
+
 	outputFilePath, err := ttsInvoke(ctx, &apiReq, official)
 	if err != nil {
 		db.DB.Model(&task).Updates(map[string]interface{}{
 			"status":    "failed",
 			"error_msg": err.Error(),
 		})
-		return
+		return err
 	}
 
-	db.DB.Model(&task).Updates(map[string]interface{}{
+	result = db.DB.Model(&task).Updates(map[string]interface{}{
 		"status":      "completed",
 		"output_file": outputFilePath,
 	})
+	if result.Error != nil {
+		return fmt.Errorf("更新任务状态失败: %v", result.Error)
+	}
+
+	return nil
 }
 
 // GetTTSTask 获取TTS任务
@@ -171,18 +206,27 @@ func GetTTSTask(c *gin.Context) {
 		return
 	}
 
+	// 获取队列位置
+	position, queueType, err := services.GetTTSQueuePosition(context.Background(), ttsTask.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取队列位置失败: " + err.Error()})
+		return
+	}
+
 	// 返回响应
 	c.JSON(http.StatusOK, gin.H{
 		"tts_task": TTSResponse{
-			ID:          ttsTask.ID,
-			Name:        ttsTask.Name,
-			Description: ttsTask.Description,
-			InputText:   ttsTask.InputText,
-			OutputFile:  utils.GetFileURL(ttsTask.OutputFile),
-			SpeakerName: ttsTask.SpeakerName,
-			Status:      ttsTask.Status,
-			CreatedAt:   ttsTask.CreatedAt,
-			UpdatedAt:   ttsTask.UpdatedAt,
+			ID:            ttsTask.ID,
+			Name:          ttsTask.Name,
+			Description:   ttsTask.Description,
+			InputText:     ttsTask.InputText,
+			OutputFile:    utils.GetFileURL(ttsTask.OutputFile),
+			SpeakerName:   ttsTask.SpeakerName,
+			Status:        ttsTask.Status,
+			CreatedAt:     ttsTask.CreatedAt,
+			UpdatedAt:     ttsTask.UpdatedAt,
+			QueuePosition: position,
+			QueueType:     queueType,
 		},
 	})
 }
@@ -213,6 +257,7 @@ func ListTTSTasks(c *gin.Context) {
 	// 构建响应
 	responses := make([]TTSResponse, len(ttsTasks))
 	for i, task := range ttsTasks {
+
 		responses[i] = TTSResponse{
 			ID:          task.ID,
 			Name:        task.Name,
@@ -223,6 +268,17 @@ func ListTTSTasks(c *gin.Context) {
 			Status:      task.Status,
 			CreatedAt:   task.CreatedAt,
 			UpdatedAt:   task.UpdatedAt,
+		}
+
+		if task.Status == "pending" {
+			// 获取队列位置
+			position, queueType, err := services.GetTTSQueuePosition(context.Background(), task.ID)
+			if err != nil {
+				continue
+			}
+
+			responses[i].QueuePosition = position
+			responses[i].QueueType = queueType
 		}
 	}
 

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -10,11 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -39,10 +41,17 @@ type ASRSentence struct {
 
 // ASRResponse ASR响应结果
 type ASRResponse struct {
-	Text       string           `json:"text"`
-	Sentences  []ASRSentence    `json:"sentences"`
-	Code       int              `json:"code"`
-	TimeCostMs map[string]int64 `json:"time_cost"`
+	Text          string           `json:"text"`
+	Sentences     []ASRSentence    `json:"sentences"`
+	Code          int              `json:"code"`
+	TimeCostMs    map[string]int64 `json:"time_cost"`
+	QueuePosition int              `json:"queue_position"`
+	QueueType     string           `json:"queue_type"`
+	models.ASRTask
+}
+
+func InitASRQueueConsumer() {
+	services.StartASRQueueConsumer(context.Background(), processASRTask)
 }
 
 // saveAudioFile 保存音频文件到本地
@@ -143,7 +152,6 @@ func CreateASRTask(c *gin.Context) {
 
 	var audioReader io.Reader
 	var audioFileName string
-	now := time.Now()
 
 	// 处理音频来源
 	if req.AudioURL == "" {
@@ -208,51 +216,83 @@ func CreateASRTask(c *gin.Context) {
 		return
 	}
 
-	// 重新打开保存的文件用于ASR请求
-	audioFile, err := os.Open(filepath.Join(config.AppConfig.DataDir, filePath))
+	// 添加任务到队列
+	isMember := middleware.IsMember(asrTask.UserID)
+	err = services.AddToASRQueue(context.Background(), asrTask.ID, asrTask.UserID, isMember)
 	if err != nil {
-		logger.Errorf("Error opening saved audio file: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开音频文件失败: " + err.Error()})
+		logger.Errorf("Error adding task to queue: %v", err)
+		db.DB.Model(&asrTask).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "添加到队列失败: " + err.Error(),
+		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加任务到队列失败"})
 		return
+	}
+
+	position, queueType, err := services.GetASRQueuePosition(context.Background(), asrTask.ID)
+	if err != nil {
+		logger.Errorf("Error getting queue position: %v", err)
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "ASR任务已创建",
+		"asr_task": ASRResponse{
+			ASRTask:       asrTask,
+			QueuePosition: position,
+			QueueType:     queueType,
+		},
+	})
+}
+
+func processASRTask(ctx context.Context, taskID uint) error {
+	// 查询任务
+	var task models.ASRTask
+	result := db.DB.First(&task, taskID)
+	if result.Error != nil {
+		return fmt.Errorf("查询任务失败: %v", result.Error)
+	}
+	// 更新状态为处理中
+	db.DB.Model(&task).Update("status", "processing")
+	// 调用ASR服务
+	audioFile, err := os.Open(filepath.Join(config.AppConfig.DataDir, task.InputFile))
+	if err != nil {
+		db.DB.Model(&task).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "打开音频文件失败: " + err.Error(),
+		})
+		return fmt.Errorf("打开音频文件失败: %v", err)
 	}
 	defer audioFile.Close()
-
-	// 调用ASR服务
-	rsp, err := callASRService(req.Model, audioFile, audioFileName)
+	rsp, err := callASRService(task.Model, audioFile, filepath.Base(task.InputFile))
 	if err != nil {
-		logger.Errorf("Error calling ASR service: %v", err)
-		asrTask.Status = "failed"
-		asrTask.ErrorMsg = err.Error()
-		db.DB.Save(&asrTask)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		db.DB.Model(&task).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error_msg": "调用ASR服务失败: " + err.Error(),
+		})
+		return fmt.Errorf("调用ASR服务失败: %v", err)
 	}
-
 	// 处理ASR响应
 	if rsp.Code != 0 {
 		if rsp.Code == 1 && strings.Contains(rsp.Text, "音频中没有有效语音") {
-			logger.Info("No valid speech found in audio")
-			asrTask.Status = "completed"
-			asrTask.OutputText = "音频中没有有效语音"
+			task.Status = "completed"
+			task.OutputText = "音频中没有有效语音"
 		} else {
-			logger.Errorf("ASR service returned error code %d: %s", rsp.Code, rsp.Text)
-			asrTask.Status = "failed"
-			asrTask.ErrorMsg = rsp.Text
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ASR服务错误: " + rsp.Text})
-			return
+			task.Status = "failed"
+			task.ErrorMsg = rsp.Text
+			return fmt.Errorf("ASR服务错误: %s", rsp.Text)
 		}
 	} else {
-		asrTask.Status = "completed"
-		asrTask.OutputText = rsp.Text
+		task.Status = "completed"
+		task.OutputText = rsp.Text
 	}
 
 	// 更新任务状态
-	db.DB.Save(&asrTask)
+	result = db.DB.Save(&task)
+	if result.Error != nil {
+		return fmt.Errorf("更新任务状态失败: %v", result.Error)
+	}
 
-	// 设置处理时间
-	rsp.TimeCostMs["total"] = time.Since(now).Milliseconds()
-
-	c.JSON(http.StatusOK, rsp)
+	return nil
 }
 
 // GetASRTask 获取ASR任务详情
@@ -276,8 +316,19 @@ func GetASRTask(c *gin.Context) {
 
 	task.InputFile = utils.GetFileURL(task.InputFile)
 
+	// 任务队列位置
+	position, queueType, err := services.GetASRQueuePosition(context.Background(), task.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取任务队列位置失败"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"task": task,
+		"task": ASRResponse{
+			ASRTask:       task,
+			QueuePosition: position,
+			QueueType:     queueType,
+		},
 	})
 }
 
@@ -310,8 +361,24 @@ func ListASRTasks(c *gin.Context) {
 		return
 	}
 
-	for _, task := range tasks {
+	asrRes := make([]*ASRResponse, len(tasks))
+
+	for i, task := range tasks {
 		task.InputFile = utils.GetFileURL(task.InputFile)
+
+		asrRes[i] = &ASRResponse{
+			ASRTask: *task,
+		}
+		// 任务队列位置
+		if task.Status == "pending" {
+			position, queueType, err := services.GetASRQueuePosition(context.Background(), task.ID)
+			if err != nil {
+				continue
+			}
+
+			asrRes[i].QueuePosition = position
+			asrRes[i].QueueType = queueType
+		}
 	}
 
 	// 即使查询结果为空也返回空列表
@@ -319,7 +386,7 @@ func ListASRTasks(c *gin.Context) {
 		"total": count,
 		"page":  page,
 		"size":  size,
-		"items": tasks,
+		"items": asrRes,
 	})
 }
 
