@@ -7,7 +7,7 @@
     </div>
 
     <!-- 功能卡片区域 -->
-    <el-row :gutter="30" class="feature-section">
+    <el-row :gutter="30" class="feature-section" v-if="!isMobile">
       <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="(card, index) in featureCards" :key="index">
         <div class="glass-card feature-card" @click="navigateTo(card.route)">
           <div class="card-icon">
@@ -23,7 +23,7 @@
     </el-row>
     
     <!-- 统计数据区域 -->
-    <el-row :gutter="30" class="stats-section">
+    <el-row :gutter="30" class="stats-section" v-if="!isMobile">
       <el-col :xs="12" :sm="8" :md="6" :lg="4" v-for="(stat, index) in stats" :key="index">
         <div class="glass-card stat-card">
           <div class="stat-value">{{ stat.value }}</div>

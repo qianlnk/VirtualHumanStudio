@@ -53,7 +53,16 @@ const baseRoutes = [
         path: '/home',
         name: 'Home',
         component: Home,
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true },
+        beforeEnter: (to, from, next) => {
+            // 检查是否为移动设备
+            const isMobile = window.innerWidth < 768
+            if (isMobile) {
+                next('/inspiration')
+            } else {
+                next()
+            }
+        }
     },
     {
         path: '/inspiration',

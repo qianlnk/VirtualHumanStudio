@@ -129,9 +129,9 @@
           
           <!-- 移动端底部导航菜单 -->
           <div v-if="isMobile" class="mobile-bottom-nav">
-            <div class="mobile-nav-item" @click="navigateTo('/')" :class="{'active': activeIndex === '/'}">
-              <i class="el-icon-s-home"></i>
-              <span>首页</span>
+            <div class="mobile-nav-item" @click="navigateTo('/inspiration')" :class="{'active': activeIndex === '/inspiration'}">
+              <i class="el-icon-magic-stick"></i>
+              <span>灵感空间</span>
             </div>
             <div class="mobile-nav-item" @click="toggleMobileSubmenu('voice')" :class="{'active': isVoiceActive}">
               <i class="el-icon-microphone"></i>
@@ -182,10 +182,6 @@
               <div class="mobile-submenu-title">
                 <i class="el-icon-back" @click="closeMobileSubmenu"></i>
                 <span>更多功能</span>
-              </div>
-              <div class="mobile-submenu-item" @click="navigateTo('/inspiration')">
-                <i class="el-icon-magic-stick"></i>
-                <span>灵感空间</span>
               </div>
               <div class="mobile-submenu-item" @click="navigateTo('/membership')">
                 <i class="el-icon-medal"></i>

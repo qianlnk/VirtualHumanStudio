@@ -1933,10 +1933,17 @@ export default {
   }
   
   .inspiration-card {
-    width: calc(50% - 6px) !important; /* 移动端卡片占据更多空间 */
-    margin-bottom: 4px !important; /* 减小卡片间垂直间距 */
-    border-radius: 6px; /* 稍微减小圆角 */
+    width: calc(50% - 2px) !important; /* 修改为更精确的宽度计算 */
+    margin-bottom: 4px !important;
+    border-radius: 6px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* 修改网格容器样式 */
+  .inspiration-grid {
+    margin: 0 !important;
+    padding: 0 1px !important; /* 添加1px的内边距来分隔卡片 */
+    padding-bottom: 20px;
   }
   
   /* 移动端视频控制 */
@@ -1986,14 +1993,8 @@ export default {
   
   /* 加载更多移动端样式 */
   .load-more-container {
-    margin-bottom: 70px; /* 防止底部菜单遮挡 */
+    margin-bottom: 70px;
     padding: 15px 0;
-  }
-  
-  /* 对瀑布流布局进行移动端优化 */
-  .inspiration-grid {
-    margin: 8px !important;
-    padding-bottom: 20px; /* 减小底部空间，由load-more-container提供 */
   }
   
   /* 移动端视频占位符优化 */
