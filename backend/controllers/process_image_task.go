@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,11 +14,157 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/qianlnk/VirtualHumanStudio/backend/client/promptt"
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 )
+
+func inputParamToPaintRequest(inputParams []models.InputParam) (*promptt.PaintRequest, error) {
+	params := make(map[string]interface{})
+	for _, param := range inputParams {
+		if param.Value == "" {
+			continue
+		}
+
+		params[param.Key] = param.Value
+	}
+
+	data, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+
+	var paintRequest promptt.PaintRequest
+	err = json.Unmarshal(data, &paintRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return &paintRequest, nil
+}
+func processTxt2ImgTask(ctx context.Context, taskID uint) error {
+	// 获取任务信息
+	var task models.ComfyUIWorkflowTask
+	if err := db.DB.First(&task, taskID).Error; err != nil {
+		fmt.Printf("获取任务失败: %v\n", err)
+		return err
+	}
+
+	// 更新任务状态为处理中
+	task.Status = "processing"
+	db.DB.Save(&task)
+
+	// 解析输入参数
+	var inputParams []models.InputParam
+	if err := json.Unmarshal([]byte(task.InputParams), &inputParams); err != nil {
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("解析输入参数失败: %v", err)
+		db.DB.Save(&task)
+		return err
+	}
+
+	paintRequest, err := inputParamToPaintRequest(inputParams)
+	if err != nil {
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("解析输入参数失败: %v", err)
+		db.DB.Save(&task)
+		return err
+	}
+
+	paintRequest.Model = "gpt-image-1"
+	paintRequest.BatchSize = 4
+	paintRequest.N = 4
+
+	if paintRequest.Size != "" {
+		parts := strings.Split(paintRequest.Size, "x")
+		if len(parts) == 2 {
+			h, _ := strconv.Atoi(parts[0])
+			w, _ := strconv.Atoi(parts[1])
+
+			paintRequest.Height = uint32(h)
+			paintRequest.Width = uint32(w)
+		}
+	}
+
+	res, err := PrompttCli.DoPaint(ctx, paintRequest)
+	if err != nil {
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("执行任务失败: %v", err)
+		db.DB.Save(&task)
+		return err
+	}
+
+	// 下载结果图片
+	moduleConfig, err := getMuduleConfigByID(task.TaskType)
+	if err != nil {
+		task.Status = "failed"
+		task.ErrorMsg = fmt.Sprintf("获取模块配置失败: %v", err)
+		db.DB.Save(&task)
+		return err
+	}
+
+	var outputParams []models.InputParam
+	for _, param := range moduleConfig.OutputParams {
+		ext := ".png"
+
+		uniqueID := uuid.New().String()
+		fileName := uniqueID + ext
+		filePath := utils.GetUserFilePath(task.UserID, config.AppConfig.UploadDir, fileName)
+		fullFilePath := filepath.Join(config.AppConfig.DataDir, filePath)
+
+		_, index := getNodeIDAndIndex(param.Key)
+		if index >= len(res.Images) {
+			task.Status = "failed"
+			task.ErrorMsg = fmt.Sprintf("结果图片数量不足: %v", err)
+			db.DB.Save(&task)
+			return err
+		}
+
+		image := res.Images[index]
+		resp, err := http.Get(image.URL)
+		if err != nil {
+			task.Status = "failed"
+			task.ErrorMsg = fmt.Sprintf("下载结果图片失败: %v", err)
+			db.DB.Save(&task)
+			return err
+		}
+
+		defer resp.Body.Close()
+
+		file, err := os.Create(fullFilePath)
+		if err != nil {
+			task.Status = "failed"
+			task.ErrorMsg = fmt.Sprintf("创建文件失败: %v", err)
+			db.DB.Save(&task)
+			return err
+		}
+
+		defer file.Close()
+
+		_, err = io.Copy(file, resp.Body)
+		if err != nil {
+			task.Status = "failed"
+			task.ErrorMsg = fmt.Sprintf("写入文件失败: %v", err)
+			db.DB.Save(&task)
+			return err
+		}
+
+		outputParams = append(outputParams, models.InputParam{
+			Key:   param.Key,
+			Type:  param.Type,
+			Value: filePath,
+			Alias: param.Alias,
+		})
+	}
+
+	task.Status = "completed"
+	task.OutputParams = utils.ToJSONString(outputParams)
+	db.DB.Save(&task)
+
+	return nil
+}
 
 // processImageTask 异步处理图像任务
 func processImageTask(ctx context.Context, taskID uint) error {
@@ -25,6 +173,10 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err := db.DB.First(&task, taskID).Error; err != nil {
 		fmt.Printf("获取任务失败: %v\n", err)
 		return err
+	}
+
+	if task.TaskType == "txt2img" {
+		return processTxt2ImgTask(ctx, taskID)
 	}
 
 	// 更新任务状态为处理中

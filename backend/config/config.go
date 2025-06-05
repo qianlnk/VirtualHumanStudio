@@ -64,11 +64,12 @@ type Config struct {
 }
 
 type Promptt struct {
-	BaseURL  string `json:"base_url"`
-	APIKey   string `json:"api_key"`
-	ChatPath string `json:"chat_path"`
-	TTSPath  string `json:"tts_path"`
-	ASRPath  string `json:"asr_path"`
+	BaseURL   string `json:"base_url"`
+	APIKey    string `json:"api_key"`
+	ChatPath  string `json:"chat_path"`
+	TTSPath   string `json:"tts_path"`
+	ASRPath   string `json:"asr_path"`
+	PaintPath string `json:"paint_path"`
 }
 
 type TTSTimbre struct {

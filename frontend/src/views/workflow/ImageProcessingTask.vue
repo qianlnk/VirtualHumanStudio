@@ -98,7 +98,7 @@
                   :ref="`carousel-${item.id}`"
                   loop
                   @change="(index) => updateCarouselIndex(item.id, index)">
-                  <el-carousel-item v-for="(image, index) in getTaskImages(item)" :key="`${image.type}-${index}`">
+                  <el-carousel-item v-for="image in getTaskImages(item)" :key="image.uniqId">
                     <div class="carousel-item" :data-is-output="image.type === 'output'"
                       @touchstart="onCarouselTouchStart($event, item.id)" 
                       @touchmove="onCarouselTouchMove($event, item.id)" 
@@ -289,62 +289,66 @@
         </el-form-item>
         
         <!-- 动态表单，根据模块配置生成不同的表单项 -->
-        <div v-for="(param, index) in currentModule.inputParams" :key="index">
-          <el-form-item :label="param.alias" :prop="`params.${param.key}`">
-            <!-- 文本类型参数 -->
-            <el-input 
-              v-if="param.type === 'text'" 
-              type="textarea"
-              v-model="form.params[param.key]" 
-              :placeholder="`请输入${param.alias}`"
-              resize="both"
-              :rows="3"
-              style="width: 100%;"
-              @focus="handleInputFocus"
-              @blur="handleInputBlur"
-            ></el-input>
-            
-            <!-- 选择类型参数 -->
-            <el-select
-              v-else-if="param.type === 'select'"
-              v-model="form.params[param.key]"
-              :placeholder="`请选择${param.alias}`"
-              style="width: 100%;">
-              <el-option
-                v-for="option in param.options"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value">
-              </el-option>
-            </el-select>
-            
-            <!-- 图片类型参数 -->
-            <template v-else-if="param.type === 'image' || param.type === 'mask'">
-              <div class="image-param-container" :class="{'mobile-image-container': isMobile}">
-                <el-upload
-                  class="upload-item"
-                  action="#"
-                  :auto-upload="false"
-                  :on-change="(file) => handleImageChange(file, param.key)"
-                  :show-file-list="true"
-                  accept="image/*"
-                  :limit="1">
-                  <el-button size="small" type="primary">选择图片</el-button>
-                  <div slot="tip" class="el-upload__tip">{{ param.description }}</div>
-                </el-upload>
-                <div class="image-preview" v-if="previewUrls[param.key]">
-                  <img :src="previewUrls[param.key]" class="preview-thumbnail" :alt="`${param.alias}预览`">
+        <template v-if="currentModule && currentModule.inputParams">
+          <div v-for="param in currentModule.inputParams" :key="param.key">
+            <el-form-item v-if="!param.hide" :label="param.alias" :prop="`params.${param.key}`">
+              <!-- 文本类型参数 -->
+              <el-input 
+                v-if="param.type === 'text'" 
+                type="textarea"
+                v-model="form.params[param.key]" 
+                :placeholder="`请输入${param.alias}`"
+                resize="both"
+                :rows="3"
+                style="width: 100%;"
+                @focus="handleInputFocus"
+                @blur="handleInputBlur"
+              ></el-input>
+              
+              <!-- 选择类型参数 -->
+              <el-select
+                v-else-if="param.type === 'select'"
+                v-model="form.params[param.key]"
+                :placeholder="`请选择${param.alias}`"
+                style="width: 100%;">
+                <el-option
+                  v-for="option in param.options"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value">
+                </el-option>
+              </el-select>
+              
+              <!-- 图片类型参数 -->
+              <template v-else-if="param.type === 'image' || param.type === 'mask'">
+                <div class="image-param-container" :class="{'mobile-image-container': isMobile}">
+                  <el-upload
+                    class="upload-item"
+                    action="#"
+                    :auto-upload="false"
+                    :on-change="(file) => handleImageChange(file, param.key)"
+                    :show-file-list="true"
+                    accept="image/*"
+                    :limit="1">
+                    <el-button size="small" type="primary">选择图片</el-button>
+                    <div slot="tip" class="el-upload__tip">{{ param.description }}</div>
+                  </el-upload>
+                  <div class="image-preview" v-if="previewUrls[param.key]">
+                    <img :src="previewUrls[param.key]" class="preview-thumbnail" :alt="`${param.alias}预览`">
+                  </div>
+                  <el-button 
+                    v-if="param.type === 'mask'" 
+                    size="small" 
+                    type="success" 
+                    @click="startMaskEditing(param)"
+                    :disabled="!form.params[param.key.replace('Mask', '')]">编辑蒙版</el-button>
                 </div>
-                <el-button 
-                  v-if="param.type === 'mask'" 
-                  size="small" 
-                  type="success" 
-                  @click="startMaskEditing(param)"
-                  :disabled="!form.params[param.key.replace('Mask', '')]">编辑蒙版</el-button>
-              </div>
-            </template>
-          </el-form-item>
-        </div>
+              </template>
+            </el-form-item>
+            <!-- 对于hide=true的参数，仍然设置其默认值但不显示在UI上 -->
+            <div v-else style="display: none;"></div>
+          </div>
+        </template>
         
         <!-- 移动端底部按钮 -->
         <div v-if="isMobile" class="mobile-form-footer">
@@ -504,7 +508,66 @@ export default {
     // 监听笔刷颜色变化
     brushColor() {
       this.updateCursor();
-    }
+    },
+    
+    // Add a watcher to handle the dialog visibility
+    dialogVisible(newVal) {
+      console.log('对话框显示状态变化:', newVal ? '打开' : '关闭');
+      
+      if (newVal === true && this.currentModule) {
+        // 对话框刚刚打开，确保参数正确显示
+        console.log('对话框已打开，确保表单显示正确');
+        
+        // 延迟执行以确保DOM已更新
+        setTimeout(() => {
+          // 检查表单参数
+          console.log('当前表单参数:', JSON.stringify(this.form.params));
+          
+          // 查找并直接设置textarea的值
+          const textareas = document.querySelectorAll('.el-form-item textarea');
+          console.log(`找到 ${textareas.length} 个文本输入框`);
+          
+          // 遍历处理模块参数
+          if (this.currentModule && this.currentModule.inputParams) {
+            this.currentModule.inputParams.forEach(param => {
+              if (param.type === 'text' && param.default) {
+                // 查找该参数对应的textarea元素
+                const textarea = document.querySelector(`.el-form-item[prop="params.${param.key}"] textarea`);
+                if (textarea) {
+                  console.log(`直接设置 ${param.key} 的值为: ${param.default}`);
+                  textarea.value = param.default;
+                  
+                  // 触发input事件以通知Vue
+                  const event = new Event('input', { bubbles: true });
+                  textarea.dispatchEvent(event);
+                } else {
+                  console.log(`未找到 ${param.key} 对应的textarea元素`);
+                }
+              }
+            });
+          }
+        }, 200);
+      }
+      
+      // 仅在对话框关闭时进行清理，不要在对话框打开时重置表单
+      if (newVal === false) {
+        console.log('对话框关闭，清理资源');
+        
+        // 清空表单状态
+        this.form = {
+          taskName: '',
+          params: {}
+        };
+        this.previewUrls = {};
+        
+        // 重置表单验证
+        this.$nextTick(() => {
+          if (this.$refs.form) {
+            this.$refs.form.clearValidate();
+          }
+        });
+      }
+    },
   },
   mounted() {
     console.log('组件挂载')
@@ -531,6 +594,17 @@ export default {
     
     // 在任何情况下，首先检查设备类型
     this.checkDeviceType()
+    
+    // 检查是否需要自动显示创建对话框
+    const showCreateDialog = sessionStorage.getItem('show_create_dialog');
+    if (showCreateDialog === 'true') {
+      // 清除标记，防止重复触发
+      sessionStorage.removeItem('show_create_dialog');
+      // 延迟显示对话框，确保组件已完全加载
+      setTimeout(() => {
+        this.showCreateDialog();
+      }, 200);
+    }
   },
   
   updated() {
@@ -698,11 +772,23 @@ export default {
         
         if (!this.currentModule) {
           console.error('初始化失败：无法确定当前模块')
+          // Set a default empty structure to prevent null reference errors
+          this.currentModule = {
+            id: '',
+            name: '未知模块',
+            inputParams: []
+          }
         }
         return false
       } catch (error) {
         console.error('初始化模块失败:', error)
         this.$message.error('初始化模块失败：' + error.message)
+        // Set a default empty structure to prevent null reference errors
+        this.currentModule = {
+          id: '',
+          name: '未知模块',
+          inputParams: []
+        }
         return false
       } finally {
         this.moduleLoading = false
@@ -717,19 +803,42 @@ export default {
 
     // 初始化表单验证规则
     initFormRules() {
-      const rules = {}
+      console.log('重新初始化表单验证规则')
+      // 先清空原有规则
+      this.rules = {
+        taskName: [{ required: true, message: '请输入任务名称', trigger: 'blur' }]
+      }
+      
+      // 根据当前模块添加新的验证规则
       if (this.currentModule && this.currentModule.inputParams) {
+        // 生成新的验证规则对象
+        const paramRules = {}
+        
         this.currentModule.inputParams.forEach(param => {
+          // 检查参数是否必填，无论是否隐藏都需要处理
           if (param.required) {
-            rules[`params.${param.key}`] = [{
+            paramRules[`params.${param.key}`] = [{
               required: true,
               message: `请${param.type === 'select' ? '选择' : '输入'}${param.alias}`,
-              trigger: param.type === 'select' ? 'change' : 'blur'
+              // 对于隐藏参数，不使用交互触发器，只在提交时验证
+              trigger: param.hide ? '' : (param.type === 'select' ? 'change' : 'blur')
             }]
+            console.log(`为参数 ${param.key} 添加必填验证规则${param.hide ? '(隐藏参数)' : ''}`)
           }
         })
+        
+        // 使用Object.assign合并规则对象，确保完全替换
+        this.rules = Object.assign({}, this.rules, paramRules)
       }
-      this.rules = rules
+      
+      console.log('表单验证规则已更新:', Object.keys(this.rules).join(', '))
+      
+      // 重置表单验证状态
+      this.$nextTick(() => {
+        if (this.$refs.form) {
+          this.$refs.form.clearValidate()
+        }
+      })
     },
 
     // 获取任务列表
@@ -960,28 +1069,138 @@ export default {
 
     // 显示创建对话框
     showCreateDialog() {
-      this.dialogVisible = true
-      this.form.params = {}
-      this.previewUrls = {}
+      // 检查模块是否可用
+      if (!this.currentModule || !this.currentModule.inputParams) {
+        console.error('无法创建任务：当前模块不存在或无输入参数')
+        this.$message.error('当前模块不可用，无法创建任务')
+        return
+      }
       
-      // 初始化默认值
-      if (this.currentModule && this.currentModule.inputParams) {
+      console.log('显示创建对话框，当前模块:', this.currentModule.name, '模块ID:', this.currentModule.id)
+      
+      try {
+        // 1. 先确保对话框是关闭的，这样再次打开时会触发完整的重新渲染
+        if (this.dialogVisible) {
+          console.log('对话框已经打开，先关闭再重新打开')
+          this.dialogVisible = false
+          
+          // 延迟执行，确保对话框关闭后再重新打开
+          setTimeout(() => {
+            this._showCreateDialogImpl()
+          }, 100)
+          return
+        }
+        
+        // 直接实现展示对话框
+        this._showCreateDialogImpl()
+      } catch (error) {
+        console.error('显示创建对话框失败:', error)
+        this.$message.error('初始化表单失败: ' + error.message)
+      }
+    },
+    
+    // Force update form parameters
+    updateFormParams(params) {
+      console.log('强制更新表单参数:', JSON.stringify(params));
+      
+      // First ensure we have a fresh params object
+      this.form.params = {};
+      
+      // Then use Vue's $set for each parameter to ensure reactivity
+      this.$nextTick(() => {
+        // 首先处理所有常规参数
+        Object.keys(params).forEach(key => {
+          this.$set(this.form.params, key, params[key]);
+        });
+        
+        // 确保所有隐藏参数也被设置了默认值
+        if (this.currentModule && this.currentModule.inputParams) {
+          this.currentModule.inputParams.forEach(param => {
+            if (param.hide && param.default !== undefined && this.form.params[param.key] === undefined) {
+              this.$set(this.form.params, param.key, param.default);
+              console.log(`设置隐藏参数 ${param.key} 的默认值:`, param.default);
+            }
+          });
+        }
+        
+        // Log the result
+        console.log('更新后的表单参数:', JSON.stringify(this.form.params));
+        
+        // Ensure form validation is up to date
+        this.$nextTick(() => {
+          if (this.$refs.form) {
+            this.$refs.form.clearValidate();
+          }
+        });
+      });
+    },
+    
+    // 实际实现显示对话框的内部方法
+    _showCreateDialogImpl() {
+      try {
+        console.log('实现创建对话框展示');
+        
+        // 1. 先完全重置表单验证规则，确保适用于当前模块
+        this.initFormRules()
+        
+        // 2. 确保当前模块存在并有参数
+        if (!this.currentModule || !this.currentModule.inputParams) {
+          console.error('无法设置默认值：当前模块不存在或无输入参数');
+          return;
+        }
+        
+        // 3. 准备一个新的表单对象
+        const newForm = {
+          taskName: '',
+          params: {}
+        };
+        
+        // 4. 清空所有预览图
+        this.previewUrls = {};
+        
+        // 5. 输出调试信息
+        console.log('当前模块参数列表:', this.currentModule.inputParams.map(p => `${p.key}${p.default !== undefined ? `(默认值:${p.default})` : ''}`).join(', '));
+        
+        // 6. 直接添加参数到新表单对象
         this.currentModule.inputParams.forEach(param => {
           if (param.default !== undefined) {
-            this.$set(this.form.params, param.key, param.default)
+            // 有默认值的情况
+            newForm.params[param.key] = param.default;
+            console.log(`设置参数[${param.key}]默认值:`, param.default);
+          } else {
+            // 没有默认值根据类型设置
+            if (param.type === 'text' || param.type === 'select') {
+              newForm.params[param.key] = '';
+            } else {
+              newForm.params[param.key] = null;
+            }
+            console.log(`设置参数[${param.key}]为空值`);
           }
-        })
-      }
-      
-      if (this.$refs.form) {
-        this.$refs.form.resetFields()
-      }
-      
-      // 对话框打开时设置移动端视口
-      if (this.isMobile) {
-        this.$nextTick(() => {
-          this.setupMobileViewport();
         });
+        
+        // 7. 打印最终参数确认设置成功
+        console.log('设置前表单参数:', JSON.stringify(this.form.params));
+        console.log('准备设置的表单参数:', JSON.stringify(newForm.params));
+        
+        // 8. 显示对话框
+        this.dialogVisible = true;
+        
+        // 9. 在下一个渲染周期更新表单参数，确保DOM已更新
+        this.$nextTick(() => {
+          // 使用专门的方法更新表单参数
+          this.updateFormParams(newForm.params);
+          
+          // 设置任务名
+          this.form.taskName = newForm.taskName;
+          
+          // 对话框打开时设置移动端视口
+          if (this.isMobile) {
+            this.setupMobileViewport();
+          }
+        });
+      } catch (error) {
+        console.error('设置默认参数失败:', error);
+        this.$message.error('初始化表单失败: ' + error.message);
       }
     },
 
@@ -1108,7 +1327,7 @@ export default {
                 newData[i + 1] = 0  // G
                 newData[i + 2] = 0  // B
                 newData[i + 3] = 255  // A (完全不透明)
-              } else {
+          } else {
                 // 设置为透明
                 newData[i + 3] = 0  // A (完全透明)
               }
@@ -1127,7 +1346,7 @@ export default {
             this.updateCursor()
           }
           maskImg.src = URL.createObjectURL(this.form.params[param.key])
-        } else {
+            } else {
           // 如果没有蒙版，直接初始化绘制事件
           this.initDrawEvents()
           
@@ -1381,7 +1600,7 @@ export default {
       
       // 重置视口设置
       if (this.isMobile) {
-        this.$nextTick(() => {
+          this.$nextTick(() => {
           this.resetMobileViewport();
         });
       }
@@ -1408,12 +1627,15 @@ export default {
         if (this.currentModule.inputParams) {
           for (const param of this.currentModule.inputParams) {
             const value = this.form.params[param.key]
-            if (value) {
+            // 无论参数是否隐藏，只要有值就添加到表单数据中
+            if (value !== undefined && value !== null) {
               // 构建参数对象
               const paramObj = {
                 key: param.key,
                 alias: param.alias,
-                type: param.type
+                type: param.type,
+                hide: !!param.hide, // 记录参数是否为隐藏参数
+                required: !!param.required // 记录参数是否必填
               }
               
               // 如果是文件类型参数，直接添加到FormData
@@ -1428,6 +1650,11 @@ export default {
               
               // 将参数对象添加到数组
               inputParams.push(paramObj)
+              
+              // 记录日志
+              if (param.hide) {
+                console.log(`添加隐藏参数 ${param.key} 到表单数据`)
+              }
             }
           }
         }
@@ -1442,7 +1669,7 @@ export default {
           this.fetchTasks()
           
           // 重置视口设置
-          if (this.isMobile) {
+            if (this.isMobile) {
             this.$nextTick(() => {
               this.resetMobileViewport();
             });
@@ -1705,17 +1932,20 @@ export default {
             }
             
             if (Array.isArray(params)) {
-              for (const param of params) {
+              // 添加索引，确保生成唯一key
+              params.forEach((param, idx) => {
                 if (param && (param.type === 'image' || param.type === 'mask') && 
                     param.value && typeof param.value === 'string' && param.value.trim()) {
                   images.push({
                     src: param.value,
                     alt: param.alias || param.key,
                     label: param.alias || param.key,
-                    type: 'output'
+                    type: 'output',
+                    // Improved unique ID generation
+                    uniqId: `output-${item.id}-${param.key}-${idx}-${Math.random().toString(36).substring(2, 9)}`
                   });
                 }
-              }
+              });
             }
           } catch (e) {
             console.error('处理输出参数图片失败:', e);
@@ -1731,13 +1961,17 @@ export default {
             }
             
             if (typeof paths === 'object' && !Array.isArray(paths)) {
+              // 使用索引确保唯一性
+              let idx = 0;
               for (const [key, path] of Object.entries(paths)) {
                 if (typeof path === 'string' && path.trim()) {
                   images.push({
                     src: path,
                     alt: `输出: ${key}`,
                     label: key,
-                    type: 'output'
+                    type: 'output',
+                    // Improved unique ID generation
+                    uniqId: `output-path-${item.id}-${key}-${idx++}-${Math.random().toString(36).substring(2, 9)}`
                   });
                 }
               }
@@ -1757,17 +1991,20 @@ export default {
           }
           
           if (Array.isArray(params)) {
-            for (const param of params) {
+            // 添加索引，确保生成唯一key
+            params.forEach((param, idx) => {
               if (param && (param.type === 'image' || param.type === 'mask') && 
                   param.value && typeof param.value === 'string' && param.value.trim()) {
                 images.push({
                   src: param.value,
                   alt: param.alias || param.key,
                   label: param.alias || param.key,
-                  type: 'input'
+                  type: 'input',
+                  // Improved unique ID generation
+                  uniqId: `input-${item.id}-${param.key}-${idx}-${Math.random().toString(36).substring(2, 9)}`
                 });
               }
-            }
+            });
           }
         } catch (e) {
           console.error('处理输入图片失败:', e);
@@ -1914,7 +2151,35 @@ export default {
           this.setupIntersectionObserver();
         }, 500); // 延迟一点时间确保DOM更新
       });
-    }
+    },
+
+    // 切换视图模式（卡片视图/列表视图）
+    toggleView() {
+      this.isCardView = !this.isCardView
+      
+      // 保存用户偏好
+      localStorage.setItem('image_processing_view_mode', this.isCardView ? 'card' : 'list')
+      
+      // 切换视图后重新加载数据
+      this.$nextTick(() => {
+        if (this.isCardView) {
+          this.setupIntersectionObserver()
+        }
+      })
+    },
+
+    // 处理分页大小变化
+    handleSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1
+      this.fetchTasks()
+    },
+
+    // 处理页码变化
+    handleCurrentChange(page) {
+      this.currentPage = page
+      this.fetchTasks()
+    },
   }
 }
 </script>

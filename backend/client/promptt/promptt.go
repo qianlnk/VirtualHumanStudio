@@ -9,6 +9,7 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -101,7 +102,10 @@ type ChatResponse struct {
 // DoChat 调用大语言模型进行聊天
 func (p *Promptt) DoChat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	// 创建OpenAI客户端
-	client := openai.NewClient(p.cfg.APIKey)
+	cfg := openai.DefaultConfig(p.cfg.APIKey)
+	cfg.BaseURL = p.cfg.BaseURL + "/eliza/v1"
+
+	client := openai.NewClientWithConfig(cfg)
 
 	// 构建请求
 	chatReq := openai.ChatCompletionRequest{
@@ -161,4 +165,49 @@ func (p *Promptt) DoChat(ctx context.Context, req *ChatRequest) (*ChatResponse, 
 		},
 		Usage: resp.Usage,
 	}, nil
+}
+
+type PaintRequest struct {
+	Model     string   `json:"model,omitempty"`
+	ImageURLs []string `json:"image_urls,omitempty"`
+	Mask      []string `json:"mask,omitempty"`
+	Prompt    string   `json:"prompt,omitempty"`
+	Size      string   `json:"size,omitempty"`
+	N         uint32   `json:"n"`
+	Height    uint32   `json:"height,omitempty"`
+	Width     uint32   `json:"width,omitempty"`
+	BatchSize uint32   `json:"batch_size,omitempty"`
+}
+
+type PaintResponse struct {
+	Images []Image `json:"images"`
+}
+
+type Image struct {
+	URL    string `json:"url"`
+	Path   string `json:"path"`
+	Type   string `json:"type"`
+	Censor bool   `json:"censor"`
+}
+
+func (p *Promptt) DoPaint(ctx context.Context, req *PaintRequest) (*PaintResponse, error) {
+	fmt.Println("DoPaint", utils.ToJSONString(req))
+	var resp PaintResponse
+	r, err := p.cli.R().
+		SetHeader("Authorization", fmt.Sprintf("Bearer %s", p.cfg.APIKey)).
+		SetHeader("Content-Type", "application/json").
+		SetBody(req).
+		SetResult(&resp).
+		Post(p.cfg.PaintPath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to call Paint service: %v", err)
+	}
+
+	if r.IsError() {
+		return nil, fmt.Errorf("Paint service returned error: %s", r.String())
+	}
+
+	fmt.Println("DoPaint", utils.ToJSONString(resp))
+	return &resp, nil
 }

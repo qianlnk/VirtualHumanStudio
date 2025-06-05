@@ -2,7 +2,6 @@
   <div class="workflow-container">
     <div class="page-header" :class="{'mobile-header': isMobile}">
       <div class="header-left">
-        <i v-if="isMobile" class="el-icon-arrow-left back-icon" @click="goBack"></i>
         <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
       </div>
       <div class="header-right">
@@ -75,10 +74,14 @@
       
       <div v-else class="card-view-content">
         <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
-          <div class="task-card" v-for="item in tasks" :key="item.id">
+          <div class="task-card" v-for="item in tasks" :key="item.id" :data-task-id="item.id">
             <div class="task-card-header">
               <h3 class="task-card-title">{{ item.name }}</h3>
-              <el-tag :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+              <div class="status-icon">
+                <i v-if="item.status === 'completed'" class="el-icon-check" style="color: #67c23a;"></i>
+                <i v-else-if="item.status === 'failed'" class="el-icon-close" style="color: #f56c6c;"></i>
+                <el-tag v-else :type="getStatusType(item.status)" size="small">{{ getStatusText(item.status) }}</el-tag>
+              </div>
             </div>
             <div class="task-card-content">
               <!-- 添加图片轮播 -->
@@ -90,11 +93,18 @@
                   arrow="hover" 
                   :autoplay="false" 
                   indicator-color="#ddd" 
-                  :type="isMobile ? '' : 'card'">
+                  type=""
+                  :key="'carousel-' + item.id"
+                  :ref="`carousel-${item.id}`"
+                  loop
+                  @change="(index) => updateCarouselIndex(item.id, index)">
                   <el-carousel-item v-for="(image, index) in getTaskImages(item)" :key="`${image.type}-${index}`">
-                    <div class="carousel-item" :data-is-output="image.type === 'output'">
+                    <div class="carousel-item" :data-is-output="image.type === 'output'"
+                      @touchstart="onCarouselTouchStart($event, item.id)" 
+                      @touchmove="onCarouselTouchMove($event, item.id)" 
+                      @touchend="onCarouselTouchEnd($event, item.id)">
                       <div class="carousel-image-wrapper">
-                        <img :src="image.src" class="carousel-image" :alt="image.alt">
+                        <img :src="image.src" class="carousel-image" :alt="image.alt" draggable="false">
                       </div>
                       <div class="carousel-label">
                         <span :class="image.type === 'output' ? 'carousel-output-label' : 'carousel-input-label'">
@@ -126,9 +136,15 @@
           </template>
           <template v-else-if="hasMoreData">
             <p>向下滚动加载更多</p>
+            <el-button v-if="initialLoaded" type="text" @click="loadMoreTasks" :disabled="loadingMore">
+              点击手动加载
+            </el-button>
           </template>
           <template v-else>
             <p>没有更多数据了</p>
+            <el-button v-if="tasks.length > 0" type="text" @click="refreshData" :loading="loading">
+              <i class="el-icon-refresh"></i> 刷新数据
+            </el-button>
           </template>
         </div>
       </div>
@@ -273,7 +289,7 @@
         </el-form-item>
         
         <!-- 动态表单，根据模块配置生成不同的表单项 -->
-        <div v-for="(param, index) in currentModule.inputParams" :key="index">
+        <div v-for="param in currentModule.inputParams" :key="param.key">
           <el-form-item :label="param.alias" :prop="`params.${param.key}`">
             <!-- 文本类型参数 -->
             <el-input 
@@ -398,7 +414,7 @@ export default {
       lastX: 0,
       lastY: 0,
       // 视图和分页相关
-      isCardView: false,
+      isCardView: true, // 默认使用卡片视图作为瀑布流
       total: 0,
       currentPage: 1,
       pageSize: 10,
@@ -410,7 +426,13 @@ export default {
       lastScrollTop: 0, // 记录上次滚动位置
       // 视口控制相关变量
       originalViewportContent: null,
-      isInputFocused: false
+      isInputFocused: false,
+      // 轮播图触摸相关状态
+      carouselTouchStart: null,
+      carouselTouchCurrent: null,
+      activeCarouselIndex: {},
+      // 无限滚动观察器
+      observer: null,
     }
   },
   created() {
@@ -428,8 +450,15 @@ export default {
     '$route.params.moduleId': {
       immediate: true,
       deep: true,
-      async handler(newVal) {
-          console.log('监听到模块ID变化:', newVal)
+      async handler(newVal, oldVal) {
+          console.log('监听到模块ID变化:', newVal, '旧值:', oldVal)
+          
+          // 如果ID发生了变化且对话框已打开，则关闭对话框
+          if (oldVal && newVal !== oldVal && this.dialogVisible) {
+            console.log('模块ID变化，关闭已打开的对话框')
+            this.dialogVisible = false
+          }
+          
           // 重置状态
           this.tasks = []
           this.loading = false // 先重置loading状态，避免影响fetchTasks的执行
@@ -462,6 +491,67 @@ export default {
             this.loading = false
           }
       }
+    },
+    
+    // 监听对话框显示状态变化
+    dialogVisible(newVal) {
+      console.log('对话框显示状态变化:', newVal ? '打开' : '关闭')
+      // 当对话框打开时，重置表单并设置默认值
+      if (newVal === true) {
+        // 完全重置表单
+        this.form = {
+          taskName: '',
+          params: {}
+        }
+        this.previewUrls = {}
+        
+        // 确保有当前模块
+        if (this.currentModule && this.currentModule.inputParams) {
+          console.log('对话框打开时设置默认值，当前模块:', this.currentModule.name)
+          
+          // 为每个参数设置默认值
+          const newParams = {}
+          
+          this.currentModule.inputParams.forEach(param => {
+            if (param.default !== undefined) {
+              newParams[param.key] = param.default
+              console.log(`设置参数[${param.key}]默认值:`, param.default)
+            } else {
+              // 对于没有默认值的参数设置空值
+              newParams[param.key] = null
+              console.log(`设置参数[${param.key}]为空值`)
+            }
+          })
+          
+          // 替换整个params对象
+          this.form.params = newParams
+          console.log('设置后的表单参数:', this.form.params)
+        }
+        
+        // 确保DOM更新后重置表单验证
+        this.$nextTick(() => {
+          if (this.$refs.form) {
+            this.$refs.form.resetFields()
+          }
+        })
+      }
+    },
+    
+    // 添加对当前模块变化的监听
+    currentModule: {
+      handler(newModule, oldModule) {
+        console.log('currentModule监听器触发', 
+          '新模块:', newModule ? newModule.id : '无', 
+          '旧模块:', oldModule ? oldModule.id : '无')
+        
+        // 如果模块发生变化且对话框已打开，则关闭对话框
+        if (this.dialogVisible && newModule && oldModule && 
+            newModule.id !== oldModule.id) {
+          console.log('模块已变化，关闭对话框')
+          this.dialogVisible = false
+        }
+      },
+      deep: true
     },
     
     // 监听笔刷大小变化
@@ -506,6 +596,20 @@ export default {
       // 设置移动端视口
       this.setupMobileViewport()
     }
+    
+    // 在任何情况下，首先检查设备类型
+    this.checkDeviceType()
+    
+    // 检查是否需要自动显示创建对话框
+    const showCreateDialog = sessionStorage.getItem('show_create_dialog');
+    if (showCreateDialog === 'true') {
+      // 清除标记，防止重复触发
+      sessionStorage.removeItem('show_create_dialog');
+      // 延迟显示对话框，确保组件已完全加载
+      setTimeout(() => {
+        this.showCreateDialog();
+      }, 200);
+    }
   },
   
   updated() {
@@ -534,6 +638,15 @@ export default {
     // 返回上一页
     goBack() {
       this.$router.back();
+    },
+    
+    // 处理触摸事件，阻止图片拖拽但允许轮播滑动
+    handleTouchEvent(e) {
+      // 允许事件冒泡，以便轮播图可以响应滑动
+      // 但阻止默认行为，防止图片拖拽
+      if (e.target.tagName.toLowerCase() === 'img') {
+        e.preventDefault();
+      }
     },
     
     // 检测设备类型
@@ -631,6 +744,12 @@ export default {
             // 初始化表单验证规则
             this.initFormRules()
             this.showModuleList = false
+            
+            // 初始化完成后，加载数据
+            this.$nextTick(() => {
+              this.loadInitialData()
+            })
+            
             return true
           } else {
             console.error('未找到指定的处理模块:', moduleId)
@@ -645,6 +764,12 @@ export default {
           this.currentModule = this.modules[0]
           this.initFormRules()
           this.showModuleList = false
+          
+          // 初始化完成后，加载数据
+          this.$nextTick(() => {
+            this.loadInitialData()
+          })
+          
           // 更新路由（可选）
           // this.$router.replace(`/image-processing/${this.currentModule.id}`)
           return true
@@ -731,6 +856,9 @@ export default {
       
       try {
         console.log('发起API请求:', '页码=', this.currentPage, '每页数量=', this.isCardView ? this.cardPageSize : this.pageSize)
+        const apiUrl = `/api/image-processing/tasks/${this.currentModule.id}?page=${this.currentPage}&size=${this.isCardView ? this.cardPageSize : this.pageSize}`;
+        console.log('请求API URL:', apiUrl);
+        
         const response = await getImageProcessingTasks(this.currentModule.id, {
           page: this.currentPage,
           size: this.isCardView ? this.cardPageSize : this.pageSize
@@ -750,9 +878,18 @@ export default {
             this.tasks = newTasks
           }
           
+          // 标记为已加载初始数据
+          this.initialLoaded = true;
+          
           // 判断是否还有更多数据
           this.hasMoreData = this.tasks.length < this.total
           console.log('更新后的任务列表:', '当前列表长度=', this.tasks.length, '是否还有更多=', this.hasMoreData)
+          
+          // 如果没有更多数据或空数据，设置hasMoreData为false
+          if (this.total === 0 || this.tasks.length >= this.total) {
+            this.hasMoreData = false
+            console.log('设置没有更多数据标志')
+          }
         } else {
           console.error('获取任务列表失败, 服务器返回错误:', response)
           this.$message.error('获取任务列表失败: ' + (response.message || '未知错误'))
@@ -765,39 +902,254 @@ export default {
         this.loadingMore = false
         
         // 在数据加载完成后重新设置观察者
-        if (this.isCardView) {
-          this.$nextTick(() => {
+        this.$nextTick(() => {
+          if (this.isCardView) {
             this.setupIntersectionObserver()
-          })
+          }
+        })
+      }
+    },
+    
+    // 加载初始数据
+    loadInitialData() {
+      if (this.initialLoaded) return;
+      
+      console.log('加载初始数据')
+      this.fetchTasks();
+    },
+    
+    // 确保数据已加载
+    ensureDataLoaded() {
+      if (!this.initialLoaded && this.currentModule && this.tasks.length === 0 && !this.loading && !this.loadingMore) {
+        console.log('检测到数据未加载，自动加载数据');
+        this.loadInitialData();
+      }
+    },
+    
+    // 加载更多任务
+    loadMoreTasks() {
+      // 检查加载条件
+      if (this.loadingMore || !this.hasMoreData) {
+        console.log('跳过加载更多:', 
+                   '加载中=', this.loadingMore, 
+                   '没有更多数据=', !this.hasMoreData);
+        return;
+      }
+      
+      // 增加页码并加载更多
+      console.log('加载更多任务，当前页码:', this.currentPage);
+      this.currentPage++;
+      this.fetchTasks(true);
+    },
+    
+    // 处理滚动事件
+    handleWindowScroll() {
+      // 只有卡片视图启用滚动加载
+      if (!this.isCardView) return;
+      
+      // 记录滚动方向
+      const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollingDown = currentScrollTop > this.lastScrollTop;
+      this.lastScrollTop = currentScrollTop;
+      
+      // 只有在向下滚动且满足条件时加载更多
+      if (scrollingDown && !this.loadingMore && this.hasMoreData) {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = Math.max(
+          document.body.scrollHeight, document.documentElement.scrollHeight,
+          document.body.offsetHeight, document.documentElement.offsetHeight,
+          document.body.clientHeight, document.documentElement.clientHeight
+        );
+        
+        // 计算距离底部的距离
+        const distanceToBottom = documentHeight - scrollTop - windowHeight;
+        
+        // 当滚动到距离底部阈值距离时触发加载
+        if (distanceToBottom < this.scrollThreshold) {
+          console.log('触发滚动加载更多:', 
+                     '滚动位置=', scrollTop, 
+                     '窗口高度=', windowHeight, 
+                     '文档高度=', documentHeight, 
+                     '距离底部=', distanceToBottom,
+                     '阈值=', this.scrollThreshold);
+          this.loadMoreTasks();
         }
       }
+    },
+    
+    // 设置交叉观察器监听加载更多触发元素
+    setupIntersectionObserver() {
+      if (!this.isCardView) {
+        console.log('列表视图模式，不设置无限滚动');
+        return;
+      }
+      
+      // 确保DOM元素已更新
+      this.$nextTick(() => {
+        console.log('设置无限滚动观察器');
+        
+        // 获取加载更多触发器元素
+        const loadMoreTrigger = this.$refs.loadMoreTrigger;
+        if (!loadMoreTrigger) {
+          console.error('找不到加载更多触发器元素');
+          return;
+        }
+        
+        // 如果不需要加载更多数据，隐藏触发器
+        if (!this.hasMoreData) {
+          loadMoreTrigger.style.display = 'none';
+          console.log('没有更多数据，隐藏触发器');
+          return;
+        } else {
+          loadMoreTrigger.style.display = 'block';
+        }
+        
+        // 如果IntersectionObserver不可用，回退到滚动事件
+        if (!('IntersectionObserver' in window)) {
+          console.log('不支持IntersectionObserver，使用滚动事件');
+          return;
+        }
+        
+        // 如果已有观察器，先断开连接
+        if (this.observer) {
+          this.observer.disconnect();
+        }
+        
+        // 创建观察器
+        this.observer = new IntersectionObserver((entries) => {
+          const entry = entries[0];
+          
+          // 当触发器可见且满足加载条件时，触发加载
+          if (entry.isIntersecting && !this.loadingMore && this.hasMoreData) {
+            console.log('触发器元素进入视口，加载更多数据');
+            this.loadMoreTasks();
+          }
+        }, {
+          root: null,
+          threshold: 0.1, // 降低阈值，使其更容易触发
+          rootMargin: '200px' // 提前触发距离
+        });
+        
+        // 开始观察触发器元素
+        this.observer.observe(loadMoreTrigger);
+        console.log('开始观察加载更多触发器元素');
+      });
     },
 
     // 显示创建对话框
     showCreateDialog() {
-      this.dialogVisible = true
-      this.form.params = {}
+      console.log('显示创建对话框，当前模块:', this.currentModule ? this.currentModule.name : '无')
+      
+      // 0. 检查当前模块是否可用
+      if (!this.currentModule || !this.currentModule.inputParams) {
+        console.error('无法创建任务：当前模块不存在或无输入参数')
+        this.$message.error('当前模块不可用，无法创建任务')
+        return
+      }
+      
+      // 1. 完全重置表单
+      this.form = {
+        taskName: '',
+        params: {}
+      }
       this.previewUrls = {}
       
-      // 初始化默认值
-      if (this.currentModule && this.currentModule.inputParams) {
-        this.currentModule.inputParams.forEach(param => {
-          if (param.default !== undefined) {
-            this.$set(this.form.params, param.key, param.default)
+      // 2. 获取当前模块的参数列表
+      console.log('当前模块ID:', this.currentModule.id)
+      console.log('当前模块参数列表:', this.currentModule.inputParams.map(p => p.key).join(', '))
+      
+      // 3. 直接创建一个全新的参数对象
+      const params = {}
+      
+      // 4. 为每个参数设置默认值
+      this.currentModule.inputParams.forEach(param => {
+        if (param.default !== undefined) {
+          params[param.key] = param.default
+          console.log(`设置参数[${param.key}]默认值:`, param.default)
+        } else {
+          // 对于没有默认值的参数，根据类型设置空值
+          if (param.type === 'text' || param.type === 'select') {
+            params[param.key] = ''
+          } else {
+            params[param.key] = null
           }
-        })
-      }
+          console.log(`设置参数[${param.key}]为空值`)
+        }
+      })
       
-      if (this.$refs.form) {
-        this.$refs.form.resetFields()
-      }
+      // 5. 整体替换表单参数对象
+      this.form.params = params
       
-      // 对话框打开时设置移动端视口
-      if (this.isMobile) {
-        this.$nextTick(() => {
+      // 6. 打印最终参数确认设置成功
+      console.log('最终表单参数:', JSON.stringify(this.form.params))
+      
+      // 7. 设置对话框为可见
+      this.dialogVisible = true
+      
+      // 8. 在DOM更新后重置表单验证
+      this.$nextTick(() => {
+        if (this.$refs.form) {
+          console.log('重置表单验证')
+          this.$refs.form.clearValidate()
+          this.$refs.form.resetFields()
+        }
+        
+        // 对话框打开时设置移动端视口
+        if (this.isMobile) {
           this.setupMobileViewport();
-        });
+        }
+      })
+    },
+    
+    // 重置表单并设置默认值
+    resetFormWithDefaults(force = false) {
+      console.log('执行重置表单默认值, 当前模块:', this.currentModule ? this.currentModule.name : '无', 
+        '强制重置:', force ? '是' : '否')
+      
+      // 先完全重置表单
+      this.form = {
+        taskName: '',
+        params: {}
       }
+      
+      // 清空所有预览图
+      this.previewUrls = {}
+      
+      // 确保我们有一个有效的模块
+      if (!this.currentModule || !this.currentModule.inputParams) {
+        console.warn('无法设置默认值：当前模块不存在或无输入参数')
+        return
+      }
+      
+      // 初始化默认值
+      this.currentModule.inputParams.forEach(param => {
+        // 确保删除所有旧参数
+        if (this.form.params[param.key]) {
+          this.$delete(this.form.params, param.key)
+        }
+        
+        // 设置新的默认值
+        if (param.default !== undefined) {
+          console.log('设置默认值:', param.key, param.default)
+          this.$set(this.form.params, param.key, param.default)
+        } else {
+          // 对于没有默认值的参数，设置为null或空字符串
+          const emptyValue = param.type === 'select' ? '' : 
+                           (param.type === 'text' ? '' : null)
+          this.$set(this.form.params, param.key, emptyValue)
+          console.log('设置空值:', param.key, emptyValue)
+        }
+      })
+      
+      // 在下一个DOM更新周期重置表单验证
+      this.$nextTick(() => {
+        if (this.$refs.form) {
+          this.$refs.form.clearValidate()
+          this.$refs.form.resetFields()
+          console.log('表单验证已重置')
+        }
+      })
     },
 
     // 处理图片上传
@@ -1354,8 +1706,8 @@ export default {
         }
       } catch (error) {
         if (error !== 'cancel') {
-        console.error('获取所有图片失败:', error);
-        return [];
+          this.$message.error('删除任务失败：' + error.message)
+        }
       }
     },
 
@@ -1436,23 +1788,47 @@ export default {
     // 检查任务是否有图片可显示
     hasImages(item) {
       // 对于已完成的任务检查是否有输出
-      if (item.status === 'completed' && item.output_paths) {
-        try {
-          let outputPaths = item.output_paths;
-          if (typeof outputPaths === 'string') {
-            outputPaths = JSON.parse(outputPaths);
-          }
-          
-          if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
-            // 检查是否有有效的图片路径
-            for (const key in outputPaths) {
-              if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
-                return true;
+      if (item.status === 'completed') {
+        // 检查output_params（包含图片参数的情况）
+        if (item.output_params) {
+          try {
+            let params = item.output_params;
+            if (typeof params === 'string') {
+              params = JSON.parse(params);
+            }
+            
+            if (Array.isArray(params)) {
+              for (const param of params) {
+                if (param && (param.type === 'image' || param.type === 'mask') && 
+                    param.value && typeof param.value === 'string' && param.value.trim()) {
+                  return true;
+                }
               }
             }
+          } catch (e) {
+            console.error('检查输出参数图片失败:', e);
           }
-        } catch (e) {
-          console.error('检查输出图片失败:', e);
+        }
+        
+        // 检查output_paths（直接包含图片路径的情况）
+        if (item.output_paths) {
+          try {
+            let outputPaths = item.output_paths;
+            if (typeof outputPaths === 'string') {
+              outputPaths = JSON.parse(outputPaths);
+            }
+            
+            if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
+              // 检查是否有有效的图片路径
+              for (const key in outputPaths) {
+                if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
+                  return true;
+                }
+              }
+            }
+          } catch (e) {
+            console.error('检查输出图片路径失败:', e);
+          }
         }
       }
       
@@ -1486,27 +1862,56 @@ export default {
       const images = [];
       
       // 只有完成状态的任务才显示输出图片
-      if (item.status === 'completed' && item.output_paths) {
-        try {
-          let outputPaths = item.output_paths;
-          if (typeof outputPaths === 'string') {
-            outputPaths = JSON.parse(outputPaths);
-          }
-          
-          if (typeof outputPaths === 'object' && !Array.isArray(outputPaths)) {
-            for (const key in outputPaths) {
-              if (typeof outputPaths[key] === 'string' && outputPaths[key].trim()) {
-                images.push({
-                  src: outputPaths[key],
-                  alt: key,
-                  label: key,
-                  type: 'output'
-                });
+      if (item.status === 'completed') {
+        // 检查output_params中的图片
+        if (item.output_params) {
+          try {
+            let params = item.output_params;
+            if (typeof params === 'string') {
+              params = JSON.parse(params);
+            }
+            
+            if (Array.isArray(params)) {
+              for (const param of params) {
+                if (param && (param.type === 'image' || param.type === 'mask') && 
+                    param.value && typeof param.value === 'string' && param.value.trim()) {
+                  images.push({
+                    src: param.value,
+                    alt: param.alias || param.key,
+                    label: param.alias || param.key,
+                    type: 'output'
+                  });
+                }
               }
             }
+          } catch (e) {
+            console.error('处理输出参数图片失败:', e);
           }
-        } catch (e) {
-          console.error('处理输出图片失败:', e);
+        }
+        
+        // 检查output_paths中的图片路径
+        if (item.output_paths && images.length === 0) {
+          try {
+            let paths = item.output_paths;
+            if (typeof paths === 'string') {
+              paths = JSON.parse(paths);
+            }
+            
+            if (typeof paths === 'object' && !Array.isArray(paths)) {
+              for (const [key, path] of Object.entries(paths)) {
+                if (typeof path === 'string' && path.trim()) {
+                  images.push({
+                    src: path,
+                    alt: `输出: ${key}`,
+                    label: key,
+                    type: 'output'
+                  });
+                }
+              }
+            }
+          } catch (e) {
+            console.error('处理输出路径图片失败:', e);
+          }
         }
       }
       
@@ -1536,8 +1941,147 @@ export default {
         }
       }
       
+      // 确保至少有一张图片可显示
+      if (images.length === 0) {
+        console.log('任务没有找到任何可显示的图片:', item.id);
+      }
+      
       return images;
     },
+
+    // 格式化日期
+    formatDate(date) {
+      return new Date(date).toLocaleString()
+    },
+
+    // 获取状态类型
+    getStatusType(status) {
+      const statusMap = {
+        pending: 'info',
+        processing: 'warning',
+        completed: 'success',
+        failed: 'danger'
+      }
+      return statusMap[status] || 'info'
+    },
+
+    // 获取状态文本
+    getStatusText(status) {
+      const statusMap = {
+        pending: '待处理',
+        processing: '处理中',
+        completed: '已完成',
+        failed: '失败'
+      }
+      return statusMap[status] || status
+    },
+
+    // 轮播图触摸事件处理
+    onCarouselTouchStart(event, taskId) {
+      this.isDraggingCarousel = true;
+      this.carouselTouchStart = event.touches[0].clientX;
+      this.carouselTouchCurrent = event.touches[0].clientX;
+      
+      // 确保该任务ID有索引记录
+      if (this.activeCarouselIndex[taskId] === undefined) {
+        this.activeCarouselIndex[taskId] = 0;
+      }
+    },
+
+    onCarouselTouchMove(event) {
+      if (!this.isDraggingCarousel) return;
+      
+      // 阻止默认行为，防止页面滚动
+      event.preventDefault();
+      this.carouselTouchCurrent = event.touches[0].clientX;
+    },
+
+    onCarouselTouchEnd(event, taskId) {
+      if (!this.isDraggingCarousel) return;
+      
+      const delta = this.carouselTouchCurrent - this.carouselTouchStart;
+      const images = this.getTaskImages(this.tasks.find(t => t.id === taskId));
+      const maxIndex = images.length - 1;
+      
+      if (Math.abs(delta) > 50) { // 降低触发阈值，提高灵敏度
+        if (delta > 0) {
+          // 向右滑动，显示上一张
+          if (this.activeCarouselIndex[taskId] === 0) {
+            // 如果当前是第一张，循环到最后一张
+            this.activeCarouselIndex[taskId] = maxIndex;
+          } else {
+            // 否则显示上一张
+            this.activeCarouselIndex[taskId]--;
+          }
+        } else {
+          // 向左滑动，显示下一张
+          if (this.activeCarouselIndex[taskId] === maxIndex) {
+            // 如果当前是最后一张，循环到第一张
+            this.activeCarouselIndex[taskId] = 0;
+          } else {
+            // 否则显示下一张
+            this.activeCarouselIndex[taskId]++;
+          }
+        }
+        
+        // 手动控制对应轮播图
+        this.setCarouselToIndex(taskId, this.activeCarouselIndex[taskId]);
+      }
+      
+      this.isDraggingCarousel = false;
+    },
+
+    // 更新轮播图索引记录
+    updateCarouselIndex(taskId, index) {
+      this.activeCarouselIndex[taskId] = index;
+    },
+
+    // 手动设置轮播图到指定索引
+    setCarouselToIndex(taskId, index) {
+      // 使用ref获取轮播图实例
+      const refName = `carousel-${taskId}`;
+      const carousel = this.$refs[refName];
+      
+      if (carousel) {
+        if (Array.isArray(carousel) && carousel.length > 0) {
+          carousel[0].setActiveItem(index);
+        } else {
+          carousel.setActiveItem(index);
+        }
+      }
+    },
+
+    // 刷新数据
+    refreshData() {
+      console.log('手动刷新数据');
+      // 重置所有状态
+      this.currentPage = 1;
+      this.hasMoreData = true;
+      this.initialLoaded = false;
+      this.loading = true;
+      this.loadingMore = false;
+      this.tasks = [];
+      
+      // 暂停滚动监听，避免刷新过程中触发加载
+      // const pauseScrollListening = true;
+      
+      // 清理观察器
+      if ('IntersectionObserver' in window && this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
+      
+      // 立即获取数据
+      this.$nextTick(() => {
+        console.log('刷新数据：开始获取新数据');
+        this.fetchTasks();
+        
+        // 重新设置观察器
+        setTimeout(() => {
+          this.setupIntersectionObserver();
+        }, 500); // 延迟一点时间确保DOM更新
+      });
+    }
   }
 }
 </script>
@@ -1638,12 +2182,13 @@ export default {
   width: 100%;
   min-width: auto;
   margin-bottom: 0;
+  transform: none !important; /* 确保没有任何变形 */
 }
 
 .task-card:hover {
-  transform: translateY(-5px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
   border-color: rgba(255, 255, 255, 0.2);
+  transform: none !important; /* 确保悬停时没有变形 */
 }
 
 .task-card-header {
@@ -1671,22 +2216,28 @@ export default {
 
 .task-card-content {
   padding: 10px;
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 90px;
+  overflow: hidden; /* 改回hidden，完全禁止滚动 */
+  min-height: 0; /* 允许内容区域收缩，避免溢出 */
+  max-height: 100%; /* 限制最大高度，避免溢出 */
 }
 
 .task-card-info {
-  margin-bottom: 10px;
+  margin: 8px 0 5px 0;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .task-card-info p {
-  margin: 6px 0;
+  margin: 0;
   font-size: 13px;
   color: #ddd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .task-card-footer {
@@ -1696,6 +2247,7 @@ export default {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.1);
   margin-top: auto;
+  flex-shrink: 0; /* 防止底部被压缩 */
 }
 
 .action-btn {
@@ -1904,8 +2456,8 @@ export default {
   
   /* 触碰反馈优化 */
   .task-card:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+    opacity: 0.95;
+    transform: none !important; /* 确保激活时没有变形 */
   }
   
   /* 加载更多容器样式 */
@@ -2055,10 +2607,13 @@ export default {
 
 /* 轮播图样式 */
 .task-card-carousel {
-  margin: 0 -12px 10px;
-  width: calc(100% + 24px);
+  margin: 0 -10px 5px; /* 减少底部margin，避免内容溢出 */
+  width: calc(100% + 20px);
   border-radius: 4px;
   overflow: hidden;
+  padding: 3px;
+  box-sizing: border-box;
+  flex-shrink: 0; /* 防止轮播图被压缩 */
 }
 
 .carousel-item {
@@ -2071,6 +2626,7 @@ export default {
 
 .carousel-image-wrapper {
   height: 140px;
+  max-height: 140px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2133,12 +2689,23 @@ export default {
 /* 响应式样式调整 */
 @media screen and (max-width: 768px) {
   .task-card-carousel {
-    margin: 0 -8px 8px;
+    margin: 0 -8px 3px; /* 移动端底部margin更小 */
     width: calc(100% + 16px);
+  }
+  
+  .task-card-footer {
+    padding: 8px 10px; /* 减小移动端padding */
+  }
+  
+  /* 移动端卡片样式调整 */
+  .task-card {
+    height: auto; /* 自适应高度 */
+    min-height: 0;
   }
   
   .carousel-image-wrapper {
     height: 120px;
+    max-height: 120px;
   }
   
   .carousel-label {
@@ -2151,12 +2718,102 @@ export default {
 .carousel-item[data-is-output="true"] .carousel-image-wrapper {
   border: 2px solid rgba(76, 175, 80, 0.5);
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  box-sizing: border-box;
+  margin: 2px;
+  width: calc(100% - 4px);
 }
 
 @media screen and (max-width: 768px) {
   .carousel-output-label::before {
     font-size: 12px;
     top: 0;
+  }
+  
+  .carousel-item[data-is-output="true"] .carousel-image-wrapper {
+    margin: 1px;
+    width: calc(100% - 2px);  /* 移动端边框更窄 */
+  }
+  
+  /* 确保移动端也不显示滚动条 */
+  .task-card-content {
+    overflow: hidden;
+    min-height: 0;
+  }
+  
+  .task-card-info {
+    margin: 5px 0 0 0;
+  }
+  
+  .carousel-image-wrapper {
+    height: 120px;
+    max-height: 120px;
+  }
+}
+
+/* 修复轮播图项在卡片模式下的样式 */
+.el-carousel__item--card {
+  border: none !important;
+}
+
+/* 调整轮播图容器样式避免边框显示不全 */
+.task-card .el-carousel__container {
+  padding: 1px;
+  box-sizing: border-box;
+}
+
+@media screen and (max-width: 768px) {
+  .task-card .el-carousel__indicators {
+    bottom: 2px !important;
+  }
+  
+  .task-card .el-carousel__arrow {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+  }
+  
+  /* 移动端轮播图高度调整 */
+  .task-card .el-carousel {
+    height: 160px !important;
+  }
+  
+  /* 确保移动端可以触摸滑动 */
+  .task-card .el-carousel__container {
+    touch-action: pan-y !important;
+  }
+  
+  /* 隐藏卡片效果的多余内边距 */
+  .task-card .el-carousel__item {
+    padding: 0 !important;
+  }
+}
+
+.el-carousel__container {
+  position: relative;
+  height: 100%;
+  touch-action: pan-x !important; /* 启用横向触摸滑动 */
+}
+
+@media screen and (max-width: 768px) {
+  .task-card .el-carousel__container {
+    touch-action: pan-x !important;
+    height: 160px !important;
+  }
+  
+  /* 确保移动端的轮播图可以滑动 */
+  .card-list .el-carousel {
+    touch-action: pan-x !important;
+  }
+  
+  .el-carousel__item {
+    touch-action: pan-x !important;
+  }
+  
+  /* 确保图片不会阻止滑动事件 */
+  .carousel-image {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 }
 </style>
@@ -2448,6 +3105,92 @@ export default {
   /* 隐藏卡片效果的多余内边距 */
   .task-card .el-carousel__item {
     padding: 0 !important;
+  }
+}
+
+/* 强化轮播图触摸滑动 */
+.el-carousel {
+  --webkit-user-select: none;
+  user-select: none;
+}
+
+.el-carousel__mask {
+  display: none !important; /* 移除遮罩，优化触摸体验 */
+}
+
+/* 确保轮播图容器样式避免边框显示不全 */
+.task-card .el-carousel__container {
+  padding: 1px;
+  box-sizing: border-box;
+  touch-action: pan-x !important;
+}
+
+/* 移动端触摸优化 */
+@media screen and (max-width: 768px) {
+  /* 优化轮播图点击区域 */
+  .el-carousel__arrow {
+    width: 28px !important; /* 增大点击区域 */
+    height: 28px !important;
+  }
+  
+  /* 确保轮播图不会阻止页面滚动 */
+  .card-list {
+    touch-action: pan-y !important;
+  }
+  
+  /* 隐藏桌面端样式按钮，使用原生按钮样式 */
+  .task-card .el-carousel__arrow i {
+    font-size: 14px !important;
+  }
+}
+
+/* 优化轮播图移动端触摸体验 */
+.task-card-carousel {
+  width: 100%;
+  box-sizing: border-box;
+  touch-action: pan-x !important;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: visible !important;
+}
+
+.carousel-item {
+  touch-action: pan-x !important;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.carousel-item:active {
+  cursor: grabbing;
+}
+
+/* 确保图片不会阻止滑动事件 */
+.carousel-image {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 增强移动端触摸体验 */
+@media (max-width: 768px) {
+  .el-carousel__container {
+    touch-action: pan-x !important;
+  }
+  
+  .el-carousel__item {
+    touch-action: pan-x !important;
+  }
+  
+  /* 增大点击区域 */
+  .el-carousel__arrow {
+    width: 32px !important;
+    height: 32px !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  .el-carousel__arrow i {
+    font-size: 18px !important;
   }
 }
 </style>

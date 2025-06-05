@@ -247,6 +247,10 @@ func CreateImageProcessingTask(c *gin.Context) {
 			// 获取上传的文件
 			file, err := c.FormFile(param.Key)
 			if err != nil {
+				if !param.Required {
+					continue
+				}
+
 				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("未提供%s文件", param.Alias)})
 				// 清理已上传的文件
 				for _, path := range uploadedFiles {

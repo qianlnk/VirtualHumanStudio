@@ -802,6 +802,17 @@ export default {
     console.log('===== DigitalHuman组件已挂载 =====');
     console.log('初始数据状态:', this.digitalHumans)
     
+    // 检查是否需要自动显示创建对话框
+    const showCreateDialog = sessionStorage.getItem('show_create_dialog');
+    if (showCreateDialog === 'true') {
+      // 清除标记，防止重复触发
+      sessionStorage.removeItem('show_create_dialog');
+      // 延迟显示对话框，确保组件已完全加载
+      setTimeout(() => {
+        this.showCreateDialog();
+      }, 200);
+    }
+    
     // 添加滚动事件监听器
     window.addEventListener('scroll', this.handleWindowScroll)
     

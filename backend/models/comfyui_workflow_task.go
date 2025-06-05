@@ -14,10 +14,11 @@ type ComfyUIWorkflowTask struct {
 }
 
 type InputParam struct {
-	Key   string `json:"key"`   // 参数名
-	Value string `json:"value"` // 参数值
-	Alias string `json:"alias"` // 别名
-	Type  string `json:"type"`  // 参数类型
+	Key      string `json:"key"`      // 参数名
+	Value    string `json:"value"`    // 参数值
+	Alias    string `json:"alias"`    // 别名
+	Type     string `json:"type"`     // 参数类型
+	Required bool   `json:"required"` // 是否必填
 }
 
 const (

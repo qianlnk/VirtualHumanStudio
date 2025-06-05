@@ -29,6 +29,7 @@ type ParamDef struct {
 	Description string   `json:"description"`       // 参数描述
 	Default     string   `json:"default"`           // 默认值
 	Options     []Option `json:"options,omitempty"` // 选项，用于select类型
+	Hide        bool     `json:"hide"`              // 是否隐藏, 默认false
 }
 
 // Option 选项定义，用于select类型参数

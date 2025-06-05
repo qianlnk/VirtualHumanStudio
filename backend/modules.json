@@ -1,6 +1,84 @@
 {
     "modules": [
         {
+            "id": "txt2img",
+            "name": "文本转图片",
+            "description": "根据文本描述生成图片",
+            "icon": "el-icon-picture",
+            "route": "/txt2img",
+            "inputParams": [
+                {
+                    "key": "prompt",
+                    "alias": "提示词",
+                    "type": "text",
+                    "required": true,
+                    "description": "提示词，用于生成图片"
+                },
+                {
+                    "key": "image",
+                    "alias": "图片",
+                    "type": "image",
+                    "required": false,
+                    "description": "图片，用于生成图片"
+                },
+                {
+                    "key": "mask",
+                    "alias": "遮罩",
+                    "type": "mask",
+                    "required": false,
+                    "description": "遮罩，用于生成图片"
+                },
+                {
+                    "key": "size",
+                    "alias": "尺寸",
+                    "type": "select",
+                    "required": true,
+                    "description": "尺寸，用于生成图片",
+                    "default": "1024x1024",
+                    "options": [
+                        {
+                            "label": "1024x1024",
+                            "value": "1024x1024"
+                        },
+                        {
+                            "label": "1024x1536",
+                            "value": "1024x1536"
+                        },
+                        {
+                            "label": "1536x1024",
+                            "value": "1536x1024"
+                        }      
+                    ]
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "iamge_0",
+                    "alias": "结果图片1",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "iamge_1",
+                    "alias": "结果图片2",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "iamge_2",
+                    "alias": "结果图片3",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                },
+                {
+                    "key": "iamge_3",
+                    "alias": "结果图片4",
+                    "type": "image",
+                    "description": "处理后的结果图片"
+                }
+            ]
+        },
+        {
             "id": "all_replace",
             "name": "万物替换",
             "description": "替换图像中的饰品，如眼镜、帽子等",
@@ -66,7 +144,8 @@
                     "type": "text",
                     "required": true,
                     "description": "负面提示词，用于生成人物Q版盲盒",
-                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs,"
+                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs,",
+                    "hide": true
                 }
             ],
             "outputParams": [
@@ -112,7 +191,8 @@
                     "type": "text",
                     "required": true,
                     "description": "负面提示词，用于生成人物Q版盲盒",
-                    "default": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
+                    "default": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走",
+                    "hide": true
                 }
             ],
             "outputParams": [
@@ -195,7 +275,8 @@
                     "type": "text",
                     "required": true,
                     "description": "负面提示词，用于商品背景替换",
-                    "default": "(worst quality:2),(low quality:2),(normal quality:2),lowres,bad anatomy,bad hands,((monochrome)),((grayscale)) watermark,moles,large breast,big breast,"
+                    "default": "(worst quality:2),(low quality:2),(normal quality:2),lowres,bad anatomy,bad hands,((monochrome)),((grayscale)) watermark,moles,large breast,big breast,",
+                    "hide": true
                 }
             ],
             "outputParams": [
@@ -261,7 +342,7 @@
                     "alias": "人物图片",
                     "type": "image",
                     "required": true,
-                    "description": "人物图片，一键生成跳舞视频"
+                    "description": "上传人物图片，一键生成Q版职业IP"
                 },
                 {
                     "key": "prompt",
@@ -423,7 +504,8 @@
                     "type": "text",
                     "required": true,
                     "description": "负面提示词，用于生成Q版职业IP",
-                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs"
+                    "default": "Bad quality,worst quality,normal quality,low-res,sketch,poor design,deformed,disfigured,soft,bad composition,simple design,boring,watermark,text,error,cropped,blurry,nsfw,mutated,missing limb,mutated hands and fingers,malformed limbs",
+                    "hide": true
                 }
             ],
             "outputParams": [

@@ -730,9 +730,15 @@ export default {
       try {
         const params = JSON.parse(this.task.input_params)
         if (Array.isArray(params)) {
-          return params
+          // 过滤掉非必填且值为空的参数
+          return params.filter(param => {
+            // 如果参数是必填的，无论值是否为空都显示
+            if (param.required) return true
+            // 如果参数值为空字符串、null或undefined，则不显示
+            return param.value !== '' && param.value !== null && param.value !== undefined
+          })
         }
-        // 如果不是数组，转换为数组格式
+        // 如果不是数组，转换为数组格式（保持原有逻辑）
         return Object.keys(params).map(key => ({
           key,
           value: params[key],
@@ -752,7 +758,13 @@ export default {
       try {
         const params = JSON.parse(this.task.output_params)
         if (Array.isArray(params)) {
-          return params
+          // 过滤掉非必填且值为空的参数
+          return params.filter(param => {
+            // 如果参数是必填的，无论值是否为空都显示
+            if (param.required) return true
+            // 如果参数值为空字符串、null或undefined，则不显示
+            return param.value !== '' && param.value !== null && param.value !== undefined
+          })
         }
         // 如果不是数组，转换为数组格式
         return Object.keys(params).map(key => ({

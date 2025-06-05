@@ -361,16 +361,6 @@
           <i class="el-icon-magic-stick"></i>
           画同款
         </el-button>
-        
-        <el-button type="info" size="small" @click="toggleLike" :class="{'is-liked': isLiked}">
-          <i class="el-icon-star-off"></i>
-          {{ isLiked ? '已点赞' : '点赞' }}
-        </el-button>
-        
-        <el-button type="info" size="small" @click="toggleFavorite" :class="{'is-favorited': isFavorited}">
-          <i class="el-icon-collection"></i>
-          {{ isFavorited ? '已收藏' : '收藏' }}
-        </el-button>
       </div>
 
       <!-- 回到顶部按钮 -->
@@ -1002,21 +992,24 @@ export default {
         return;
       }
 
-      const route = this.task.type === 'digital_human' ? '/digital-human/create' : '/image/create'
-      let prompt = ''
-      if (this.task.input_params && Array.isArray(this.task.input_params)) {
-        const promptParam = this.task.input_params.find(param => param.key === 'prompt')
-        if (promptParam) {
-          prompt = promptParam.value || ''
-        }
+      // 根据任务类型确定跳转路径
+      let route = '';
+
+      // 根据type和task_type选择正确的路由
+      if (this.task.type === 'digital_human') {
+        route = '/digital-human';
+      } else if (this.task.type === 'comfyui') {
+        route = '/image-processing/' + this.task.task_type;
+      } else {
+        // 其他类型默认跳转到数字人
+        route = '/digital-human';
       }
       
-      this.$router.push({
-        path: route,
-        query: {
-          prompt: prompt
-        }
-      })
+      // 设置会话存储标记，指示目标页面应显示创建对话框
+      sessionStorage.setItem('show_create_dialog', 'true');
+      
+      // 跳转到创建页面
+      this.$router.push(route);
     },
 
     cleanupVideoResources() {
