@@ -113,15 +113,18 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
 }
 
 .login-box {
   width: 400px;
   padding: 30px;
-  background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
 .login-title {
@@ -131,13 +134,15 @@ export default {
 
 .login-title h2 {
   font-size: 24px;
-  color: #303133;
+  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin-bottom: 10px;
 }
 
 .login-title p {
   font-size: 14px;
-  color: #909399;
+  color: #b3e5fc;
 }
 
 .login-form {
@@ -151,11 +156,11 @@ export default {
 .login-options {
   text-align: center;
   font-size: 14px;
-  color: #606266;
+  color: #b3e5fc;
 }
 
 .login-options a {
-  color: #409EFF;
+  color: #64b5f6;
   margin-left: 5px;
 }
 </style>

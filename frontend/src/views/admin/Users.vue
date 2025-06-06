@@ -19,8 +19,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template slot-scope="scope">
-            <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
-              {{ scope.row.status === 'active' ? '正常' : '禁用' }}
+            <el-tag :type="scope.row.status === 1 ? 'success' : 'info'">
+              {{ scope.row.status === 1 ? '正常' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -37,7 +37,7 @@
               @click="toggleUserStatus(scope.row)"
               :disabled="scope.row.role === 'admin'"
             >
-              {{ scope.row.status === 'active' ? '禁用' : '启用' }}
+              {{ scope.row.status === 1 ? '禁用' : '启用' }}
             </el-button>
           </template>
         </el-table-column>
@@ -94,8 +94,8 @@ export default {
     
     // 切换用户状态
     toggleUserStatus(user) {
-      const newStatus = user.status === 'active' ? 'inactive' : 'active'
-      const statusText = newStatus === 'active' ? '启用' : '禁用'
+      const newStatus = user.status === 1 ? 0 : 1
+      const statusText = newStatus === 1 ? '启用' : '禁用'
       
       this.$confirm(`确定要${statusText}用户 ${user.username} 吗?`, '提示', {
         confirmButtonText: '确定',

@@ -44,6 +44,19 @@ export default new Vuex.Store({
                         const { token, user } = response.data
                         commit('setToken', token)
                         commit('setUser', user)
+                        
+                        // 登录成功后触发事件，通知应用加载模块
+                        setTimeout(() => {
+                            try {
+                                console.log('登录成功，触发auth-changed事件');
+                                if (Vue.prototype.$eventBus) {
+                                    Vue.prototype.$eventBus.$emit('auth-changed');
+                                }
+                            } catch (e) {
+                                console.error('触发事件失败', e);
+                            }
+                        }, 100);
+                        
                         resolve(response)
                     })
                     .catch(error => {
@@ -58,6 +71,19 @@ export default new Vuex.Store({
                         const { token, user } = response.data
                         commit('setToken', token)
                         commit('setUser', user)
+                        
+                        // 注册成功后触发事件，通知应用加载模块
+                        setTimeout(() => {
+                            try {
+                                console.log('注册成功，触发auth-changed事件');
+                                if (Vue.prototype.$eventBus) {
+                                    Vue.prototype.$eventBus.$emit('auth-changed');
+                                }
+                            } catch (e) {
+                                console.error('触发事件失败', e);
+                            }
+                        }, 100);
+                        
                         resolve(response)
                     })
                     .catch(error => {

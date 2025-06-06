@@ -5,6 +5,13 @@ import store from './store'
 import axios from 'axios'
 import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
+// 导入全局主题样式
+import './assets/css/theme.css'
+// 导入布局优化样式
+import './assets/css/layout.css'
+
+// 添加全局事件总线
+Vue.prototype.$eventBus = new Vue()
 
 // 使用ElementUI
 Vue.use(ElementUI)
