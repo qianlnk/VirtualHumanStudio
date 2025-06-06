@@ -5,15 +5,21 @@ import (
 	"log"
 	"os"
 
-	"VirtualHumanStudio/backend/config"
-	"VirtualHumanStudio/backend/controllers"
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/middleware"
-	"VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/controllers"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/redis"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
+	"github.com/qianlnk/VirtualHumanStudio/backend/storages"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// 全局变量
+var membershipController *controllers.MembershipController
 
 func main() {
 	// 加载配置
@@ -40,13 +46,58 @@ func main() {
 		&models.TTSTask{},
 		&models.DigitalHuman{},
 		&models.VoiceLibrary{},
+		&models.ComfyUITask{},
+		&models.Accessory{},
+		&models.Message{},
+		&models.UserLoginLog{},
+		&models.ModuleUsageLog{},
+		&models.DailyStatistics{},
+		&models.Membership{},
+		&models.MembershipPlan{},
+		&models.MembershipOrder{},
+		&controllers.UserUsage{},
+		&models.ShareTask{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
 	}
 
 	// 初始化Redis
-	middleware.InitRedis()
+	redis.InitRedis()
+	middleware.Init()
+	middleware.InitRateLimiter()
+
+	// 初始队列消费者
+	controllers.InitVoiceCloneQueueConsumer()
+	controllers.InitTTSQueueConsumer()
+	controllers.InitASRQueueConsumer()
+	controllers.InitDigitalHumanConsumer()
+	controllers.InitImageProcessingConsumer()
+
+	// 初始化Promptt
+	controllers.InitPromptt()
+
+	// 初始化会员控制器
+	membershipController = controllers.NewMembershipController(db.GetDB())
+
+	// 初始化存储
+	switch config.AppConfig.StorageType {
+	case "cos":
+		storages.Client, err = storages.NewCOS(config.AppConfig.CosStorage)
+	case "fs":
+		storages.Client, err = storages.NewFS(config.AppConfig.FsStorage)
+	}
+	if err != nil {
+		log.Fatalf("初始化存储失败: %v", err)
+	}
+	err = storages.Client.Init()
+	if err != nil {
+		log.Fatalf("初始化存储失败: %v", err)
+	}
+
+	// 初始化会员服务
+	membershipService := services.NewMembershipService(db.GetDB())
+	middleware.SetMembershipService(membershipService)
 
 	// 创建Gin引擎
 	gin.SetMode(gin.ReleaseMode)
@@ -63,6 +114,7 @@ func main() {
 
 	// 静态文件服务
 	router.Static("/uploads", config.AppConfig.UploadDir)
+	router.Static("/data", config.AppConfig.DataDir)
 
 	// 注册路由
 	registerRoutes(router)
@@ -79,6 +131,13 @@ func main() {
 func registerRoutes(router *gin.Engine) {
 	// API路由组
 	api := router.Group("/api")
+	api.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// 公开路由
 	public := api.Group("/")
@@ -86,11 +145,18 @@ func registerRoutes(router *gin.Engine) {
 		// 用户认证
 		public.POST("/register", controllers.Register)
 		public.POST("/login", controllers.Login)
+		public.GET("/file/view", controllers.FileView)
+		// 灵感页面
+		public.GET("/inspiration", controllers.GetInspirationTasks)
+		// 灵感详情页
+		public.GET("/inspiration/:id", controllers.GetInspirationDetail)
 	}
 
 	// 需要认证的路由
 	protected := api.Group("/")
 	protected.Use(middleware.JWTAuth())
+	// 添加统计中间件
+	protected.Use(middleware.StatisticsMiddleware())
 	{
 		// 用户相关
 		protected.GET("/user", controllers.GetUserInfo)
@@ -99,32 +165,98 @@ func registerRoutes(router *gin.Engine) {
 		protected.PUT("/user/password", controllers.ChangePassword)
 
 		// 音色克隆
-		protected.POST("/voice/clone", controllers.CreateVoiceClone)
+		// 添加限制中间件
+		protected.POST("/voice/clone", middleware.RateLimiter(string(models.FeatureVoiceClone)), middleware.VoiceCloneCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateVoiceClone)
 		protected.GET("/voice/clone/:id", controllers.GetVoiceClone)
 		protected.GET("/voice/clones", controllers.ListVoiceClones)
 		protected.DELETE("/voice/clone/:id", controllers.DeleteVoiceClone)
 		protected.POST("/voice/clone/:id/retry", controllers.RetryVoiceClone)
+		protected.GET("/voice/clone/queue/status", controllers.GetVoiceCloneQueueStatus)
+		protected.POST("/voice/clone/:id/add_to_library", controllers.AddVoiceToLibrary) // 添加到音色库
 
 		// 音色库
 		protected.POST("/voice/upload", controllers.UploadVoice)
 		protected.GET("/voices", controllers.ListVoices)
 		protected.DELETE("/voice/:id", controllers.DeleteVoice)
-		protected.GET("/voice/:id/download", controllers.DownloadVoice)
 
 		// TTS
-		protected.POST("/tts", controllers.CreateTTSTask)
+		protected.POST("/tts", middleware.TTSCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateTTSTask)
 		protected.GET("/tts/:id", controllers.GetTTSTask)
 		protected.GET("/tts", controllers.ListTTSTasks)
 		protected.DELETE("/tts/:id", controllers.DeleteTTSTask)
-		protected.GET("/tts/:id/download", controllers.DownloadTTSOutput)
+
+		// ASR
+		protected.POST("/asr", middleware.RateLimiter(string(models.FeatureASR)), middleware.ASRCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateASRTask)
+		protected.GET("/asr/:id", controllers.GetASRTask)
+		protected.GET("/asr", controllers.ListASRTasks)
+		protected.DELETE("/asr/:id", controllers.DeleteASRTask)
 
 		// 数字人
-		protected.POST("/digital-human", controllers.CreateDigitalHuman)
+		protected.POST("/digital-human", middleware.RateLimiter(string(models.FeatureDigitalHuman)), middleware.DigitalHumanCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateDigitalHuman)
 		protected.GET("/digital-human/:id", controllers.GetDigitalHuman)
 		protected.GET("/digital-human/:id/progress", controllers.QueryDigitalHumanProgress)
 		protected.GET("/digital-human", controllers.ListDigitalHumans)
 		protected.DELETE("/digital-human/:id", controllers.DeleteDigitalHuman)
-		protected.GET("/digital-human/:id/download", controllers.DownloadDigitalHumanResult)
+
+		// 文件处理
+		// protected.GET("/file/view", controllers.FileView)
+
+		// comfyui相关功能
+		// 饰品替换，输入白底图片和模特物品图片，蒙版图，输出替换后的图片
+		protected.POST("/accessory", controllers.CreateAccessory)
+		protected.GET("/accessory/:id", controllers.GetAccessory)
+		protected.GET("/accessory", controllers.ListAccessories)
+		protected.DELETE("/accessory/:id", controllers.DeleteAccessory)
+
+		// 图像处理API
+		protected.GET("/image-processing/modules", controllers.GetImageProcessingModules)
+		protected.GET("/image-processing/tasks/:moduleId", controllers.GetImageProcessingTasks)
+		protected.POST("/image-processing/tasks/:moduleId", middleware.RateLimiter(string(models.FeatureImageProcess)), middleware.ImageProcessCheck(), middleware.IncrementFeatureUsage(0), controllers.CreateImageProcessingTask)
+		protected.GET("/image-processing/tasks/:moduleId/:taskId", controllers.GetImageProcessingTask)
+		protected.DELETE("/image-processing/tasks/:moduleId/:taskId", controllers.DeleteImageProcessingTask)
+		protected.POST("/image-processing/tasks/:moduleId/:taskId/retry", controllers.RetryImageProcessingTask)
+
+		// 留言
+		protected.POST("/message", controllers.CreateMessage)
+		protected.GET("/message/:id", controllers.GetMessage)
+		protected.GET("/messages", controllers.ListMessages)
+		protected.DELETE("/message/:id", controllers.DeleteMessage)
+
+		// 保护路由中添加分享功能
+		protected.POST("/share", controllers.ShareTask)
+
+		// 点赞
+		protected.POST("/share/like", controllers.CreateShareTaskLike)
+		protected.DELETE("/share/like/:share_task_id", controllers.DeleteShareTaskLike)
+
+		// 收藏
+		protected.POST("/share/favorite", controllers.CreateShareTaskFavorite)
+		protected.DELETE("/share/favorite/:share_task_id", controllers.DeleteShareTaskFavorite)
+
+		// 评论
+		protected.POST("/share/comment", controllers.CreateShareTaskComment)
+		protected.DELETE("/share/comment/:share_task_comment_id", controllers.DeleteShareTaskComment)
+
+		// 获取点赞列表
+		protected.GET("/share/likes/:share_task_id", controllers.GetShareTaskLikes)
+
+		// 获取收藏列表
+		protected.GET("/share/favorites/:share_task_id", controllers.GetShareTaskFavorites)
+
+		// 获取评论列表
+		protected.GET("/share/comments/:share_task_id", controllers.GetShareTaskComments)
+	}
+
+	// 会员中心路由
+	membershipAPI := api.Group("/membership")
+	{
+		membershipAPI.GET("/plans", membershipController.GetMembershipPlans)
+		membershipAPI.GET("/user", middleware.JWTAuth(), membershipController.GetUserMembership)
+		membershipAPI.POST("/purchase", middleware.JWTAuth(), membershipController.PurchaseMembership)
+		membershipAPI.POST("/cancel", middleware.JWTAuth(), membershipController.CancelAutoRenew)
+		membershipAPI.GET("/daily-usage", middleware.JWTAuth(), membershipController.GetDailyUsage)
+		membershipAPI.GET("/pending-orders", middleware.JWTAuth(), membershipController.GetUserPendingOrders)
+		membershipAPI.GET("/orders/history", middleware.JWTAuth(), membershipController.GetUserOrderHistory)
 	}
 
 	// 管理员路由
@@ -134,5 +266,24 @@ func registerRoutes(router *gin.Engine) {
 		// 用户管理
 		admin.GET("/users", controllers.ListUsers)
 		admin.PUT("/user/:id/status", controllers.UpdateUserStatus)
+
+		// 留言管理
+		admin.PUT("/message/:id/read", controllers.MarkMessageAsRead)
+		admin.PUT("/message/:id/reply", controllers.ReplyMessage)
+
+		// 统计数据API
+		admin.GET("/statistics/users", controllers.GetUserStatistics)
+		admin.GET("/statistics/modules", controllers.GetModuleUsageStatistics)
+		admin.GET("/statistics/login-logs", controllers.GetUserLoginLogs)
+
+		// 会员订单管理
+		admin.GET("/membership/orders/pending", membershipController.GetAllPendingOrders)
+		admin.POST("/membership/orders/:id/approve", membershipController.ApproveOrder)
+		admin.POST("/membership/orders/:id/reject", membershipController.RejectOrder)
+		admin.GET("/membership/orders", membershipController.GetAllOrders)
+
+		// 管理员路由中添加审核功能
+		admin.GET("/review/pending", controllers.GetPendingReviewTasks)
+		admin.POST("/review", controllers.ReviewTask)
 	}
 }

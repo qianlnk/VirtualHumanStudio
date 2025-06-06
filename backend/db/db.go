@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
 
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
+	// "gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -47,6 +49,22 @@ func InitDB() error {
 		})
 		if err != nil {
 			return fmt.Errorf("无法连接SQLite数据库: %v", err)
+		}
+
+		// 自动迁移数据库表结构
+		err = DB.AutoMigrate(
+			&models.User{},
+			&models.VoiceClone{},
+			&models.TTSTask{},
+			&models.DigitalHuman{},
+			&models.ASRTask{},             // 添加ASR任务表迁移
+			&models.ComfyUIWorkflowTask{}, // 添加通用工作流任务表迁移
+			&models.ShareTaskLike{},
+			&models.ShareTaskFavorite{},
+			&models.ShareTaskComment{},
+		)
+		if err != nil {
+			return fmt.Errorf("数据库迁移失败: %v", err)
 		}
 
 		fmt.Println("已连接SQLite数据库:", config.AppConfig.SQLitePath)
@@ -87,4 +105,9 @@ func MigrateDB(models ...interface{}) error {
 
 	fmt.Println("数据库迁移成功")
 	return nil
+}
+
+// GetDB 返回数据库连接
+func GetDB() *gorm.DB {
+	return DB
 }

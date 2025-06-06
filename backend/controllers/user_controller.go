@@ -5,14 +5,15 @@ import (
 	"net/http"
 	"time"
 
-	"VirtualHumanStudio/backend/db"
-	"VirtualHumanStudio/backend/middleware"
-	"VirtualHumanStudio/backend/models"
-	"VirtualHumanStudio/backend/utils"
+	"github.com/qianlnk/VirtualHumanStudio/backend/db"
+	"github.com/qianlnk/VirtualHumanStudio/backend/middleware"
+	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/services"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 // RegisterRequest 用户注册请求
@@ -36,6 +37,7 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 	Phone     string    `json:"phone"`
 	Role      string    `json:"role"`
+	Status    int       `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -53,7 +55,8 @@ func Register(c *gin.Context) {
 	if result.Error == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
 		return
-	} else if result.Error != gorm.ErrRecordNotFound {
+	} else if result.Error.Error() != gorm.ErrRecordNotFound.Error() {
+		fmt.Println(result.Error, "====", gorm.ErrRecordNotFound)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询错误"})
 		return
 	}
@@ -98,6 +101,7 @@ func Register(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		},
 	})
@@ -141,6 +145,12 @@ func Login(c *gin.Context) {
 	user.LastLoginIP = c.ClientIP()
 	db.DB.Save(&user)
 
+	// 记录用户登录统计
+	_ = services.RecordUserLogin(user.ID, user.Username, c.ClientIP())
+
+	// 尝试更新每日统计数据
+	go services.UpdateDailyStatistics()
+
 	// 生成JWT令牌
 	token, err := middleware.GenerateToken(user)
 	if err != nil {
@@ -158,6 +168,7 @@ func Login(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		},
 	})
@@ -205,6 +216,7 @@ func GetUserInfo(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		},
 	})
@@ -260,6 +272,7 @@ func UpdateUserInfo(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		},
 	})
@@ -350,6 +363,7 @@ func ListUsers(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		}
 	}
@@ -374,11 +388,17 @@ func UpdateUserStatus(c *gin.Context) {
 
 	// 获取请求参数
 	var req struct {
-		Status int `json:"status" binding:"required,oneof=0 1"` // 0: 禁用, 1: 正常
+		Status *int `json:"status" binding:"required"` // 使用指针类型避免0值被忽略
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求参数无效: " + err.Error()})
+		return
+	}
+
+	// 验证状态值
+	if *req.Status != 0 && *req.Status != 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "状态值必须为0或1"})
 		return
 	}
 
@@ -395,7 +415,7 @@ func UpdateUserStatus(c *gin.Context) {
 	}
 
 	// 更新用户状态
-	user.Status = req.Status
+	user.Status = *req.Status
 	result = db.DB.Save(&user)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新用户状态失败"})
@@ -403,7 +423,7 @@ func UpdateUserStatus(c *gin.Context) {
 	}
 
 	// 如果禁用用户，注销其令牌
-	if req.Status == 0 {
+	if *req.Status == 0 {
 		err := middleware.Logout(user.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "注销用户会话失败"})
@@ -419,6 +439,7 @@ func UpdateUserStatus(c *gin.Context) {
 			Email:     user.Email,
 			Phone:     user.Phone,
 			Role:      user.Role,
+			Status:    user.Status,
 			CreatedAt: user.CreatedAt,
 		},
 	})
