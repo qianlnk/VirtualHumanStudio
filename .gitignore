@@ -33,3 +33,5 @@ backend/backend
 backend/config.json
 backend/vhs
 backend/data/*
+data/*
+backend/config.json
