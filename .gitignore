@@ -29,3 +29,7 @@ backend/uploads/*
 # System files
 .DS_Store
 Thumbs.db
+backend/backend
+backend/config.json
+backend/vhs
+backend/data/*
