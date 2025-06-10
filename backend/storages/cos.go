@@ -76,56 +76,52 @@ func (c *COS) UploadToken(ctx context.Context, policy *PutPolicy) (method string
 
 // SaveFile 保存文件
 func (c *COS) SaveFile(ctx context.Context, key string, reader io.Reader) (err error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
+	// 检测内容类型（只读取文件开头部分）
+	buffer := make([]byte, 512)
+	n, err := reader.Read(buffer)
+	if err != nil && err != io.EOF {
 		return err
 	}
 
-	realContentType := http.DetectContentType(data)
+	realContentType := http.DetectContentType(buffer[:n])
 	realContentType = strings.Split(realContentType, ";")[0]
 
-	// opt := &cos.ObjectPutOptions{}
-	// opt.ObjectPutHeaderOptions = &cos.ObjectPutHeaderOptions{
-	// 	ContentType:   realContentType,
-	// 	ContentLength: len(data),
-	// }
+	// 重置reader，将已读取的部分与剩余内容合并
+	fullReader := io.MultiReader(bytes.NewReader(buffer[:n]), reader)
 
-	// _, err = c.client.Object.Put(ctx, key, bytes.NewReader(data), opt)
-
+	// 获取预签名URL
 	method := http.MethodPut
 	uri, err := c.client.Object.GetPresignedURL(ctx, method, key, c.config.SecretID, c.config.SecretKey, time.Second*300, nil)
 	if err != nil {
 		return err
 	}
 
-	// buf := new(bytes.Buffer)
-	// w := multipart.NewWriter(buf)
-
-	// w.WriteField("key", key)
-	// fw, err := w.CreateFormFile("file", key)
-	// fw.Write(data)
-	//w.WriteField("file", string(data))
-	// w.WriteField("Content-Type", realContentType)
-	// w.WriteField("success_action_status", "200")
-
-	req, err := http.NewRequest(method, uri.String(), bytes.NewReader(data))
+	// 创建请求，使用流式reader而不是加载整个文件到内存
+	req, err := http.NewRequest(method, uri.String(), fullReader)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", realContentType)
+
+	// 使用默认客户端发送请求
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer res.Body.Close()
-	data, err = io.ReadAll(res.Body)
+
+	// 只读取响应体，不需要存储整个响应数据
 	if res.StatusCode != 200 {
-		err = fmt.Errorf("%d %s", res.StatusCode, string(data))
+		respData, _ := io.ReadAll(res.Body)
+		err = fmt.Errorf("%d %s", res.StatusCode, string(respData))
+		return err
 	}
 
-	return
+	// 丢弃响应体
+	_, err = io.Copy(io.Discard, res.Body)
+	return err
 }
 
 // FetchFile 获取文件

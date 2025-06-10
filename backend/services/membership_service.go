@@ -159,6 +159,16 @@ func (s *MembershipServiceImpl) GetMembershipInfo(userID uint) (*models.Membersh
 
 // CheckFeatureUsageLimit 检查特定功能的使用限制
 func (s *MembershipServiceImpl) CheckFeatureUsageLimit(userID uint, featureType models.FeatureType) (bool, string, error) {
+	// 判断是否管理员
+	var user models.User
+	if err := s.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		return false, "获取用户信息失败", err
+	}
+	// 管理员不限制
+	if user.Role == "admin" {
+		return true, "", nil
+	}
+
 	// 获取会员信息
 	fmt.Println("============", featureType)
 	var membership models.Membership

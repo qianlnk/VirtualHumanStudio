@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -246,8 +245,11 @@ func processASRTask(ctx context.Context, taskID uint) error {
 	}
 	// 更新状态为处理中
 	db.DB.Model(&task).Update("status", "processing")
+
+	logrus.Infof("Processing ASR task: %s", utils.ToJSONString(task))
+
 	// 调用ASR服务
-	audioFile, err := os.Open(filepath.Join(config.AppConfig.DataDir, task.InputFile))
+	audioFile, err := storages.Client.OpenFile(context.Background(), task.InputFile)
 	if err != nil {
 		db.DB.Model(&task).Updates(map[string]interface{}{
 			"status":    "failed",
@@ -420,9 +422,8 @@ func DeleteASRTask(c *gin.Context) {
 
 	// 删除关联的音频文件
 	if task.InputFile != "" {
-		filePath := filepath.Join(config.AppConfig.DataDir, task.InputFile)
-		if err := os.Remove(filePath); err != nil {
-			// 仅记录错误，不影响任务删除
+		// 删除文件
+		if err := storages.Client.Delete(context.Background(), task.InputFile); err != nil {
 			logrus.Errorf("Error deleting input file: %v", err)
 		}
 	}
