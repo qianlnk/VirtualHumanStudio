@@ -67,6 +67,8 @@ type Config struct {
 	StorageType string             `json:"storage_type"` // 存储类型
 	CosStorage  storages.COSConfig `json:"cos_storage"`  // 存储配置
 	FsStorage   storages.FSConfig  `json:"fs_storage"`   // 存储配置
+	ObsStorage  storages.OBSConfig `json:"obs_storage"`  // 存储配置
+	TosStorage  storages.TOSConfig `json:"tos_storage"`  // 存储配置
 }
 
 type Promptt struct {

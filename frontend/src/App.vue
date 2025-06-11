@@ -207,7 +207,7 @@ import { mapGetters } from 'vuex'
 import { getImageProcessingModules } from './api/modules'
 
 export default {
-  name: 'App',
+  name: 'VHS APP',
   data() {
     return {
       activeIndex: this.$route.path,

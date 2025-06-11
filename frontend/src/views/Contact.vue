@@ -169,7 +169,7 @@
 import { createMessage } from '@/api/message'
 
 export default {
-  name: 'Contact',
+  name: 'ContactView',
   data() {
     return {
       submitting: false,

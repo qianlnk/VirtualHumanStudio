@@ -60,7 +60,7 @@
 
 <script>
 export default {
-  name: 'Landing',
+  name: 'LandingView',
   data() {
     return {
       showMobileMenu: false,

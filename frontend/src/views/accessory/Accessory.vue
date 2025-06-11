@@ -197,7 +197,7 @@ import axios from 'axios'
 import { getImageUrl } from '@/utils/fileAccess'
 
 export default {
-  name: 'Accessory',
+  name: 'AccessoryView',
   watch: {
     // 监听笔刷属性变化，更新鼠标样式
     brushMode() {

@@ -129,7 +129,7 @@
 import axios from 'axios'
 import { getDirectFileUrl } from '@/utils/fileAccess'
 export default {
-  name: 'Inspiration',
+  name: 'InspirationView',
   data() {
     return {
       tasks: [],

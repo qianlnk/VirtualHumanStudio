@@ -38,7 +38,7 @@ Vue.use(VueRouter)
 const baseRoutes = [
     {
         path: '/',
-        name: 'Landing',
+        name: 'LandingView',
         component: Landing,
         beforeEnter: (to, from, next) => {
             const token = localStorage.getItem('token')
@@ -51,7 +51,7 @@ const baseRoutes = [
     },
     {
         path: '/home',
-        name: 'Home',
+        name: 'HomeView',
         component: Home,
         meta: { requiresAuth: true },
         beforeEnter: (to, from, next) => {
@@ -66,7 +66,7 @@ const baseRoutes = [
     },
     {
         path: '/inspiration',
-        name: 'Inspiration',
+        name: 'InspirationView',
         component: Inspiration
     },
     {

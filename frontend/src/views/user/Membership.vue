@@ -420,7 +420,7 @@ import {
 } from '@/api/membership'
 
 export default {
-  name: 'Membership',
+  name: 'MembershipView',
   data() {
     return {
       // 会员数据

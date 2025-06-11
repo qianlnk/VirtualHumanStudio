@@ -35,3 +35,6 @@ backend/vhs
 backend/data/*
 data/*
 backend/config.json
+backend/storages/obs_test.go
+backend/storages/cos_test.go
+backend/storages/tos_test.go

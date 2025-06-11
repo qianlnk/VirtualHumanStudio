@@ -47,7 +47,7 @@
 
 <script>
 export default {
-    name: 'Register',
+    name: 'RegisterView',
     data() {
         // 确认密码验证
         const validateConfirmPassword = (rule, value, callback) => {

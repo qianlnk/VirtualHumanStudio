@@ -86,6 +86,10 @@ func main() {
 		storages.Client, err = storages.NewCOS(config.AppConfig.CosStorage)
 	case "fs":
 		storages.Client, err = storages.NewFS(config.AppConfig.FsStorage)
+	case "obs":
+		storages.Client, err = storages.NewOBS(config.AppConfig.ObsStorage)
+	case "tos":
+		storages.Client, err = storages.NewTOS(config.AppConfig.TosStorage)
 	}
 	if err != nil {
 		log.Fatalf("初始化存储失败: %v", err)

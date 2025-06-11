@@ -223,7 +223,22 @@ func (c *COS) List(ctx context.Context, prefix string, offset int, limit int) (i
 		MaxKeys: offset + limit,
 	}
 
-	c.client.Bucket.Get(ctx, opt)
+	res, resp, err := c.client.Bucket.Get(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("get list fail: %v", resp.Status)
+	}
+
+	for _, o := range res.Contents {
+		infos = append(infos, FileInfo{
+			Bucket: c.config.Bucket,
+			Name:   o.Key,
+			Hash:   o.ETag,
+		})
+	}
 	return
 }
 
