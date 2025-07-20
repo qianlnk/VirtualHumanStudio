@@ -62,7 +62,7 @@
             <h3>输入参数</h3>
             <div class="params-container">
               <template v-if="task && task.input_params">
-                <div v-for="(param, index) in parseInputParams()" :key="'input-'+index" class="param-item">
+                <div v-for="(param, index) in parseInputParams()" :key="'input-'+index" class="param-item" :data-key="'input-'+index">
                   <div class="param-header">
                     <span class="param-name">{{ param.alias || param.key }}:</span>
                   </div>
@@ -71,6 +71,18 @@
                     <div v-if="param.type === 'image' || param.type === 'mask'" class="image-param">
                       <img :src="param.value" :alt="param.alias || param.key" class="param-image" @click="previewImage(param.value)">
                     </div>
+                    <!-- 视频类型参数 -->
+                    <div v-else-if="param.type === 'video'" class="video-param">
+                      <video
+                        controls
+                        style="width: 100%; max-height: 400px"
+                        ref="videoPlayer"
+                      >
+                        <source :src="param.value" type="video/mp4">
+                        您的浏览器不支持视频播放
+                      </video>
+                    </div>
+                    
                     <!-- 其他类型参数 -->
                     <div v-else class="text-param">
                       {{ param.value }}
@@ -89,7 +101,7 @@
             <h3>处理结果</h3>
             <div class="result-container">
               <template v-if="task && task.output_params">
-                <div v-for="(param, index) in parseOutputParams()" :key="'output-'+index" class="result-item">
+                <div v-for="(param, index) in parseOutputParams()" :key="'output-'+index" class="result-item" :data-key="'output-'+index">
                   <div class="result-header">
                     <span class="result-name">{{ param.alias || param.key }}:</span>
                   </div>
@@ -178,7 +190,7 @@
             <h4 class="section-title">输入参数</h4>
             <div class="mobile-params">
               <template v-if="task && task.input_params">
-                <div v-for="(param, index) in parseInputParams()" :key="'mobile-input-'+index" class="mobile-param-item">
+                <div v-for="(param, index) in parseInputParams()" :key="'mobile-input-'+index" class="mobile-param-item" :data-key="'mobile-input-'+index">
                   <div class="mobile-param-header">
                     <span class="mobile-param-name">{{ param.alias || param.key }}:</span>
                   </div>
@@ -186,6 +198,18 @@
                   <div v-if="param.type === 'image' || param.type === 'mask'" class="mobile-image-param">
                     <img :src="param.value" :alt="param.alias || param.key" class="mobile-param-image" @click="previewImage(param.value)">
                   </div>
+                  <!-- 视频类型参数 -->
+                  <div v-else-if="param.type === 'video'" class="mobile-video-param">
+                    <video
+                      controls
+                      style="width: 100%; max-height: 200px"
+                      class="mobile-video"
+                      :src="param.value"
+                    >
+                      您的浏览器不支持视频播放
+                    </video>
+                  </div>
+                  
                   <!-- 其他类型参数 -->
                   <div v-else class="mobile-text-param">
                     {{ param.value }}
@@ -203,7 +227,7 @@
             <h4 class="section-title">处理结果</h4>
             <div class="mobile-results">
               <template v-if="task && task.output_params">
-                <div v-for="(param, index) in parseOutputParams()" :key="'mobile-output-'+index" class="mobile-result-item">
+                <div v-for="(param, index) in parseOutputParams()" :key="'mobile-output-'+index" class="mobile-result-item" :data-key="'mobile-output-'+index">
                   <div class="mobile-result-header">
                     <span class="mobile-result-name">{{ param.alias || param.key }}:</span>
                   </div>
@@ -389,7 +413,7 @@ export default {
       // 缓存已加载的URL，避免重复请求
       const urlCache = {}
 
-      const updateParam = async (param) => {
+      const updateParam = async (param, paramIndex, isInput = true) => {
         if (!param.value) return param
         
         // 检查URL是否已经是blob URL，如果是则不需要再次请求
@@ -413,16 +437,69 @@ export default {
           // 根据参数类型更新DOM
           this.$nextTick(() => {
             if (param.type === 'image' || param.type === 'mask') {
-              const imgElement = this.$el.querySelector(`img[alt="${param.alias || param.key}"]`)
+              // 使用更精确的选择器，包含参数索引
+              const selector = isInput 
+                ? `[data-key="input-${paramIndex}"] img[alt="${param.alias || param.key}"]`
+                : `[data-key="output-${paramIndex}"] img[alt="${param.alias || param.key}"]`
+              const mobileSelector = isInput 
+                ? `[data-key="mobile-input-${paramIndex}"] img[alt="${param.alias || param.key}"]`
+                : `[data-key="mobile-output-${paramIndex}"] img[alt="${param.alias || param.key}"]`
+              
+              // 更新PC端元素
+              const imgElement = this.$el.querySelector(selector)
               if (imgElement && imgElement.src !== param.value) {
                 imgElement.src = param.value
               }
+              
+              // 更新移动端元素
+              const mobileImgElement = this.$el.querySelector(mobileSelector)
+              if (mobileImgElement && mobileImgElement.src !== param.value) {
+                mobileImgElement.src = param.value
+              }
             } else if (param.type === 'video') {
-              const videoElement = this.$el.querySelector(`video source[type="video/mp4"]`)
+              // 使用更精确的选择器，包含参数索引和类型
+              const selector = isInput 
+                ? `[data-key="input-${paramIndex}"] video source[type="video/mp4"]`
+                : `[data-key="output-${paramIndex}"] video source[type="video/mp4"]`
+              const mobileSelector = isInput 
+                ? `[data-key="mobile-input-${paramIndex}"] video`
+                : `[data-key="mobile-output-${paramIndex}"] video source[type="video/mp4"]`
+              
+              console.log(`查找视频元素 - 参数: ${param.key}, 类型: ${isInput ? 'input' : 'output'}, 索引: ${paramIndex}`)
+              console.log(`PC端选择器: ${selector}`)
+              console.log(`移动端选择器: ${mobileSelector}`)
+              
+              // 更新PC端元素
+              const videoElement = this.$el.querySelector(selector)
+              console.log(`PC端视频元素:`, videoElement)
               if (videoElement && videoElement.src !== param.value) {
+                console.log(`更新PC端视频URL: ${videoElement.src} -> ${param.value}`)
                 videoElement.src = param.value
                 // 重新加载视频
                 videoElement.parentElement.load()
+              }
+              
+              // 更新移动端元素
+              const mobileVideoElement = this.$el.querySelector(mobileSelector)
+              console.log(`移动端视频元素:`, mobileVideoElement)
+              if (mobileVideoElement) {
+                if (isInput) {
+                  // 移动端输入参数使用:src属性
+                  if (mobileVideoElement.src !== param.value) {
+                    console.log(`更新移动端输入视频URL: ${mobileVideoElement.src} -> ${param.value}`)
+                    mobileVideoElement.src = param.value
+                    mobileVideoElement.load()
+                  }
+                } else {
+                  // 移动端输出参数使用source标签
+                  const mobileSourceElement = mobileVideoElement.querySelector('source[type="video/mp4"]')
+                  console.log(`移动端输出source元素:`, mobileSourceElement)
+                  if (mobileSourceElement && mobileSourceElement.src !== param.value) {
+                    console.log(`更新移动端输出视频URL: ${mobileSourceElement.src} -> ${param.value}`)
+                    mobileSourceElement.src = param.value
+                    mobileVideoElement.load()
+                  }
+                }
               }
             }
           })
@@ -440,18 +517,24 @@ export default {
       try {
         // 处理输入参数中的图片和视频
         const inputParams = this.parseInputParams()
-        for (const param of inputParams) {
+        console.log('输入参数:', inputParams)
+        for (let i = 0; i < inputParams.length; i++) {
+          const param = inputParams[i]
           if (param.type === 'image' || param.type === 'mask' || param.type === 'video') {
-            await updateParam(param)
+            console.log(`处理输入参数 ${i}:`, param.key, param.type, param.value)
+            await updateParam(param, i, true)
           }
         }
 
         // 处理输出参数中的图片和视频，只有当任务完成且有输出参数时才处理
         if (this.task.status === 'completed' && this.task.output_params) {
           const outputParams = this.parseOutputParams()
-          for (const param of outputParams) {
+          console.log('输出参数:', outputParams)
+          for (let i = 0; i < outputParams.length; i++) {
+            const param = outputParams[i]
             if (param.type === 'image' || param.type === 'video') {
-              await updateParam(param)
+              console.log(`处理输出参数 ${i}:`, param.key, param.type, param.value)
+              await updateParam(param, i, false)
             }
           }
         }

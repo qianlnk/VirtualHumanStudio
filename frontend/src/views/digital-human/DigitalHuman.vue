@@ -146,7 +146,13 @@
             @blur="handleInputBlur"></el-input>
         </el-form-item>
         
-        <el-form-item label="音频文件" prop="audio_file">
+        <el-form-item label="音频来源">
+          <el-radio-group v-model="audioSource" @change="handleAudioSourceChange">
+            <el-radio label="local">本地上传</el-radio>
+            <el-radio label="tts">TTS语音</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="audioSource === 'local'" label="音频文件" prop="audio_file">
           <el-upload
             class="upload-demo"
             action="#"
@@ -157,6 +163,25 @@
             <el-button size="small" type="primary">选择音频文件</el-button>
             <div slot="tip" class="el-upload__tip">只能上传WAV/MP3文件</div>
           </el-upload>
+        </el-form-item>
+        <el-form-item v-if="audioSource === 'tts'" label="TTS语音" prop="tts_task_id">
+          <el-select
+            v-model="ttsTaskId"
+            filterable
+            placeholder="请选择TTS语音"
+            style="width:100%">
+            <el-option
+              v-for="task in ttsTaskList"
+              :key="task.id"
+              :label="`${task.speaker_name} - ${task.input_text.length > 50 ? task.input_text.slice(0, 50) + '...' : task.input_text}`"
+              :value="task.id"
+              :title="`${task.speaker_name} - ${task.input_text}`"
+            >
+              <span style="display:inline-block;max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" :title="`${task.speaker_name} - ${task.input_text}`">
+                {{ task.speaker_name }} - {{ task.input_text.length > 50 ? task.input_text.slice(0, 50) + '...' : task.input_text }}
+              </span>
+            </el-option>
+          </el-select>
         </el-form-item>
         
         <el-form-item label="视频文件" prop="video_file">
@@ -223,6 +248,10 @@ export default {
         audio_file: null,
         video_file: null
       },
+      // 新增字段
+      audioSource: 'local', // 'local' 或 'tts'
+      ttsTaskList: [],
+      ttsTaskId: '',
       rules: {
         name: [
           { required: true, message: '请输入任务名称', trigger: 'blur' },
@@ -233,6 +262,9 @@ export default {
         ],
         video_file: [
           { required: true, message: '请上传视频文件', trigger: 'change' }
+        ],
+        tts_task_id: [
+          { required: true, message: '请选择TTS语音', trigger: 'change' }
         ]
       },
       audioFileList: [],
@@ -613,7 +645,8 @@ export default {
       }
       this.audioFileList = []
       this.videoFileList = []
-      
+      this.audioSource = 'local'
+      this.ttsTaskId = ''
       // 如果表单引用存在，重置验证
       if (this.$refs.form) {
         this.$refs.form.resetFields()
@@ -683,12 +716,33 @@ export default {
     showCreateDialog() {
       this.dialogVisible = true
       this.resetForm()
-      
+      // 打开时拉取TTS任务
+      this.fetchTTSTasks()
       // 对话框打开时设置移动端视口
       if (this.isMobile) {
         this.$nextTick(() => {
           this.setupMobileViewport();
         });
+      }
+    },
+    // 拉取TTS任务
+    async fetchTTSTasks() {
+      try {
+        const res = await this.$http.get('/api/tts', {
+          params: { status: 'completed', page: 1, size: 100 }
+        })
+        this.ttsTaskList = res.data.tts_tasks || []
+      } catch (e) {
+        this.ttsTaskList = []
+      }
+    },
+    // 切换音频来源
+    handleAudioSourceChange(val) {
+      if (val === 'local') {
+        this.ttsTaskId = ''
+      } else if (val === 'tts') {
+        this.form.audio_file = null
+        this.audioFileList = []
       }
     },
     
@@ -736,7 +790,11 @@ export default {
     
     // 提交表单
     submitForm() {
-      this.$refs.form.validate(valid => {
+      // 只校验当前音频来源的字段
+      let fields = ['name', 'video_file']
+      if (this.audioSource === 'local') fields.push('audio_file')
+      if (this.audioSource === 'tts') fields.push('tts_task_id')
+      this.$refs.form.validateField(fields, valid => {
         if (valid) {
           this.createDigitalHuman()
         } else {
@@ -748,8 +806,6 @@ export default {
     // 创建数字人任务
     createDigitalHuman() {
       this.submitting = true
-      
-      // 创建FormData对象
       const formData = new FormData()
       formData.append('name', this.form.name)
       formData.append('description', this.form.description)
@@ -757,7 +813,11 @@ export default {
       formData.append('chaofen', this.form.chaofen)
       formData.append('watermark_switch', this.form.watermark_switch)
       formData.append('pn', this.form.pn)
-      formData.append('audio_file', this.form.audio_file)
+      if (this.audioSource === 'local') {
+        formData.append('audio_file', this.form.audio_file)
+      } else if (this.audioSource === 'tts') {
+        formData.append('tts_task_id', this.ttsTaskId)
+      }
       formData.append('video_file', this.form.video_file)
       
       // 发送请求

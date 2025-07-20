@@ -8,6 +8,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -155,16 +157,44 @@ func CreateASRTask(c *gin.Context) {
 			return
 		}
 
-		src, err := file.Open()
-		if err != nil {
-			logger.Errorf("Error opening uploaded file: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "打开上传文件失败: " + err.Error()})
-			return
-		}
-		defer src.Close()
+		videoExts := map[string]bool{".mp4": true, ".mov": true, ".avi": true, ".mkv": true}
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if videoExts[ext] {
+			// 保存临时视频文件
+			tmpVideoPath := "/tmp/" + uuid.New().String() + ext
+			if err := c.SaveUploadedFile(file, tmpVideoPath); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存临时视频文件失败: " + err.Error()})
+				return
+			}
 
-		audioReader = src
-		audioFileName = file.Filename
+			// 提取音频为wav
+			tmpAudioPath := "/tmp/" + uuid.New().String() + ".wav"
+			cmd := exec.Command("ffmpeg", "-i", tmpVideoPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tmpAudioPath)
+			if err := cmd.Run(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "提取音频失败: " + err.Error()})
+				return
+			}
+
+			f, err := os.Open(tmpAudioPath)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "打开音频文件失败: " + err.Error()})
+				return
+			}
+			defer f.Close()
+			audioReader = f
+			audioFileName = filepath.Base(tmpAudioPath)
+		} else {
+			src, err := file.Open()
+			if err != nil {
+				logger.Errorf("Error opening uploaded file: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "打开上传文件失败: " + err.Error()})
+				return
+			}
+			defer src.Close()
+
+			audioReader = src
+			audioFileName = file.Filename
+		}
 	} else {
 		// 处理音频URL
 		u, err := url.Parse(req.AudioURL)

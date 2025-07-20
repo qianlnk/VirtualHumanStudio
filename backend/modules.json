@@ -534,6 +534,37 @@
                     "description": "处理后的结果图片"
                 }
             ]
+        },
+        {
+            "id": "video_replace_face",
+            "name": "视频换脸",
+            "description": "上传视频，一键换脸",
+            "icon": "el-icon-picture",
+            "route": "/video_replace_face",
+            "inputParams": [
+                {
+                    "key": "video",
+                    "alias": "视频",
+                    "type": "video",
+                    "required": true,
+                    "description": "上传视频，一键换脸"
+                },
+                {
+                    "key": "peopleImage",
+                    "alias": "人脸图片",
+                    "type": "image",
+                    "required": true,
+                    "description": "人脸图片，一键换脸"
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "21",
+                    "alias": "结果视频",
+                    "type": "video",
+                    "description": "处理后的结果视频"
+                }
+            ]
         }
     ]
 }

@@ -33,6 +33,7 @@ type DigitalHumanRequest struct {
 	Chaofen         int    `form:"chaofen"`
 	WatermarkSwitch int    `form:"watermark_switch"`
 	PN              int    `form:"pn"`
+	TTSTaskID       string `form:"tts_task_id"`
 	// 音频和视频文件通过multipart/form-data上传
 }
 
@@ -70,18 +71,46 @@ func CreateDigitalHuman(c *gin.Context) {
 		req.TaskCode = uuid.New().String()
 	}
 
-	// 获取上传的音频文件
-	audioFile, err := c.FormFile("audio_file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "未提供音频文件"})
-		return
-	}
+	var audio io.Reader
+	var audioExt string
+	// 是否从TTS获取音频
+	if req.TTSTaskID != "" {
+		// 获取TTS任务
+		ttsTask := &models.TTSTask{}
+		result := db.DB.First(ttsTask, req.TTSTaskID)
+		if result.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "TTS任务不存在"})
+			return
+		}
+		// 获取TTS任务的音频文件
+		audioFile, err := storages.Client.OpenFile(context.Background(), ttsTask.OutputFile)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "TTS任务的音频文件不存在"})
+			return
+		}
+		audioExt = filepath.Ext(ttsTask.OutputFile)
+		audio = audioFile
+	} else {
+		// 获取上传的音频文件
+		audioFile, err := c.FormFile("audio_file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "未提供音频文件"})
+			return
+		}
 
-	// 检查音频文件类型
-	audioExt := filepath.Ext(audioFile.Filename)
-	if audioExt != ".wav" && audioExt != ".mp3" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV或MP3格式的音频文件"})
-		return
+		// 检查音频文件类型
+		audioExt := filepath.Ext(audioFile.Filename)
+		if audioExt != ".wav" && audioExt != ".mp3" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV或MP3格式的音频文件"})
+			return
+		}
+
+		tmpFile, err := audioFile.Open()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "打开音频文件失败: " + err.Error()})
+			return
+		}
+		audio = tmpFile
 	}
 
 	// 获取上传的视频文件
@@ -103,12 +132,6 @@ func CreateDigitalHuman(c *gin.Context) {
 	audioFileName := fmt.Sprintf("%s%s", audioUniqueID, audioExt)
 	audioFilePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, audioFileName)
 
-	audio, err := audioFile.Open()
-	if err != nil {
-		log.Println("打开音频文件失败: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开音频文件失败: " + err.Error()})
-		return
-	}
 	err = storages.Client.SaveFile(context.Background(), audioFilePath, audio)
 	if err != nil {
 		log.Println("保存音频文件失败: ", err)

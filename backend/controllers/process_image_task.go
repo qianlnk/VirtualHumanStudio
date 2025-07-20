@@ -211,7 +211,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	// 替换工作流中的文件路径
 	for _, param := range inputParams {
 		// 上传文件到ComfyUI服务器
-		if param.Type == models.ParamTypeImage {
+		if param.Type == models.ParamTypeImage || param.Type == models.ParamTypeVideo {
 			fileRef, err := UploadImageToComfyUI(param.Value)
 			if err != nil {
 				task.Status = "failed"

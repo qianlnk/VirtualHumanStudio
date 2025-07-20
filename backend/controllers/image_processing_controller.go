@@ -51,7 +51,7 @@ func GetImageProcessingTask(c *gin.Context) {
 	var inputParams []*models.InputParam
 	if err := json.Unmarshal([]byte(task.InputParams), &inputParams); err == nil {
 		for _, param := range inputParams {
-			if param.Type == models.ParamTypeImage || param.Type == models.ParamTypeMask {
+			if param.Type == models.ParamTypeImage || param.Type == models.ParamTypeMask || param.Type == models.ParamTypeVideo {
 				param.Value, _ = storages.Client.GetFileUrl(context.Background(), param.Value)
 			}
 		}
@@ -242,7 +242,7 @@ func CreateImageProcessingTask(c *gin.Context) {
 
 	// 处理每个输入参数
 	for i, param := range inputParams {
-		if param.Type == models.ParamTypeImage || param.Type == models.ParamTypeMask {
+		if param.Type == models.ParamTypeImage || param.Type == models.ParamTypeMask || param.Type == models.ParamTypeVideo {
 			// 获取上传的文件
 			file, err := c.FormFile(param.Key)
 			if err != nil {
@@ -260,14 +260,14 @@ func CreateImageProcessingTask(c *gin.Context) {
 
 			// 检查文件类型
 			ext := filepath.Ext(file.Filename)
-			if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持PNG或JPG格式的图片文件"})
-				// 清理已上传的文件
-				for _, path := range uploadedFiles {
-					storages.Client.Delete(context.Background(), path)
-				}
-				return
-			}
+			// if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+			// 	c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持PNG或JPG格式的图片文件"})
+			// 	// 清理已上传的文件
+			// 	for _, path := range uploadedFiles {
+			// 		storages.Client.Delete(context.Background(), path)
+			// 	}
+			// 	return
+			// }
 
 			// 生成文件名并保存
 			uniqueID := uuid.New().String()

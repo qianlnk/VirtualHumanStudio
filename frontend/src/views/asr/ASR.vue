@@ -211,7 +211,7 @@
             </el-upload>
             <el-button size="small" type="success" @click="startRecording" v-if="!isRecording">录制</el-button>
             <el-button size="small" type="danger" @click="stopRecording" v-if="isRecording">停止录制</el-button>
-            <div slot="tip" class="el-upload__tip">只能上传mp3/wav/m4a格式的音频文件，且不超过50MB</div>
+            <div slot="tip" class="el-upload__tip">支持MP3、WAV音频或MP4、MOV等视频，不超过50MB</div>
           </div>
           <!-- 录音预览 - 改进播放控件布局 -->
           <div v-if="recordedAudio" class="recorded-audio-preview">
@@ -632,29 +632,23 @@ export default {
       }
     },
 
-    // 上传前验证
-    beforeUpload(file) {
-      // 检查文件类型和扩展名
-      const validMimeTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/m4a']
-      const isAudioType = validMimeTypes.includes(file.type)
-      const fileName = file.name.toLowerCase()
-      const isValidExtension = fileName.endsWith('.mp3') || fileName.endsWith('.wav') || fileName.endsWith('.m4a')
-      const isLt50M = file.size / 1024 / 1024 < 50
+  // 上传前检查
+beforeUpload(file) {
+  const isAudio = file.type.includes('audio');
+  const isVideo = file.type.includes('video');
+  const isLt50M = file.size / 1024 / 1024 < 50;
 
-      if (!isAudioType || !isValidExtension) {
-        let errorMsg = '只能上传MP3/WAV/M4A格式的音频文件！'
-        if (!isAudioType) {
-          errorMsg += `\n检测到的文件类型: ${file.type || '未知'}`
-        }
-        this.$message.error(errorMsg)
-        return false
-      }
-      if (!isLt50M) {
-        this.$message.error('音频文件大小不能超过50MB！')
-        return false
-      }
-      return true
-    },
+  if (!isAudio && !isVideo) {
+    this.$message.error('只能上传音频或视频文件!');
+    return false;
+  }
+  if (!isLt50M) {
+    this.$message.error('文件大小不能超过 50MB!');
+    return false;
+  }
+
+  return (isAudio || isVideo) && isLt50M;
+},
 
     // 自定义上传
     uploadAudio(params) {

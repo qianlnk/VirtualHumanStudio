@@ -344,6 +344,21 @@
                     :disabled="!form.params[param.key.replace('Mask', '')]">编辑蒙版</el-button>
                 </div>
               </template>
+
+              <!-- 视频类型参数 -->
+              <template v-else-if="param.type === 'video'">
+                <el-upload
+                  class="upload-item"
+                  action="#"
+                  :auto-upload="false"
+                  :on-change="(file, fileList) => handleVideoChange(file, fileList, param.key)"
+                  :show-file-list="true"
+                  accept="video/*"
+                  :limit="1">
+                  <el-button size="small" type="primary">选择视频</el-button>
+                  <div slot="tip" class="el-upload__tip">{{ param.description }}</div>
+                </el-upload>
+              </template>
             </el-form-item>
             <!-- 对于hide=true的参数，仍然设置其默认值但不显示在UI上 -->
             <div v-else style="display: none;"></div>
@@ -1639,7 +1654,7 @@ export default {
               }
               
               // 如果是文件类型参数，直接添加到FormData
-              if (param.type === 'image' || param.type === 'mask') {
+              if (param.type === 'image' || param.type === 'mask' || param.type === 'video') {
                 formData.append(param.key, value)
                 // 设置参数值为文件路径（将在后端处理）
                 paramObj.value = ''
@@ -2180,6 +2195,18 @@ export default {
       this.currentPage = page
       this.fetchTasks()
     },
+
+    handleVideoChange(file, fileList, key) {
+      // file.raw 是 File 类型
+      if (file && file.raw) {
+        this.$set(this.form.params, key, file.raw)
+      } else if (fileList && fileList.length > 0 && fileList[0].raw) {
+        // 兜底：取 fileList 第一个
+        this.$set(this.form.params, key, fileList[0].raw)
+      } else {
+        this.$set(this.form.params, key, null)
+      }
+    }
   }
 }
 </script>

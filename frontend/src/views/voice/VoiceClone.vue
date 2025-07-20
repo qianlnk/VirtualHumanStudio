@@ -165,7 +165,7 @@
                 :before-upload="beforeUpload">
                 <el-button size="small" type="primary">选择文件</el-button>
               </el-upload>
-              <div class="upload-tip">支持mp3/wav格式，不超过50MB</div>
+              <div class="upload-tip">支持MP3、WAV音频或MP4、MOV等视频，不超过50MB</div>
             </div>
             
             <div v-if="form.audio_file" class="audio-selected">
@@ -197,7 +197,7 @@
         <el-form-item label="提示文本" prop="prompt_text">
           <el-input 
             type="textarea" 
-            v-model="form.prompt_text" 
+            v-model="form.prompt_text"
             placeholder="请输入提示文本"
             :rows="3">
           </el-input>
@@ -544,7 +544,7 @@ export default {
       this.form = {
         speaker_name: '',
         audio_file: null,
-        prompt_text: ''
+        prompt_text: '这段时间天气不错，晚上散散步，吹吹风，听听音乐，心情好了不少，真舒服啊！'
       }
       this.fileList = []
       
@@ -746,18 +746,19 @@ export default {
     // 上传前检查
     beforeUpload(file) {
       const isAudio = file.type.includes('audio');
+      const isVideo = file.type.includes('video');
       const isLt50M = file.size / 1024 / 1024 < 50;
       
-      if (!isAudio) {
-        this.$message.error('只能上传音频文件!');
+      if (!isAudio && !isVideo) {
+        this.$message.error('只能上传音频或视频文件!');
         return false;
       }
       if (!isLt50M) {
-        this.$message.error('音频文件大小不能超过 50MB!');
+        this.$message.error('文件大小不能超过 50MB!');
         return false;
       }
       
-      return isAudio && isLt50M;
+      return (isAudio || isVideo) && isLt50M;
     },
     
     // 自定义上传方法

@@ -255,13 +255,19 @@ func ListTTSTasks(c *gin.Context) {
 	// 分页参数
 	page, size := utils.GetPaginationParams(c)
 
+	status := c.Param("status")
+
 	// 查询任务总数
 	var count int64
-	db.DB.Model(&models.TTSTask{}).Where("user_id = ?", userID).Count(&count)
+	tx := db.DB.Model(&models.TTSTask{}).Where("user_id = ?", userID)
+	if status != "" {
+		tx = tx.Where("status = ?", status)
+	}
+	tx.Count(&count)
 
 	// 查询任务列表
 	var ttsTasks []models.TTSTask
-	result := db.DB.Where("user_id = ?", userID).Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&ttsTasks)
+	result := tx.Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&ttsTasks)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败: " + result.Error.Error()})
 		return

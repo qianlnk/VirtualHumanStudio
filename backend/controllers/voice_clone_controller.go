@@ -9,6 +9,8 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -99,10 +101,50 @@ func CreateVoiceClone(c *gin.Context) {
 	}
 
 	// 检查文件类型
+	audioExts := map[string]bool{".wav": true, ".mp3": true}
+	videoExts := map[string]bool{".mp4": true, ".mov": true, ".avi": true, ".mkv": true}
+
 	ext := filepath.Ext(file.Filename)
-	if ext != ".wav" && ext != ".mp3" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV或MP3格式的音频文件"})
+	if !audioExts[ext] && !videoExts[ext] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持WAV、MP3音频或MP4、MOV等视频文件"})
 		return
+	}
+
+	var audioReader io.Reader
+	if videoExts[ext] {
+		// 保存临时视频文件
+		tmpVideoPath := "/tmp/" + uuid.New().String() + ext
+		if err := c.SaveUploadedFile(file, tmpVideoPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存临时视频文件失败: " + err.Error()})
+			return
+		}
+		// 提取音频为wav
+		tmpAudioPath := "/tmp/" + uuid.New().String() + ".wav"
+		cmd := exec.Command("ffmpeg", "-i", tmpVideoPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", tmpAudioPath)
+		if err := cmd.Run(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "提取音频失败: " + err.Error()})
+			return
+		}
+		// 打开音频文件
+		f, err := os.Open(tmpAudioPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "打开音频文件失败: " + err.Error()})
+			return
+		}
+		defer f.Close()
+		audioReader = f
+		ext = ".wav" // 强制保存为wav
+		// 清理临时文件（可选）
+		defer os.Remove(tmpVideoPath)
+		defer os.Remove(tmpAudioPath)
+	} else {
+		// 音频文件直接读取
+		f, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "打开文件失败: " + err.Error()})
+			return
+		}
+		audioReader = f
 	}
 
 	// 生成唯一文件名
@@ -110,12 +152,8 @@ func CreateVoiceClone(c *gin.Context) {
 	fileName := fmt.Sprintf("%s%s", uniqueID, ext)
 	// 生成相对路径和完整路径
 	filePath := utils.GetUserFilePath(userID.(uint), config.AppConfig.UploadDir, fileName)
-	f, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开文件失败: " + err.Error()})
-		return
-	}
-	err = storages.Client.SaveFile(context.Background(), filePath, f)
+
+	err = storages.Client.SaveFile(context.Background(), filePath, audioReader)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败: " + err.Error()})
 		return
