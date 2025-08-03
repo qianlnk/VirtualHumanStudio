@@ -19,6 +19,8 @@ const ASR = () => import('../views/asr/ASR.vue')
 const ASRDetail = () => import('../views/asr/ASRDetail.vue')
 const DigitalHuman = () => import('../views/digital-human/DigitalHuman.vue')
 const DigitalHumanDetail = () => import('../views/digital-human/DigitalHumanDetail.vue')
+const DigitalHumanTemplate = () => import('../views/digital-human/Template.vue')
+const DigitalHumanTemplateDetail = () => import('../views/digital-human/TemplateDetail.vue')
 // const Accessory = () => import('../views/accessory/Accessory.vue')
 const ImageProcessingTask = () => import('../views/workflow/ImageProcessingTask.vue')
 const ImageProcessingTaskDetail = () => import('../views/workflow/ImageProcessingTaskDetail.vue')
@@ -31,6 +33,7 @@ const AdminMembershipOrders = () => import('../views/admin/MembershipOrders.vue'
 const AdminReviewTasks = () => import('../views/admin/ReviewTasks.vue')
 const Inspiration = () => import('../views/Inspiration.vue')
 const InspirationDetail = () => import('../views/InspirationDetail.vue')
+const AIChat = () => import('../views/AIChat.vue')
 
 Vue.use(VueRouter)
 
@@ -73,6 +76,12 @@ const baseRoutes = [
         path: '/inspiration/:id',
         name: 'InspirationDetail',
         component: InspirationDetail
+    },
+    {
+        path: '/ai-chat',
+        name: 'AIChatView',
+        component: AIChat,
+        meta: { requiresAuth: true }
     },
     {
         path: '/login',
@@ -127,6 +136,16 @@ const baseRoutes = [
     {
         path: '/digital-human/:id',
         component: DigitalHumanDetail,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/digital-human-template',
+        component: DigitalHumanTemplate,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/digital-human-template/:id',
+        component: DigitalHumanTemplateDetail,
         meta: { requiresAuth: true }
     },
     {

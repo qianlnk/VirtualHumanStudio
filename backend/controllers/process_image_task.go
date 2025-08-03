@@ -158,8 +158,8 @@ func processTxt2ImgTask(ctx context.Context, taskID uint) error {
 // processImageTask 异步处理图像任务
 func processImageTask(ctx context.Context, taskID uint) error {
 	// 获取任务信息
-	var task models.ComfyUIWorkflowTask
-	if err := db.DB.First(&task, taskID).Error; err != nil {
+	var task = new(models.ComfyUIWorkflowTask)
+	if err := db.DB.First(task, taskID).Error; err != nil {
 		fmt.Printf("获取任务失败: %v\n", err)
 		return err
 	}
@@ -170,16 +170,27 @@ func processImageTask(ctx context.Context, taskID uint) error {
 
 	// 更新任务状态为处理中
 	task.Status = "processing"
-	db.DB.Save(&task)
+	db.DB.Save(task)
 
+	task, err := processImageTaskWithInfo(ctx, task)
+	db.DB.Save(task)
+	if err != nil {
+		return err
+	}
+
+	task, err = waitProcessImageTaskWithInfoCompleted(ctx, task)
+	db.DB.Save(task)
+	return err
+}
+
+func processImageTaskWithInfo(ctx context.Context, task *models.ComfyUIWorkflowTask) (*models.ComfyUIWorkflowTask, error) {
 	// 解析工作流配置
 	workflowPath := filepath.Join(config.AppConfig.DataDir, "workflow", task.WorkflowName+".json")
 	workflowContent, err := os.ReadFile(workflowPath)
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("工作流配置加载失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 	workflowStr := string(workflowContent)
 
@@ -189,8 +200,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("prompt配置加载失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 	promptStr := string(promptContent)
 
@@ -199,8 +209,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err := json.Unmarshal([]byte(task.InputParams), &inputParams); err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("解析输入参数失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 
 	rand.NewSource(time.Now().UnixNano())
@@ -216,8 +225,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 			if err != nil {
 				task.Status = "failed"
 				task.ErrorMsg = fmt.Sprintf("文件上传失败(%s): %v", param.Key, err)
-				db.DB.Save(&task)
-				return err
+				return task, err
 			}
 
 			replaceVariables["{{"+param.Key+"}}"] = fileRef
@@ -228,8 +236,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 			if err != nil {
 				task.Status = "failed"
 				task.ErrorMsg = fmt.Sprintf("文件上传失败(%s): %v", param.Key, err)
-				db.DB.Save(&task)
-				return err
+				return task, err
 			}
 
 			replaceVariables["{{"+param.Key+"}}"] = "clipspace/" + fileRef + " [input]"
@@ -251,16 +258,14 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("解析工作流配置失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 
 	err = json.Unmarshal([]byte(promptStr), &prompt)
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("解析prompt配置失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 
 	// 创建extra_data字段，包含workflow信息
@@ -279,8 +284,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("构建工作流JSON失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 
 	fmt.Println("=====\n", string(promptJSON))
@@ -290,26 +294,27 @@ func processImageTask(ctx context.Context, taskID uint) error {
 	if err != nil {
 		task.Status = "failed"
 		task.ErrorMsg = fmt.Sprintf("提交任务失败: %v", err)
-		db.DB.Save(&task)
-		return err
+		return task, err
 	}
 
 	// 更新任务ID
 	task.TaskID = promptID
-	db.DB.Save(&task)
 
+	return task, nil
+}
+
+func waitProcessImageTaskWithInfoCompleted(ctx context.Context, task *models.ComfyUIWorkflowTask) (*models.ComfyUIWorkflowTask, error) {
 	// 等待任务完成
 	for {
 		// 查询任务状态
-		status, data, err := QueryComfyUITaskStatus(promptID)
+		status, data, err := QueryComfyUITaskStatus(task.TaskID)
 		if err != nil {
 			fmt.Printf("查询任务进度失败: %v\n", err)
 
 			if status == "failed" {
 				task.Status = "failed"
 				task.ErrorMsg = "任务执行失败:" + err.Error()
-				db.DB.Save(&task)
-				return err
+				return task, err
 			}
 
 			time.Sleep(5 * time.Second)
@@ -326,8 +331,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 			if err != nil {
 				task.Status = "failed"
 				task.ErrorMsg = fmt.Sprintf("获取模块配置失败: %v", err)
-				db.DB.Save(&task)
-				return err
+				return task, err
 			}
 
 			var outputParams []models.InputParam
@@ -347,8 +351,7 @@ func processImageTask(ctx context.Context, taskID uint) error {
 				if err != nil {
 					task.Status = "failed"
 					task.ErrorMsg = fmt.Sprintf("下载结果图片失败: %v", err)
-					db.DB.Save(&task)
-					return err
+					return task, err
 				}
 
 				outputParams = append(outputParams, models.InputParam{
@@ -361,20 +364,16 @@ func processImageTask(ctx context.Context, taskID uint) error {
 
 			// 将输出数据转换为JSON字符串
 			task.OutputParams = utils.ToJSONString(outputParams)
-			db.DB.Save(&task)
-			break
+			return task, nil
 		} else if status == "failed" {
 			task.Status = "failed"
 			task.ErrorMsg = "任务执行失败"
-			db.DB.Save(&task)
-			break
+			return task, nil
 		}
 
 		// 等待一段时间后再次查询
 		time.Sleep(2 * time.Second)
 	}
-
-	return nil
 }
 
 // replaceFilePathInWorkflow 替换工作流配置中的文件路径

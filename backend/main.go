@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/qianlnk/VirtualHumanStudio/backend/client/promptt"
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/controllers"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
@@ -20,6 +21,7 @@ import (
 
 // 全局变量
 var membershipController *controllers.MembershipController
+var chatController *controllers.ChatController
 
 func main() {
 	// 加载配置
@@ -57,9 +59,19 @@ func main() {
 		&models.MembershipOrder{},
 		&controllers.UserUsage{},
 		&models.ShareTask{},
+		// 添加聊天相关模型
+		&models.ChatSession{},
+		&models.ChatMessage{},
+		&models.ModelInfo{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
+	}
+
+	// 初始化聊天模型数据
+	err = models.InitDefaultModels(db.GetDB())
+	if err != nil {
+		log.Printf("初始化聊天模型数据失败: %v", err)
 	}
 
 	// 初始化Redis
@@ -79,6 +91,11 @@ func main() {
 
 	// 初始化会员控制器
 	membershipController = controllers.NewMembershipController(db.GetDB())
+
+	// 初始化聊天控制器
+	chatRepo := models.NewChatRepository(db.GetDB())
+	prompttClient := promptt.New(config.AppConfig.Promptt)
+	chatController = controllers.NewChatController(chatRepo, prompttClient)
 
 	// 初始化存储
 	switch config.AppConfig.StorageType {
@@ -202,6 +219,12 @@ func registerRoutes(router *gin.Engine) {
 		protected.GET("/digital-human", controllers.ListDigitalHumans)
 		protected.DELETE("/digital-human/:id", controllers.DeleteDigitalHuman)
 
+		// 数字人模版
+		protected.POST("/digital-human-template", controllers.CreateDigitalHumanTemplate)
+		protected.GET("/digital-human-template/:id", controllers.GetDigitalHumanTemplate)
+		protected.GET("/digital-human-templates", controllers.ListDigitalHumanTemplates)
+		protected.DELETE("/digital-human-template/:id", controllers.DeleteDigitalHumanTemplate)
+
 		// 文件处理
 		// protected.GET("/file/view", controllers.FileView)
 
@@ -249,6 +272,14 @@ func registerRoutes(router *gin.Engine) {
 
 		// 获取评论列表
 		protected.GET("/share/comments/:share_task_id", controllers.GetShareTaskComments)
+
+		// 聊天相关路由
+		protected.POST("/chat/sessions", chatController.CreateSession)
+		protected.GET("/chat/sessions", chatController.GetSessions)
+		protected.GET("/chat/sessions/:sessionID/messages", chatController.GetSessionMessages)
+		protected.DELETE("/chat/sessions/:sessionID", chatController.DeleteSession)
+		protected.POST("/chat/messages", chatController.SendMessage)
+		protected.GET("/chat/models", chatController.GetAvailableModels)
 	}
 
 	// 会员中心路由

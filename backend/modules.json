@@ -565,6 +565,44 @@
                     "description": "处理后的结果视频"
                 }
             ]
+        },
+        {
+            "id": "video_matting_to_green",
+            "name": "视频抠图转绿幕",
+            "description": "上传视频，一键抠图转绿幕",
+            "icon": "el-icon-picture",
+            "route": "/video_matting_to_green",
+            "inputParams": [
+                {
+                    "key": "video",
+                    "alias": "视频",
+                    "type": "video",
+                    "required": true,
+                    "description": "上传视频，一键抠图转绿幕"
+                },
+                {
+                    "key": "backgroundColor",
+                    "alias": "背景颜色",
+                    "type": "select",
+                    "required": true,
+                    "description": "背景颜色",
+                    "default": "#00A03C",
+                    "options": [
+                        {
+                            "label": "绿色",
+                            "value": "#00A03C"
+                        }
+                    ]
+                }
+            ],
+            "outputParams": [
+                {
+                    "key": "2",
+                    "alias": "结果视频",
+                    "type": "video",
+                    "description": "处理后的结果视频"
+                }
+            ]
         }
     ]
 }

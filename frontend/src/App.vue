@@ -42,6 +42,7 @@
                 <span class="submenu-title">数字人合成</span>
               </template>
               <el-menu-item index="/digital-human">数字人制作</el-menu-item>
+              <el-menu-item index="/digital-human-template">数字人模版</el-menu-item>
             </el-submenu>
             <el-submenu index="image-processing">
               <template slot="title">
@@ -85,6 +86,10 @@
             <el-menu-item index="/inspiration">
               <i class="el-icon-magic-stick"></i>
               <span>灵感空间</span>
+            </el-menu-item>
+            <el-menu-item index="/ai-chat">
+              <i class="el-icon-chat-dot-round"></i>
+              <span>AI绘画聊天</span>
             </el-menu-item>
             <el-menu-item index="/contact">
               <i class="el-icon-phone"></i>
@@ -183,6 +188,10 @@
                 <i class="el-icon-back" @click="closeMobileSubmenu"></i>
                 <span>更多功能</span>
               </div>
+              <div class="mobile-submenu-item" @click="navigateTo('/ai-chat')">
+                <i class="el-icon-chat-dot-round"></i>
+                <span>AI绘画聊天</span>
+              </div>
               <div class="mobile-submenu-item" @click="navigateTo('/membership')">
                 <i class="el-icon-medal"></i>
                 <span>会员中心</span>
@@ -237,6 +246,7 @@ export default {
     },
     isMoreActive() {
       return this.activeIndex === '/inspiration' || 
+             this.activeIndex === '/ai-chat' ||
              this.activeIndex === '/membership' || 
              this.activeIndex === '/contact' ||
              this.activeIndex.includes('/admin');

@@ -17,7 +17,7 @@
     <div v-if="isMobile" class="mobile-header-placeholder"></div>
     
     <!-- 任务列表 -->
-    <div v-loading="loading" class="task-list mobile-card-view" v-show="!isCardView">
+    <div v-loading="loading" class="task-list" v-show="!isCardView">
       <el-empty v-if="digitalHumans.length === 0" description="暂无数字人合成任务"></el-empty>
       
       <el-table v-else :data="digitalHumans" style="width: 100%" class="responsive-table" ref="dataTable">
@@ -83,6 +83,7 @@
             <div class="task-card-content">
               <div class="task-card-info">
                 <p><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
+
               </div>
             </div>
             <div class="task-card-footer">
@@ -166,7 +167,7 @@
         </el-form-item>
         <el-form-item v-if="audioSource === 'tts'" label="TTS语音" prop="tts_task_id">
           <el-select
-            v-model="ttsTaskId"
+            v-model="form.tts_task_id"
             filterable
             placeholder="请选择TTS语音"
             style="width:100%">
@@ -251,7 +252,6 @@ export default {
       // 新增字段
       audioSource: 'local', // 'local' 或 'tts'
       ttsTaskList: [],
-      ttsTaskId: '',
       rules: {
         name: [
           { required: true, message: '请输入任务名称', trigger: 'blur' },
@@ -379,8 +379,9 @@ export default {
         let newTasks = []
         let totalCount = 0
 
-        newTasks = response.data.digital_humans || []
-        totalCount = response.data.total || 0
+        // 兼容后端返回字段
+        newTasks = response.data.digital_humans || response.data.list || response.data.data || []
+        totalCount = response.data.total || response.data.count || (response.data.pagination && response.data.pagination.total) || 0
 
         console.log('数字人任务列表:', newTasks)
         
@@ -641,12 +642,12 @@ export default {
         watermark_switch: 0,
         pn: 1,
         audio_file: null,
-        video_file: null
+        video_file: null,
+        tts_task_id: ''
       }
       this.audioFileList = []
       this.videoFileList = []
       this.audioSource = 'local'
-      this.ttsTaskId = ''
       // 如果表单引用存在，重置验证
       if (this.$refs.form) {
         this.$refs.form.resetFields()
@@ -739,7 +740,7 @@ export default {
     // 切换音频来源
     handleAudioSourceChange(val) {
       if (val === 'local') {
-        this.ttsTaskId = ''
+        this.form.tts_task_id = ''
       } else if (val === 'tts') {
         this.form.audio_file = null
         this.audioFileList = []
@@ -794,11 +795,14 @@ export default {
       let fields = ['name', 'video_file']
       if (this.audioSource === 'local') fields.push('audio_file')
       if (this.audioSource === 'tts') fields.push('tts_task_id')
-      this.$refs.form.validateField(fields, valid => {
-        if (valid) {
+      
+      this.$refs.form.validateField(fields, (errorMessage) => {
+        if (!errorMessage) {
+          // 验证通过，创建任务
           this.createDigitalHuman()
         } else {
-          return false
+          // 验证失败，显示错误信息
+          this.$message.error(errorMessage)
         }
       })
     },
@@ -816,7 +820,7 @@ export default {
       if (this.audioSource === 'local') {
         formData.append('audio_file', this.form.audio_file)
       } else if (this.audioSource === 'tts') {
-        formData.append('tts_task_id', this.ttsTaskId)
+        formData.append('tts_task_id', this.form.tts_task_id)
       }
       formData.append('video_file', this.form.video_file)
       

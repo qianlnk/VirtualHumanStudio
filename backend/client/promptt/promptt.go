@@ -3,15 +3,14 @@ package promptt
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	resty "github.com/go-resty/resty/v2"
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/storages"
 	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
-	openai "github.com/sashabaranov/go-openai"
 )
 
 type TTSRequest struct {
@@ -30,6 +29,9 @@ type TTSResponse struct {
 type Promptt struct {
 	cfg *config.Promptt
 	cli *resty.Client
+
+	modelList          *GetModelsResponse
+	modelListExpiredAt time.Time
 }
 
 func New(cfg *config.Promptt) *Promptt {
@@ -79,86 +81,6 @@ func (p *Promptt) DoTTS(req *TTSRequest, savePath string) (*TTSResponse, error) 
 	}
 
 	return &resp, nil
-}
-
-// ChatRequest 聊天请求结构体
-type ChatRequest struct {
-	openai.ChatCompletionRequest
-}
-
-// ChatResponse 聊天响应结构体
-type ChatResponse struct {
-	ID      string                              `json:"id"`
-	Choices []openai.ChatCompletionStreamChoice `json:"choices"`
-	Usage   openai.Usage                        `json:"usage"`
-}
-
-// DoChat 调用大语言模型进行聊天
-func (p *Promptt) DoChat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
-	// 创建OpenAI客户端
-	cfg := openai.DefaultConfig(p.cfg.APIKey)
-	cfg.BaseURL = p.cfg.BaseURL + "/eliza/v1"
-
-	client := openai.NewClientWithConfig(cfg)
-
-	// 构建请求
-	chatReq := openai.ChatCompletionRequest{
-		Model:       req.Model,
-		Messages:    req.Messages,
-		Temperature: req.Temperature,
-		Stream:      req.Stream,
-	}
-
-	// 根据是否为流式请求选择不同的处理方式
-	if req.Stream {
-		// 创建流式聊天完成请求
-		stream, err := client.CreateChatCompletionStream(ctx, chatReq)
-		if err != nil {
-			return nil, fmt.Errorf("创建流式聊天请求失败: %v", err)
-		}
-		defer stream.Close()
-
-		// 处理流式响应
-		var response ChatResponse
-		for {
-			resp, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return nil, fmt.Errorf("接收流式响应失败: %v", err)
-			}
-			// 更新响应
-			response.ID = resp.ID
-			response.Choices = append(response.Choices, openai.ChatCompletionStreamChoice{
-				Index:        resp.Choices[0].Index,
-				Delta:        resp.Choices[0].Delta,
-				FinishReason: resp.Choices[0].FinishReason,
-			})
-		}
-		return &response, nil
-	}
-
-	// 非流式请求
-	resp, err := client.CreateChatCompletion(ctx, chatReq)
-	if err != nil {
-		return nil, fmt.Errorf("创建聊天请求失败: %v", err)
-	}
-
-	// 转换响应格式
-	return &ChatResponse{
-		ID: resp.ID,
-		Choices: []openai.ChatCompletionStreamChoice{
-			{
-				Index: 0,
-				Delta: openai.ChatCompletionStreamChoiceDelta{
-					Content: resp.Choices[0].Message.Content,
-				},
-				FinishReason: resp.Choices[0].FinishReason,
-			},
-		},
-		Usage: resp.Usage,
-	}, nil
 }
 
 type PaintRequest struct {

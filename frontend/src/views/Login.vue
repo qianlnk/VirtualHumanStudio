@@ -69,20 +69,13 @@ export default {
         if (valid) {
           this.loading = true
           
-          // 构建请求数据
-          const data = {
+          // 使用store的login action
+          this.$store.dispatch('login', {
             username: this.loginForm.username,
             password: this.loginForm.password
-          }
-          
-          // 发送登录请求
-          this.$http.post('/api/login', data)
-            .then(response => {
+          })
+            .then(() => {
               this.loading = false
-              
-              // 保存令牌和用户信息
-              this.$store.commit('setToken', response.data.token)
-              this.$store.commit('setUser', response.data.user)
               
               // 显示成功消息
               this.$message.success('登录成功')

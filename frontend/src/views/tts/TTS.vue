@@ -255,7 +255,7 @@ export default {
       currentPage: 1,
       pageSize: 10,
       cardPageSize: 10,
-      isCardView: false,
+      isCardView: true,
       baseURL: process.env.VUE_APP_API_URL || '',
       token: localStorage.getItem('token') || '',
       form: {

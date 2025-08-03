@@ -19,8 +19,8 @@ Vue.use(ElementUI)
 // 配置axios
 axios.defaults.baseURL = process.env.VUE_APP_API_URL || 'http://localhost:8080'
 
-// 如果有token，设置请求头
-const token = localStorage.getItem('token')
+// 从store获取token设置请求头
+const token = store.state.token
 if (token) {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
