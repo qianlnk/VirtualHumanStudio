@@ -534,7 +534,7 @@ export default {
         this.currentRequest = chatAPI.sendMessageStream(
           this.currentSession.id,
           messageText,
-          [this.selectedModel], // 将单个模型名称包装成数组
+          this.selectedModel, // 将单个模型名称包装成数组
           '', // imageUrl
           // onChunk - 处理流式数据块
           (chunkData) => {
@@ -721,7 +721,7 @@ export default {
         this.currentRequest = chatAPI.sendMessage(
           this.currentSession.id,
           messageText,
-          [this.selectedModel] // 将单个模型名称包装成数组
+          this.selectedModel // 将单个模型名称包装成数组
         )
         
         // 等待响应

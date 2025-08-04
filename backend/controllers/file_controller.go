@@ -2,13 +2,18 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
 	"github.com/qianlnk/VirtualHumanStudio/backend/db"
 	"github.com/qianlnk/VirtualHumanStudio/backend/models"
+	"github.com/qianlnk/VirtualHumanStudio/backend/storages"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +28,235 @@ var mediaTypes = map[string]string{
 	".avi":  "video/x-msvideo",
 }
 
+// 从上下文中获取用户ID
+func getUserIDFromContext(c *gin.Context) string {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return ""
+	}
+
+	// 根据类型进行转换
+	switch id := userID.(type) {
+	case uint:
+		return strconv.FormatUint(uint64(id), 10)
+	case int:
+		return strconv.Itoa(id)
+	case string:
+		return id
+	default:
+		// 尝试使用fmt转为字符串
+		return fmt.Sprintf("%v", userID)
+	}
+}
+
+// 构建私有路径
+func buildPrivatePath(userID, path string) string {
+	return userID + "/" + path
+}
+
+// 构建公共路径
+func buildPublicPath(userID, path string) string {
+	return "public/" + userID + "/" + path
+}
+
+// 替换域名
+func replaceDomain(urlStr string) string {
+	// 如果配置了自定义域名，则替换
+	if config.AppConfig.Domain != "" {
+		u, err := url.Parse(urlStr)
+		if err != nil {
+			log.Printf("parse url error: %v", err)
+			return urlStr
+		}
+
+		// 替换域名
+		oldHost := u.Host
+		u.Host = config.AppConfig.Domain
+		log.Printf("replace domain from %s to %s", oldHost, u.Host)
+
+		return u.String()
+	}
+	return urlStr
+}
+
+// GetUploadURL 获取上传URL的处理函数
+func GetUploadURL(c *gin.Context) {
+	var req struct {
+		Path string `json:"path" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		return
+	}
+
+	privatePath := buildPrivatePath(userID, req.Path)
+	log.Printf("privatePath: %s", privatePath)
+
+	policy := &storages.PutPolicy{
+		Key:     privatePath,
+		Expires: 1800,
+	}
+
+	method, host, _, _, _, err := storages.UploadClient.UploadToken(c.Request.Context(), policy)
+	if err != nil {
+		log.Printf("get upload token error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取上传凭证失败"})
+		return
+	}
+
+	// 获取访问URL
+	visitURL, err := storages.UploadClient.GetFileUrl(c.Request.Context(), privatePath)
+	if err != nil {
+		log.Printf("get file url error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取访问链接失败"})
+		return
+	}
+
+	visitURL = replaceDomain(visitURL)
+
+	c.JSON(http.StatusOK, gin.H{
+		"method":     method,
+		"upload_url": host,
+		"visit_url":  visitURL,
+	})
+}
+
+// GetVisitURL 获取访问URL的处理函数
+func GetVisitURL(c *gin.Context) {
+	var req struct {
+		Path string `json:"path" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		return
+	}
+
+	privatePath := buildPrivatePath(userID, req.Path)
+
+	url, err := storages.UploadClient.GetFileUrl(c.Request.Context(), privatePath)
+	if err != nil {
+		log.Printf("get file url error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取访问链接失败"})
+		return
+	}
+
+	url = replaceDomain(url)
+	log.Printf("privatePath: %s, url: %s", privatePath, url)
+
+	c.JSON(http.StatusOK, gin.H{
+		"visit_url": url,
+		"expire_at": time.Now().Add(time.Second * 300).Unix(),
+	})
+}
+
+// GetPublicUploadURL 获取公共上传URL的处理函数
+func GetPublicUploadURL(c *gin.Context) {
+	var req struct {
+		Path string `json:"path" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		return
+	}
+
+	publicPath := buildPublicPath(userID, req.Path)
+	log.Printf("publicPath: %s", publicPath)
+
+	policy := &storages.PutPolicy{
+		Key:     publicPath,
+		Expires: 1800,
+	}
+
+	method, host, _, _, _, err := storages.UploadClient.UploadToken(c.Request.Context(), policy)
+	if err != nil {
+		log.Printf("get upload token error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取上传凭证失败"})
+		return
+	}
+
+	uri, err := url.Parse(host)
+	if err != nil {
+		log.Printf("parse url error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析URL失败"})
+		return
+	}
+
+	visitURL := uri.Scheme + "://" + uri.Host + uri.Path
+	visitURL = replaceDomain(visitURL)
+
+	c.JSON(http.StatusOK, gin.H{
+		"method":     method,
+		"upload_url": host,
+		"visit_url":  visitURL,
+	})
+}
+
+// GetPublicVisitURL 获取公共访问URL的处理函数
+func GetPublicVisitURL(c *gin.Context) {
+	var req struct {
+		Path string `json:"path" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := getUserIDFromContext(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		return
+	}
+
+	publicPath := buildPublicPath(userID, req.Path)
+
+	fileURL, err := storages.UploadClient.GetFileUrl(c.Request.Context(), publicPath)
+	if err != nil {
+		log.Printf("get file url error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取访问链接失败"})
+		return
+	}
+
+	uri, err := url.Parse(fileURL)
+	if err != nil {
+		log.Printf("parse url error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析URL失败"})
+		return
+	}
+
+	fileURL = uri.Scheme + "://" + uri.Host + uri.Path
+	fileURL = replaceDomain(fileURL)
+
+	log.Printf("publicPath: %s, url: %s", publicPath, fileURL)
+
+	c.JSON(http.StatusOK, gin.H{
+		"visit_url": fileURL,
+		"expire_at": time.Now().Add(time.Second * 300).Unix(),
+	})
+}
+
+// 文件查看处理函数
 func FileView(c *gin.Context) {
 	// 获取文件路径参数
 	filePath := c.Query("path")

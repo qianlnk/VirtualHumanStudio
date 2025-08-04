@@ -63,7 +63,7 @@ export const chatAPI = {
   },
 
   // 发送消息
-  sendMessage(sessionId, message, models, imageUrl = '') {
+  sendMessage(sessionId, message, model, imageUrl = '') {
     // 创建一个可取消的请求
     const controller = {
       source: axios.CancelToken.source(),
@@ -84,7 +84,7 @@ export const chatAPI = {
     controller.requestPromise = api.post('/chat/messages', {
       session_id: sessionId,
       message,
-      models,
+      model,
       image_url: imageUrl,
       stream: false // 明确指定非流式请求
     }, {
@@ -106,7 +106,7 @@ export const chatAPI = {
   },
 
   // 流式发送消息
-  sendMessageStream(sessionId, message, models, imageUrl = '', onChunk, onStart, onComplete, onError, onEnd) {
+  sendMessageStream(sessionId, message, model, imageUrl = '', onChunk, onStart, onComplete, onError, onEnd) {
     // 创建一个可以中断的请求控制器
     const controller = {
       xhr: null,
@@ -132,7 +132,7 @@ export const chatAPI = {
       const formData = new FormData()
       formData.append('session_id', sessionId)
       formData.append('message', message)
-      formData.append('models', JSON.stringify(models))
+      formData.append('model', JSON.stringify(model))
       formData.append('image_url', imageUrl || '')
       formData.append('stream', 'true')
       
@@ -250,7 +250,7 @@ export const chatAPI = {
       xhr.send(JSON.stringify({
         session_id: sessionId,
         message: message,
-        models: models,
+        model: model,
         image_url: imageUrl || '',
         stream: true
       }))

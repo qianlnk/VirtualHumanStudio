@@ -31,6 +31,11 @@ type ChatMessage struct {
 	Model     string    `json:"model" gorm:"type:varchar(100)"`     // AI模型名称
 	ImageURL  string    `json:"image_url" gorm:"type:varchar(500)"` // 图像URL
 	VideoURL  string    `json:"video_url" gorm:"type:varchar(500)"` // 视频URL
+	AudioURL  string    `json:"audio_url" gorm:"type:varchar(500)"` // 音频URL
+	FileURL   string    `json:"file_url" gorm:"type:varchar(500)"`  // 通用文件URL
+	FileType  string    `json:"file_type" gorm:"type:varchar(50)"`  // 文件类型(image/video/audio/document/other)
+	FileName  string    `json:"file_name" gorm:"type:varchar(255)"` // 文件名称
+	FileSize  int64     `json:"file_size" gorm:"default:0"`         // 文件大小(bytes)
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
@@ -107,6 +112,7 @@ func (r *ChatRepositoryImpl) GetSessionByID(sessionID string) (*ChatSession, err
 	if err != nil {
 		return nil, err
 	}
+
 	return &session, nil
 }
 

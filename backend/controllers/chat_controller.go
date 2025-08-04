@@ -124,16 +124,18 @@ func (cc *ChatController) GetSessionMessages(c *gin.Context) {
 	})
 }
 
+type SendMessageRequest struct {
+	SessionID string `json:"session_id"`
+	Message   string `json:"message"`
+	Model     string `json:"model"`
+	ImageURL  string `json:"image_url,omitempty"`
+	VideoURL  string `json:"video_url,omitempty"`
+	Stream    bool   `json:"stream,omitempty"` // 是否使用流式返回
+}
+
 // SendMessage 发送消息并获取AI回复
 func (cc *ChatController) SendMessage(c *gin.Context) {
-	var req struct {
-		SessionID string   `json:"session_id"`
-		Message   string   `json:"message"`
-		Models    []string `json:"models"`
-		ImageURL  string   `json:"image_url,omitempty"`
-		VideoURL  string   `json:"video_url,omitempty"`
-		Stream    bool     `json:"stream,omitempty"` // 是否使用流式返回
-	}
+	var req SendMessageRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
@@ -191,14 +193,7 @@ func (cc *ChatController) SendMessage(c *gin.Context) {
 }
 
 // handleStreamResponse 处理流式响应
-func (cc *ChatController) handleStreamResponse(c *gin.Context, req struct {
-	SessionID string   `json:"session_id"`
-	Message   string   `json:"message"`
-	Models    []string `json:"models"`
-	ImageURL  string   `json:"image_url,omitempty"`
-	VideoURL  string   `json:"video_url,omitempty"`
-	Stream    bool     `json:"stream,omitempty"`
-}, userMessage *models.ChatMessage, session *models.ChatSession) {
+func (cc *ChatController) handleStreamResponse(c *gin.Context, req SendMessageRequest, userMessage *models.ChatMessage, session *models.ChatSession) {
 	// 设置SSE响应头
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -213,63 +208,60 @@ func (cc *ChatController) handleStreamResponse(c *gin.Context, req struct {
 	// 获取用户ID
 	userID, _ := c.Get("user_id")
 
-	// 为每个模型创建流式响应
-	for i, modelName := range req.Models {
-		// 创建AI消息记录
-		aiMessage := &models.ChatMessage{
-			ID:        generateMessageID(),
-			SessionID: req.SessionID,
-			UserID:    userID.(uint),
-			Role:      "assistant",
-			Content:   "", // 初始为空，后续会更新
-			Model:     modelName,
-		}
-
-		if err := cc.chatRepo.CreateMessage(aiMessage); err != nil {
-			c.SSEvent("error", gin.H{"error": "保存AI消息失败", "model": modelName})
-			continue
-		}
-
-		// 发送开始事件
-		c.SSEvent("start", gin.H{
-			"model":      modelName,
-			"message_id": aiMessage.ID,
-			"index":      i,
-		})
-		c.Writer.Flush() // 立即发送
-
-		// 调用流式AI接口
-		responseText, imageURL, err := cc.generateStreamAIResponse(c, req.Message, modelName, req.ImageURL, aiMessage.ID)
-		if err != nil {
-			// 发送错误事件
-			c.SSEvent("error", gin.H{
-				"error":      fmt.Sprintf("抱歉，%s模型暂时无法响应，请稍后重试， %s", modelName, err),
-				"model":      modelName,
-				"message_id": aiMessage.ID,
-			})
-			c.Writer.Flush() // 立即发送
-			continue
-		}
-
-		// 更新AI消息内容
-		aiMessage.Content = responseText
-		aiMessage.ImageURL = imageURL
-		if err := cc.chatRepo.UpdateMessage(aiMessage); err != nil {
-			c.SSEvent("error", gin.H{"error": "更新AI消息失败", "model": modelName})
-		}
-
-		// 发送完成事件
-		c.SSEvent("complete", gin.H{
-			"model":      modelName,
-			"message_id": aiMessage.ID,
-			"content":    responseText,
-			"image_url":  imageURL,
-		})
-		c.Writer.Flush() // 立即发送
+	modelName := req.Model
+	// 创建AI消息记录
+	aiMessage := &models.ChatMessage{
+		ID:        generateMessageID(),
+		SessionID: req.SessionID,
+		UserID:    userID.(uint),
+		Role:      "assistant",
+		Content:   "", // 初始为空，后续会更新
+		Model:     modelName,
 	}
 
+	if err := cc.chatRepo.CreateMessage(aiMessage); err != nil {
+		c.SSEvent("error", gin.H{"error": "保存AI消息失败", "model": modelName})
+		return
+	}
+
+	// 发送开始事件
+	c.SSEvent("start", gin.H{
+		"model":      modelName,
+		"message_id": aiMessage.ID,
+	})
+	c.Writer.Flush() // 立即发送
+
+	// 调用流式AI接口（传入会话ID）
+	responseText, imageURL, err := cc.generateStreamAIResponse(c, req.Message, modelName, req.ImageURL, aiMessage.ID, req.SessionID)
+	if err != nil {
+		// 发送错误事件
+		c.SSEvent("error", gin.H{
+			"error":      fmt.Sprintf("抱歉，%s模型暂时无法响应，请稍后重试， %s", modelName, err),
+			"model":      modelName,
+			"message_id": aiMessage.ID,
+		})
+		c.Writer.Flush() // 立即发送
+		return
+	}
+
+	// 更新AI消息内容
+	aiMessage.Content = responseText
+	aiMessage.ImageURL = imageURL
+	if err := cc.chatRepo.UpdateMessage(aiMessage); err != nil {
+		c.SSEvent("error", gin.H{"error": "更新AI消息失败", "model": modelName})
+	}
+
+	// 发送完成事件
+	c.SSEvent("complete", gin.H{
+		"model":      modelName,
+		"message_id": aiMessage.ID,
+		"content":    responseText,
+		"image_url":  imageURL,
+	})
+	c.Writer.Flush() // 立即发送
+
 	// 更新会话信息
-	session.MessageCount += len(req.Models) + 1 // +1 for user message
+	session.MessageCount += 2
 	session.UpdatedAt = time.Now()
 	if err := cc.chatRepo.UpdateSession(session); err != nil {
 		c.SSEvent("error", gin.H{"error": "更新会话失败"})
@@ -282,48 +274,40 @@ func (cc *ChatController) handleStreamResponse(c *gin.Context, req struct {
 }
 
 // handleNormalResponse 处理普通响应
-func (cc *ChatController) handleNormalResponse(c *gin.Context, req struct {
-	SessionID string   `json:"session_id"`
-	Message   string   `json:"message"`
-	Models    []string `json:"models"`
-	ImageURL  string   `json:"image_url,omitempty"`
-	VideoURL  string   `json:"video_url,omitempty"`
-	Stream    bool     `json:"stream,omitempty"`
-}, userMessage *models.ChatMessage, session *models.ChatSession) {
+func (cc *ChatController) handleNormalResponse(c *gin.Context, req SendMessageRequest, userMessage *models.ChatMessage, session *models.ChatSession) {
 	// 获取用户ID
 	userID, _ := c.Get("user_id")
 
 	// 生成AI回复（多模型）
 	var aiMessages []*models.ChatMessage
-	for _, modelName := range req.Models {
-		// 调用AI接口生成回复
-		aiResponse, imageURL, err := cc.generateAIResponse(req.Message, modelName, req.ImageURL)
-		if err != nil {
-			// 如果AI调用失败，创建一个错误消息
-			aiResponse = fmt.Sprintf("抱歉，%s模型暂时无法响应，请稍后重试。", modelName)
-			imageURL = ""
-		}
-
-		aiMessage := &models.ChatMessage{
-			ID:        generateMessageID(),
-			SessionID: req.SessionID,
-			UserID:    userID.(uint),
-			Role:      "assistant",
-			Content:   aiResponse,
-			Model:     modelName,
-			ImageURL:  imageURL,
-		}
-
-		if err := cc.chatRepo.CreateMessage(aiMessage); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存AI消息失败"})
-			return
-		}
-
-		aiMessages = append(aiMessages, aiMessage)
+	modelName := req.Model
+	// 调用AI接口生成回复（传入会话ID，以便获取历史消息）
+	aiResponse, imageURL, err := cc.generateAIResponse(req.Message, modelName, req.ImageURL, req.SessionID)
+	if err != nil {
+		// 如果AI调用失败，创建一个错误消息
+		aiResponse = fmt.Sprintf("抱歉，%s模型暂时无法响应，请稍后重试。", modelName)
+		imageURL = ""
 	}
 
+	aiMessage := &models.ChatMessage{
+		ID:        generateMessageID(),
+		SessionID: req.SessionID,
+		UserID:    userID.(uint),
+		Role:      "assistant",
+		Content:   aiResponse,
+		Model:     modelName,
+		ImageURL:  imageURL,
+	}
+
+	if err := cc.chatRepo.CreateMessage(aiMessage); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存AI消息失败"})
+		return
+	}
+
+	aiMessages = append(aiMessages, aiMessage)
+
 	// 更新会话信息
-	session.MessageCount += len(aiMessages) + 1 // +1 for user message
+	session.MessageCount += 2
 	session.UpdatedAt = time.Now()
 	if err := cc.chatRepo.UpdateSession(session); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新会话失败"})
@@ -338,7 +322,7 @@ func (cc *ChatController) handleNormalResponse(c *gin.Context, req struct {
 }
 
 // generateAIResponse 生成AI回复
-func (cc *ChatController) generateAIResponse(userMessage, modelName, imageURL string) (string, string, error) {
+func (cc *ChatController) generateAIResponse(userMessage, modelName, imageURL, sessionID string) (string, string, error) {
 	ctx := context.Background()
 
 	// 根据模型类型选择不同的处理方式
@@ -348,10 +332,10 @@ func (cc *ChatController) generateAIResponse(userMessage, modelName, imageURL st
 		return cc.generateImage(ctx, userMessage, modelName, imageURL)
 	case "Claude 3.5 Sonnet", "GPT-4", "GPT-3.5-turbo":
 		// 文本对话模型
-		return cc.generateText(ctx, userMessage, modelName)
+		return cc.generateText(ctx, userMessage, modelName, sessionID)
 	default:
 		// 默认使用文本对话
-		return cc.generateText(ctx, userMessage, modelName)
+		return cc.generateText(ctx, userMessage, modelName, sessionID)
 	}
 }
 
@@ -389,20 +373,54 @@ func (cc *ChatController) generateImage(ctx context.Context, prompt, modelName, 
 }
 
 // generateText 生成文本回复
-func (cc *ChatController) generateText(ctx context.Context, userMessage, modelName string) (string, string, error) {
+func (cc *ChatController) generateText(ctx context.Context, userMessage, modelName, sessionID string) (string, string, error) {
 	// 构建聊天请求
-	chatReq := &promptt.ChatCompletionRequest{
-		ChatCompletionRequest: openai.ChatCompletionRequest{
-			Model: modelName,
-		},
-		Messages: []promptt.ChatCompletionMessage{
-			{
+	var chatReq *promptt.ChatCompletionRequest
+	var promptMessages []promptt.ChatCompletionMessage
+
+	// 如果提供了会话ID，则获取历史消息
+	if sessionID != "" {
+		messages, err := cc.chatRepo.GetMessagesBySessionID(sessionID)
+		if err == nil && len(messages) > 0 {
+			// 如果成功获取历史消息，构建带有历史记录的请求
+			for _, msg := range messages {
+				promptMessages = append(promptMessages, promptt.ChatCompletionMessage{
+					ChatCompletionMessage: openai.ChatCompletionMessage{
+						Role:    msg.Role,
+						Content: msg.Content,
+					},
+				})
+			}
+		}
+	}
+
+	// 如果没有历史消息或无法获取历史消息，使用单条消息请求
+	if len(promptMessages) == 0 {
+		promptMessages = append(promptMessages, promptt.ChatCompletionMessage{
+			ChatCompletionMessage: openai.ChatCompletionMessage{
+				Role:    "user",
+				Content: userMessage,
+			},
+		})
+	} else {
+		// 如果最后一条消息不是当前用户消息，则添加
+		lastMsg := promptMessages[len(promptMessages)-1]
+		if lastMsg.Role != "user" || lastMsg.Content != userMessage {
+			promptMessages = append(promptMessages, promptt.ChatCompletionMessage{
 				ChatCompletionMessage: openai.ChatCompletionMessage{
 					Role:    "user",
 					Content: userMessage,
 				},
-			},
+			})
+		}
+	}
+
+	// 构建聊天请求
+	chatReq = &promptt.ChatCompletionRequest{
+		ChatCompletionRequest: openai.ChatCompletionRequest{
+			Model: modelName,
 		},
+		Messages: promptMessages,
 	}
 
 	// 调用聊天服务
@@ -423,7 +441,7 @@ func (cc *ChatController) generateText(ctx context.Context, userMessage, modelNa
 }
 
 // generateStreamAIResponse 生成流式AI回复
-func (cc *ChatController) generateStreamAIResponse(c *gin.Context, userMessage, modelName, imageURL, messageID string) (string, string, error) {
+func (cc *ChatController) generateStreamAIResponse(c *gin.Context, userMessage, modelName, imageURL, messageID, sessionID string) (string, string, error) {
 	ctx := context.Background()
 
 	// 根据模型类型选择不同的处理方式
@@ -433,29 +451,49 @@ func (cc *ChatController) generateStreamAIResponse(c *gin.Context, userMessage, 
 		return cc.generateImage(ctx, userMessage, modelName, imageURL)
 	case "Claude 3.5 Sonnet", "GPT-4", "GPT-3.5-turbo":
 		// 文本对话模型支持流式返回
-		return cc.generateStreamText(c, ctx, userMessage, modelName, messageID)
+		return cc.generateStreamText(c, ctx, userMessage, modelName, messageID, sessionID)
 	default:
 		// 默认使用流式文本对话
-		return cc.generateStreamText(c, ctx, userMessage, modelName, messageID)
+		return cc.generateStreamText(c, ctx, userMessage, modelName, messageID, sessionID)
 	}
 }
 
 // generateStreamText 生成流式文本回复
-func (cc *ChatController) generateStreamText(c *gin.Context, ctx context.Context, userMessage, modelName, messageID string) (string, string, error) {
+func (cc *ChatController) generateStreamText(c *gin.Context, ctx context.Context, userMessage, modelName, messageID, sessionID string) (string, string, error) {
+	// 构建聊天请求
+	var promptMessages []promptt.ChatCompletionMessage
+
+	// 获取会话的历史消息
+	if sessionID != "" {
+		messages, err := cc.chatRepo.GetMessagesBySessionID(sessionID)
+		if err == nil && len(messages) > 0 {
+			// 如果成功获取历史消息，则添加到请求中
+			for _, msg := range messages {
+				promptMessages = append(promptMessages, promptt.ChatCompletionMessage{
+					ChatCompletionMessage: openai.ChatCompletionMessage{
+						Role:    msg.Role,
+						Content: msg.Content,
+					},
+				})
+			}
+		}
+	}
+
+	// 无论是否有历史消息，都添加当前用户消息
+	promptMessages = append(promptMessages, promptt.ChatCompletionMessage{
+		ChatCompletionMessage: openai.ChatCompletionMessage{
+			Role:    "user",
+			Content: userMessage,
+		},
+	})
+
 	// 构建聊天请求
 	chatReq := &promptt.ChatCompletionRequest{
 		ChatCompletionRequest: openai.ChatCompletionRequest{
 			Model:  modelName,
 			Stream: true, // 启用流式返回
 		},
-		Messages: []promptt.ChatCompletionMessage{
-			{
-				ChatCompletionMessage: openai.ChatCompletionMessage{
-					Role:    "user",
-					Content: userMessage,
-				},
-			},
-		},
+		Messages: promptMessages,
 	}
 
 	// 调用聊天服务

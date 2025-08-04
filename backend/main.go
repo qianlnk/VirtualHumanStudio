@@ -116,6 +116,15 @@ func main() {
 		log.Fatalf("初始化存储失败: %v", err)
 	}
 
+	storages.UploadClient, err = storages.NewOBS(config.AppConfig.ObsStorage)
+	if err != nil {
+		log.Fatalf("初始化存储失败: %v", err)
+	}
+	err = storages.UploadClient.Init()
+	if err != nil {
+		log.Fatalf("初始化存储失败: %v", err)
+	}
+
 	// 初始化会员服务
 	membershipService := services.NewMembershipService(db.GetDB())
 	middleware.SetMembershipService(membershipService)
@@ -227,6 +236,11 @@ func registerRoutes(router *gin.Engine) {
 
 		// 文件处理
 		// protected.GET("/file/view", controllers.FileView)
+		// 文件云存储上传下载接口
+		protected.POST("/file/upload/url", controllers.GetUploadURL)
+		protected.POST("/file/visit/url", controllers.GetVisitURL)
+		protected.POST("/file/public/upload/url", controllers.GetPublicUploadURL)
+		protected.POST("/file/public/visit/url", controllers.GetPublicVisitURL)
 
 		// comfyui相关功能
 		// 饰品替换，输入白底图片和模特物品图片，蒙版图，输出替换后的图片
