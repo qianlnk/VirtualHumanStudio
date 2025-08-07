@@ -181,9 +181,27 @@
                   {{ formatTime(message.timestamp) }}
                 </span>
               </div>
+              <!-- 思考过程（如果有的话） -->
+              <div v-if="message.reasoning_content" class="reasoning-content" :class="{ 'collapsed': message.reasoningCollapsed }">
+                <div class="reasoning-header" @click="toggleReasoning(message)">
+                  <i :class="message.reasoningCollapsed ? 'el-icon-arrow-right' : 'el-icon-arrow-down'"></i>
+                  <span>思考过程</span>
+                </div>
+                <div v-show="!message.reasoningCollapsed" class="reasoning-text">{{ message.reasoning_content }}</div>
+              </div>
+              <!-- 正式回复内容 -->
               <div class="message-text">{{ message.content }}</div>
+              <!-- 使用:class动态绑定预览状态类，图片ID使用索引+URL唯一标识 -->
               <div v-if="message.image_url" class="message-image">
-                <img :src="message.image_url" alt="生成的图像" />
+                <img 
+                  :src="message.image_url" 
+                  alt="图像" 
+                  @click="previewImage(message.image_url)"
+                  :class="{'preview-active': currentPreviewUrl === message.image_url}"
+                  :ref="'img-' + message.id" />
+              </div>
+              <div v-if="message.video_url" class="message-video">
+                <video controls :src="message.video_url" class="message-video-player"></video>
               </div>
             </div>
           </div>
@@ -197,22 +215,56 @@
 
         <!-- 底部输入区域 -->
         <div class="chat-input">
-          <div class="input-toolbar">
-            <el-button 
-              icon="el-icon-picture" 
-              size="small"
-              @click="uploadImage"
-            >
-              上传图片
-            </el-button>
-            <input 
-              ref="imageInput"
-              type="file" 
-              accept="image/*" 
-              style="display: none"
-              @change="handleImageUpload"
-            />
-          </div>
+                  <div class="input-toolbar">
+                    <el-button
+                      icon="el-icon-picture"
+                      size="small"
+                      @click="uploadImage"
+                    >
+                      上传图片
+                    </el-button>
+                    <el-button
+                      icon="el-icon-video-camera"
+                      size="small"
+                      @click="uploadVideo"
+                    >
+                      上传视频
+                    </el-button>
+                    <input
+                      ref="imageInput"
+                      type="file"
+                      accept="image/*"
+                      style="display: none"
+                      @change="handleImageUpload"
+                    />
+                    <input
+                      ref="videoInput"
+                      type="file"
+                      accept="video/*"
+                      style="display: none"
+                      @change="handleVideoUpload"
+                    />
+                    
+                    <!-- 显示已选媒体预览 -->
+                    <div v-if="pendingMedia" class="pending-media">
+                      <div class="pending-media-preview">
+                        <img v-if="pendingMedia.type.startsWith('image/')"
+                          :src="pendingMedia.previewUrl"
+                          class="media-preview-thumbnail" />
+                        <video v-else-if="pendingMedia.type.startsWith('video/')"
+                          :src="pendingMedia.previewUrl"
+                          class="media-preview-thumbnail"
+                          controls></video>
+                      </div>
+                      <div class="pending-media-info">
+                        <span>{{ pendingMedia.file.name }} ({{ formatFileSize(pendingMedia.file.size) }})</span>
+                        <el-button
+                          type="text"
+                          icon="el-icon-delete"
+                          @click="clearPendingMedia"></el-button>
+                      </div>
+                    </div>
+                  </div>
           
           <div class="input-area">
             <el-input
@@ -279,6 +331,11 @@
         <el-button type="primary" @click="confirmCreateSession">创建</el-button>
       </div>
     </el-dialog>
+    
+    <!-- 简化的图片预览遮罩 -->
+    <div v-if="imagePreviewVisible" class="image-preview-overlay" @click="closeImagePreview">
+      <!-- 不创建新的图片元素，而是使用CSS样式控制预览效果 -->
+    </div>
   </div>
 </template>
 
@@ -302,6 +359,18 @@ export default {
       // 输入相关
       inputMessage: '',
       loading: false,
+      
+      // 多媒体相关
+      pendingMedia: null, // {file: File, type: string, previewUrl: string, uploadPath: string, visitUrl: string}
+      supportedMediaTypes: {
+        image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        video: ['video/mp4', 'video/webm', 'video/quicktime']
+      },
+      
+      // 图片预览相关
+      imagePreviewVisible: false,
+      currentPreviewUrl: null, // 当前预览的URL
+      activeImageRef: null, // 当前激活的图片元素引用
       
       // 流式返回设置
       enableStream: true, // 是否启用流式返回
@@ -338,9 +407,111 @@ export default {
     this.currentSession = null;
     this.messages = [];
     console.log('进入AI聊天页面，显示新会话状态');
+    
+    // 添加ESC键盘事件监听
+    document.addEventListener('keydown', this.handleKeyDown);
+    
+    // 添加窗口大小变化监听，以保持预览居中
+    window.addEventListener('resize', this.handleWindowResize);
+  },
+  
+  beforeDestroy() {
+    // 移除事件监听
+    document.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('resize', this.handleWindowResize);
   },
   
   methods: {
+    // 切换思考过程的折叠状态
+    toggleReasoning(message) {
+      // 为消息对象添加reasoningCollapsed属性（如果不存在），确保默认展开
+      if (typeof message.reasoningCollapsed === 'undefined') {
+        this.$set(message, 'reasoningCollapsed', false);
+      }
+      
+      // 切换折叠状态
+      this.$set(message, 'reasoningCollapsed', !message.reasoningCollapsed);
+    },
+    
+    // 处理窗口大小变化
+    handleWindowResize() {
+      // 如果有预览激活，重新调整预览图片的位置
+      if (this.imagePreviewVisible && this.activeImageRef) {
+        // 可以在这里添加逻辑来重新定位预览图片
+      }
+    },
+    
+    // 处理键盘事件 - 用于ESC关闭图片预览
+    handleKeyDown(event) {
+      if (event.key === 'Escape' && this.imagePreviewVisible) {
+        this.closeImagePreview();
+      }
+    },
+    
+    // 预览图片 - 使用已经加载的图片元素，不再创建新的img元素
+    previewImage(url) {
+      if (!url) return;
+      
+      // 记录当前预览的URL
+      this.currentPreviewUrl = url;
+      this.imagePreviewVisible = true;
+      
+      // 查找对应的消息，从而定位到正确的图片元素
+      const messageWithImage = this.messages.find(msg => msg.image_url === url);
+      if (messageWithImage) {
+        // 获取对应的图片引用
+        const imgRef = this.$refs[`img-${messageWithImage.id}`];
+        if (imgRef && imgRef[0]) {
+          // 设置当前激活的图片元素
+          this.activeImageRef = imgRef[0];
+          
+          // 添加预览样式类
+          imgRef[0].classList.add('image-preview-mode');
+          
+          // 调整图片元素的样式，使其在预览时居中显示
+          this.$nextTick(() => {
+            imgRef[0].style.position = 'fixed';
+            imgRef[0].style.top = '50%';
+            imgRef[0].style.left = '50%';
+            imgRef[0].style.transform = 'translate(-50%, -50%)';
+            imgRef[0].style.maxWidth = '90vw';
+            imgRef[0].style.maxHeight = '90vh';
+            imgRef[0].style.zIndex = '10000';
+            imgRef[0].style.objectFit = 'contain';
+            
+            // 增加过渡动画
+            imgRef[0].style.transition = 'all 0.3s ease';
+          });
+        }
+      }
+      
+      // 禁止页面滚动
+      document.body.style.overflow = 'hidden';
+    },
+    
+    // 关闭图片预览
+    closeImagePreview() {
+      if (this.activeImageRef) {
+        // 恢复原始样式
+        this.activeImageRef.classList.remove('image-preview-mode');
+        this.activeImageRef.style.position = '';
+        this.activeImageRef.style.top = '';
+        this.activeImageRef.style.left = '';
+        this.activeImageRef.style.transform = '';
+        this.activeImageRef.style.maxWidth = '';
+        this.activeImageRef.style.maxHeight = '';
+        this.activeImageRef.style.zIndex = '';
+        this.activeImageRef.style.objectFit = '';
+        this.activeImageRef.style.transition = '';
+      }
+      
+      this.imagePreviewVisible = false;
+      this.currentPreviewUrl = null;
+      this.activeImageRef = null;
+      
+      // 恢复页面滚动
+      document.body.style.overflow = '';
+    },
     
     // 取消请求
     cancelRequest() {
@@ -417,10 +588,11 @@ export default {
             timestamp = new Date().toISOString();
           }
           
-          // 返回处理后的消息对象
+          // 返回处理后的消息对象并初始化思考过程为展开状态
           return {
             ...msg,
-            timestamp: timestamp
+            timestamp: timestamp,
+            reasoningCollapsed: false // 默认展开思考过程
           };
         });
         
@@ -456,9 +628,9 @@ export default {
     // 发送消息
     async sendMessage() {
       console.log('发送消息方法被调用')
-      // 检查是否有内容和选择的模型
-      if (!this.inputMessage.trim() || !this.selectedModel) {
-        console.log('消息为空或未选择模型，不发送')
+      // 检查是否有内容或待发送媒体，并且已选择模型
+      if ((!this.inputMessage.trim() && !this.pendingMedia) || !this.selectedModel) {
+        console.log('没有内容或未选择模型，不发送')
         return
       }
       
@@ -482,6 +654,30 @@ export default {
       this.loading = true
       
       try {
+        let mediaInfo = null
+        let imageUrl = ''
+        let videoUrl = ''
+        
+        // 如果有待上传的媒体，先上传
+        if (this.pendingMedia) {
+          try {
+            this.$message.info('正在上传媒体文件...')
+            mediaInfo = await this.uploadMediaFile()
+            
+            // 设置图片或视频URL
+            if (mediaInfo) {
+              if (mediaInfo.type.startsWith('image/')) {
+                imageUrl = mediaInfo.url
+              } else if (mediaInfo.type.startsWith('video/')) {
+                videoUrl = mediaInfo.url
+              }
+            }
+          } catch (error) {
+            this.$message.error('媒体文件上传失败，将只发送文本')
+            console.error('媒体上传失败:', error)
+          }
+        }
+        
         // 添加用户消息到界面
         const userMessage = {
           id: Date.now().toString(),
@@ -489,11 +685,21 @@ export default {
           content: this.inputMessage,
           timestamp: new Date().toISOString()
         }
+        
+        // 如果有媒体信息，添加到消息中
+        if (imageUrl) {
+          userMessage.image_url = imageUrl
+        }
+        if (videoUrl) {
+          userMessage.video_url = videoUrl
+        }
+        
         this.messages.push(userMessage)
         
         // 清空输入
         const messageText = this.inputMessage
         this.inputMessage = ''
+        this.clearPendingMedia()
         
         // 滚动到底部 - 仅在用户发送新消息时
         const shouldScroll = true // 这里可以添加条件判断是否需要滚动
@@ -506,10 +712,10 @@ export default {
         // 使用流式发送消息
         if (this.enableStream) {
           console.log('使用流式发送消息')
-          await this.sendMessageStream(messageText)
+          await this.sendMessageStream(messageText, imageUrl, videoUrl)
         } else {
           console.log('使用非流式发送消息')
-          await this.sendMessageNormal(messageText)
+          await this.sendMessageNormal(messageText, imageUrl, videoUrl)
         }
         
       } catch (error) {
@@ -521,7 +727,7 @@ export default {
     },
     
     // 流式发送消息
-    async sendMessageStream(messageText) {
+    async sendMessageStream(messageText, imageUrl = '', videoUrl = '') {
       const aiMessages = new Map() // 存储每个模型的AI消息
       
       try {
@@ -535,7 +741,8 @@ export default {
           this.currentSession.id,
           messageText,
           this.selectedModel, // 将单个模型名称包装成数组
-          '', // imageUrl
+          imageUrl, // 图片URL
+          videoUrl, // 视频URL
           // onChunk - 处理流式数据块
           (chunkData) => {
             console.log('接收到数据块:', chunkData)
@@ -567,16 +774,22 @@ export default {
               this.messages.push(newMessage)
             }
             
-            // 获取当前已有的内容
+            // 获取当前已有的内容和思考过程
             let currentContent = "";
+            let currentReasoningContent = "";
             if (aiMessages.has(message_id)) {
               currentContent = aiMessages.get(message_id).content || "";
+              currentReasoningContent = aiMessages.get(message_id).reasoning_content || "";
             }
             
             // 根据SSE格式，每次chunk包含的是增量内容，需要累积
             const updatedContent = currentContent + content;
+            const updatedReasoningContent = currentReasoningContent + (chunkData.reasoning_content || "");
             
             console.log(`累积消息: 当前长度=${currentContent.length}, 新增=${content.length}, 总计=${updatedContent.length}`);
+            if (chunkData.reasoning_content) {
+              console.log(`累积思考过程: 当前长度=${currentReasoningContent.length}, 新增=${chunkData.reasoning_content.length}, 总计=${updatedReasoningContent.length}`);
+            }
             
             // 查找对应的消息
             const index = this.messages.findIndex(msg => msg.id === message_id)
@@ -586,6 +799,8 @@ export default {
               const updatedMessage = {
                 ...this.messages[index],
                 content: updatedContent,
+                reasoning_content: updatedReasoningContent,
+                reasoningCollapsed: this.messages[index].reasoningCollapsed !== undefined ? this.messages[index].reasoningCollapsed : false,
                 streaming: true
               }
               
@@ -602,6 +817,7 @@ export default {
             if (aiMessages.has(message_id)) {
               const mapMessage = aiMessages.get(message_id)
               mapMessage.content = updatedContent
+              mapMessage.reasoning_content = updatedReasoningContent
             }
             
             // 立即滚动到底部
@@ -633,7 +849,9 @@ export default {
                 role: 'assistant',
                 model: model,
                 content: '',
+                reasoning_content: '',
                 timestamp: validTimestamp,
+                reasoningCollapsed: false, // 默认展开思考过程
                 streaming: true
               }
               
@@ -654,6 +872,7 @@ export default {
               this.$set(this.messages, index, {
                 ...this.messages[index],
                 content: content || this.messages[index].content,
+                reasoning_content: completeData.reasoning_content || this.messages[index].reasoning_content,
                 image_url: image_url || this.messages[index].image_url,
                 streaming: false // 标记流式结束
               })
@@ -713,7 +932,7 @@ export default {
     },
     
     // 普通发送消息
-    async sendMessageNormal(messageText) {
+    async sendMessageNormal(messageText, imageUrl = '', videoUrl = '') {
       try {
         console.log('开始普通请求，会话ID:', this.currentSession.id)
         
@@ -721,7 +940,9 @@ export default {
         this.currentRequest = chatAPI.sendMessage(
           this.currentSession.id,
           messageText,
-          this.selectedModel // 将单个模型名称包装成数组
+          this.selectedModel, // 将单个模型名称包装成数组
+          imageUrl,
+          videoUrl
         )
         
         // 等待响应
@@ -753,8 +974,10 @@ export default {
               role: 'assistant',
               model: aiMessage.model,
               content: aiMessage.content,
+              reasoning_content: aiMessage.reasoning_content,
               image_url: aiMessage.image_url,
-              timestamp: timestamp
+              timestamp: timestamp,
+              reasoningCollapsed: false // 默认展开思考过程
             }
             
             console.log('添加消息到界面:', newMessage.id, 'timestamp:', newMessage.timestamp);
@@ -868,12 +1091,142 @@ export default {
       this.$refs.imageInput.click()
     },
     
+    // 上传视频
+    uploadVideo() {
+      this.$refs.videoInput.click()
+    },
+    
     // 处理图片上传
-    handleImageUpload(event) {
+    async handleImageUpload(event) {
       const file = event.target.files[0]
-      if (file) {
-        // TODO: 实现图片上传逻辑
-        this.$message.info('图片上传功能待实现')
+      if (!file) return
+      
+      try {
+        // 检查文件类型
+        if (!this.supportedMediaTypes.image.includes(file.type)) {
+          this.$message.error('不支持的图片格式')
+          return
+        }
+        
+        // 创建预览URL
+        const previewUrl = URL.createObjectURL(file)
+        
+        // 生成唯一文件路径
+        const fileExt = file.name.split('.').pop()
+        const uploadPath = `${this.generateUuid()}.${fileExt}`
+        
+        // 保存待上传的媒体信息
+        this.pendingMedia = {
+          file,
+          type: file.type,
+          previewUrl,
+          uploadPath,
+          visitUrl: null
+        }
+        
+        this.$message.success('图片已选择，发送消息时将自动上传')
+      } catch (error) {
+        console.error('处理图片上传失败:', error)
+        this.$message.error('处理图片失败')
+        this.clearPendingMedia()
+      }
+    },
+    
+    // 处理视频上传
+    async handleVideoUpload(event) {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      try {
+        // 检查文件类型
+        if (!this.supportedMediaTypes.video.includes(file.type)) {
+          this.$message.error('不支持的视频格式')
+          return
+        }
+        
+        // 检查文件大小，限制为100MB
+        if (file.size > 100 * 1024 * 1024) {
+          this.$message.error('视频文件不能超过100MB')
+          return
+        }
+        
+        // 创建预览URL
+        const previewUrl = URL.createObjectURL(file)
+        
+        // 生成唯一文件路径
+        const fileExt = file.name.split('.').pop()
+        const uploadPath = `${this.generateUuid()}.${fileExt}`
+        
+        // 保存待上传的媒体信息
+        this.pendingMedia = {
+          file,
+          type: file.type,
+          previewUrl,
+          uploadPath,
+          visitUrl: null
+        }
+        
+        this.$message.success('视频已选择，发送消息时将自动上传')
+      } catch (error) {
+        console.error('处理视频上传失败:', error)
+        this.$message.error('处理视频失败')
+        this.clearPendingMedia()
+      }
+    },
+    
+    // 清除待上传媒体
+    clearPendingMedia() {
+      if (this.pendingMedia && this.pendingMedia.previewUrl) {
+        URL.revokeObjectURL(this.pendingMedia.previewUrl)
+      }
+      this.pendingMedia = null
+    },
+    
+    // 格式化文件大小
+    formatFileSize(bytes) {
+      if (bytes < 1024) {
+        return bytes + ' B'
+      } else if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(1) + ' KB'
+      } else if (bytes < 1024 * 1024 * 1024) {
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+      } else {
+        return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
+      }
+    },
+    
+    // 生成UUID
+    generateUuid() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0
+        const v = c === 'x' ? r : (r & 0x3 | 0x8)
+        return v.toString(16)
+      })
+    },
+    
+    // 上传媒体文件
+    async uploadMediaFile() {
+      if (!this.pendingMedia) return null
+      
+      try {
+        // 获取上传URL和访问URL
+        const { fileAPI } = require('@/api/chat')
+        const response = await fileAPI.getPublicUploadURL(this.pendingMedia.uploadPath)
+        
+        console.log('获取上传URL响应:', response)
+        
+        // 上传文件
+        await fileAPI.uploadFile(response.upload_url, response.method, this.pendingMedia.file)
+        
+        // 直接使用getPublicUploadURL返回的visit_url
+        // 返回访问信息
+        return {
+          type: this.pendingMedia.type,
+          url: response.visit_url  // 直接使用upload接口返回的visit_url
+        }
+      } catch (error) {
+        console.error('上传媒体文件失败:', error)
+        throw new Error('上传媒体文件失败')
       }
     },
     
@@ -1002,6 +1355,48 @@ export default {
 </script>
 
 <style scoped>
+/* 思考过程样式 */
+.reasoning-content {
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #606266;
+  user-select: none;
+}
+
+.reasoning-header:hover {
+  background-color: #ebeef5;
+}
+
+.reasoning-header i {
+  margin-right: 5px;
+}
+
+.reasoning-text {
+  background-color: #f5f7fa;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #606266;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 10px;
+  border-left: 3px solid #dcdfe6;
+}
+
+.reasoning-content.collapsed .reasoning-text {
+  display: none;
+}
 .ai-chat-container {
   height: 100vh;
   display: flex;
@@ -1355,14 +1750,87 @@ export default {
   color: #303133;
 }
 
+/* 修改消息图片尺寸和样式 */
 .message-image {
   margin-top: 12px;
 }
 
 .message-image img {
-  max-width: 100%;
+  max-width: 250px; /* 限制最大宽度 */
+  max-height: 200px; /* 限制最大高度 */
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.3s, max-width 0.3s, max-height 0.3s;
+  object-fit: contain; /* 保持原始比例 */
+}
+
+.message-image img:hover {
+  transform: scale(1.02);
+}
+
+/* 图片预览样式 */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* 当图片处于预览模式时应用的样式 */
+.message-image img.image-preview-mode {
+  max-width: none;
+  max-height: none;
+  z-index: 10000;
+}
+
+/* 预览图片的动画效果 */
+.message-image img.preview-active {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.message-video {
+  margin-top: 12px;
+  max-width: 100%;
+}
+
+.message-video-player {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pending-media {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-preview-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.pending-media-info {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .loading-message {
@@ -1430,4 +1898,4 @@ export default {
   padding: 4px 8px;
   border-radius: 4px;
 }
-</style> 
+</style>

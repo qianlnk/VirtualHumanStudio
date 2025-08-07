@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/qianlnk/VirtualHumanStudio/backend/config"
+	"github.com/qianlnk/VirtualHumanStudio/backend/utils"
 )
 
 func TestModels(t *testing.T) {
 	cfg := &config.Promptt{
 		BaseURL: "https://aigc-backend.skyengine.com.cn",
-		APIKey:  "xiangmuzuzhushou133:ed13cede3dfbd663f330cf54236eaf94",
+		APIKey:  "xxxxx",
 	}
 	p := New(cfg)
 	models, err := p.Models()
@@ -22,11 +23,11 @@ func TestModels(t *testing.T) {
 func TestChat(t *testing.T) {
 	cfg := &config.Promptt{
 		BaseURL: "https://aigc-backend.skyengine.com.cn",
-		APIKey:  "xiangmuzuzhushou133:ed13cede3dfbd663f330cf54236eaf94",
+		APIKey:  "xxxxx",
 	}
 	p := New(cfg)
 	req := &ChatCompletionRequest{}
-	req.Model = "DeepSeek-R1"
+	req.Model = "claude-opus-4.1-20250805-thinking"
 	req.Stream = false
 	msg := ChatCompletionMessage{}
 	msg.Role = "user"
@@ -38,5 +39,5 @@ func TestChat(t *testing.T) {
 	req.Messages = append(req.Messages, msg)
 	res, err := p.DoChat(context.Background(), req)
 	fmt.Println(1)
-	fmt.Println(res, err)
+	fmt.Println(utils.ToJSONString(res), err)
 }

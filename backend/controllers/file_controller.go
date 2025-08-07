@@ -18,16 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 支持的媒体类型
-var mediaTypes = map[string]string{
-	".mp3":  "audio/mpeg",
-	".wav":  "audio/wav",
-	".ogg":  "audio/ogg",
-	".mp4":  "video/mp4",
-	".webm": "video/webm",
-	".avi":  "video/x-msvideo",
-}
-
 // 从上下文中获取用户ID
 func getUserIDFromContext(c *gin.Context) string {
 	userID, exists := c.Get("user_id")
@@ -51,12 +41,12 @@ func getUserIDFromContext(c *gin.Context) string {
 
 // 构建私有路径
 func buildPrivatePath(userID, path string) string {
-	return userID + "/" + path
+	return "vhs/" + userID + "/" + path
 }
 
 // 构建公共路径
 func buildPublicPath(userID, path string) string {
-	return "public/" + userID + "/" + path
+	return "vhs/public/" + userID + "/" + path
 }
 
 // 替换域名
@@ -119,7 +109,7 @@ func GetUploadURL(c *gin.Context) {
 		return
 	}
 
-	visitURL = replaceDomain(visitURL)
+	// visitURL = replaceDomain(visitURL)
 
 	c.JSON(http.StatusOK, gin.H{
 		"method":     method,
@@ -203,7 +193,7 @@ func GetPublicUploadURL(c *gin.Context) {
 	}
 
 	visitURL := uri.Scheme + "://" + uri.Host + uri.Path
-	visitURL = replaceDomain(visitURL)
+	// visitURL = replaceDomain(visitURL)
 
 	c.JSON(http.StatusOK, gin.H{
 		"method":     method,
@@ -246,7 +236,7 @@ func GetPublicVisitURL(c *gin.Context) {
 	}
 
 	fileURL = uri.Scheme + "://" + uri.Host + uri.Path
-	fileURL = replaceDomain(fileURL)
+	// fileURL = replaceDomain(fileURL)
 
 	log.Printf("publicPath: %s, url: %s", publicPath, fileURL)
 

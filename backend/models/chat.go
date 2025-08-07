@@ -1,8 +1,11 @@
 package models
 
 import (
+	"strings"
 	"time"
 
+	"github.com/qianlnk/VirtualHumanStudio/backend/client/promptt"
+	"github.com/sashabaranov/go-openai"
 	"gorm.io/gorm"
 )
 
@@ -23,24 +26,78 @@ type ChatSession struct {
 
 // ChatMessage 聊天消息模型
 type ChatMessage struct {
-	ID        string    `json:"id" gorm:"primaryKey;type:varchar(50)"`
-	SessionID string    `json:"session_id" gorm:"type:varchar(50);not null;index"`
-	UserID    uint      `json:"user_id" gorm:"index;not null"`
-	Role      string    `json:"role" gorm:"type:varchar(20);not null"` // user, assistant
-	Content   string    `json:"content" gorm:"type:text;not null"`
-	Model     string    `json:"model" gorm:"type:varchar(100)"`     // AI模型名称
-	ImageURL  string    `json:"image_url" gorm:"type:varchar(500)"` // 图像URL
-	VideoURL  string    `json:"video_url" gorm:"type:varchar(500)"` // 视频URL
-	AudioURL  string    `json:"audio_url" gorm:"type:varchar(500)"` // 音频URL
-	FileURL   string    `json:"file_url" gorm:"type:varchar(500)"`  // 通用文件URL
-	FileType  string    `json:"file_type" gorm:"type:varchar(50)"`  // 文件类型(image/video/audio/document/other)
-	FileName  string    `json:"file_name" gorm:"type:varchar(255)"` // 文件名称
-	FileSize  int64     `json:"file_size" gorm:"default:0"`         // 文件大小(bytes)
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	ID               string    `json:"id" gorm:"primaryKey;type:varchar(50)"`
+	SessionID        string    `json:"session_id" gorm:"type:varchar(50);not null;index"`
+	UserID           uint      `json:"user_id" gorm:"index;not null"`
+	Role             string    `json:"role" gorm:"type:varchar(20);not null"` // user, assistant
+	Content          string    `json:"content" gorm:"type:text;not null"`
+	ReasoningContent string    `json:"reasoning_content" gorm:"type:text"`
+	Model            string    `json:"model" gorm:"type:varchar(100)"`     // AI模型名称
+	ImageURL         string    `json:"image_url" gorm:"type:varchar(500)"` // 图像URL
+	VideoURL         string    `json:"video_url" gorm:"type:varchar(500)"` // 视频URL
+	AudioURL         string    `json:"audio_url" gorm:"type:varchar(500)"` // 音频URL
+	FileURL          string    `json:"file_url" gorm:"type:varchar(500)"`  // 通用文件URL
+	FileType         string    `json:"file_type" gorm:"type:varchar(50)"`  // 文件类型(image/video/audio/document/other)
+	FileName         string    `json:"file_name" gorm:"type:varchar(255)"` // 文件名称
+	FileSize         int64     `json:"file_size" gorm:"default:0"`         // 文件大小(bytes)
+	CreatedAt        time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt        time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// 关联关系
 	Session ChatSession `json:"session,omitempty" gorm:"foreignKey:SessionID"`
+}
+
+func (msg *ChatMessage) ToChatCompletionMessage(model string) promptt.ChatCompletionMessage {
+	chatCompletionMessage := promptt.ChatCompletionMessage{
+		ChatCompletionMessage: openai.ChatCompletionMessage{
+			Role: msg.Role,
+		},
+	}
+
+	if msg.Content != "" {
+		chatCompletionMessage.MultiContent = append(chatCompletionMessage.MultiContent, promptt.ChatMessagePart{
+			ChatMessagePart: openai.ChatMessagePart{
+				Type: "text",
+				Text: msg.Content,
+			},
+		})
+	}
+
+	if msg.ImageURL != "" {
+		chatCompletionMessage.MultiContent = append(chatCompletionMessage.MultiContent, promptt.ChatMessagePart{
+			ChatMessagePart: openai.ChatMessagePart{
+				Type: "image_url",
+				ImageURL: &openai.ChatMessageImageURL{
+					URL: msg.ImageURL,
+				},
+			},
+		})
+	}
+
+	if msg.VideoURL != "" {
+		// gemini的视频服务端只支持了传给图片
+		if strings.Contains(model, "gemini") {
+			chatCompletionMessage.MultiContent = append(chatCompletionMessage.MultiContent, promptt.ChatMessagePart{
+				ChatMessagePart: openai.ChatMessagePart{
+					Type: "image_url",
+					ImageURL: &openai.ChatMessageImageURL{
+						URL: msg.VideoURL,
+					},
+				},
+			})
+		} else {
+			chatCompletionMessage.MultiContent = append(chatCompletionMessage.MultiContent, promptt.ChatMessagePart{
+				ChatMessagePart: openai.ChatMessagePart{
+					Type: "video_url",
+				},
+				VideoURL: &promptt.ChatMessageVideoURL{
+					URL: msg.VideoURL,
+				},
+			})
+		}
+	}
+
+	return chatCompletionMessage
 }
 
 // ModelInfo AI模型信息模型

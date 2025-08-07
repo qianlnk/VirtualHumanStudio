@@ -63,7 +63,7 @@ export const chatAPI = {
   },
 
   // 发送消息
-  sendMessage(sessionId, message, model, imageUrl = '') {
+  sendMessage(sessionId, message, model, imageUrl = '', videoUrl = '') {
     // 创建一个可取消的请求
     const controller = {
       source: axios.CancelToken.source(),
@@ -86,6 +86,7 @@ export const chatAPI = {
       message,
       model,
       image_url: imageUrl,
+      video_url: videoUrl,
       stream: false // 明确指定非流式请求
     }, {
       cancelToken: controller.source.token
@@ -106,7 +107,7 @@ export const chatAPI = {
   },
 
   // 流式发送消息
-  sendMessageStream(sessionId, message, model, imageUrl = '', onChunk, onStart, onComplete, onError, onEnd) {
+  sendMessageStream(sessionId, message, model, imageUrl = '', videoUrl = '', onChunk, onStart, onComplete, onError, onEnd) {
     // 创建一个可以中断的请求控制器
     const controller = {
       xhr: null,
@@ -134,6 +135,7 @@ export const chatAPI = {
       formData.append('message', message)
       formData.append('model', JSON.stringify(model))
       formData.append('image_url', imageUrl || '')
+      formData.append('video_url', videoUrl || '')
       formData.append('stream', 'true')
       
       // 创建XMLHttpRequest来处理流式响应
@@ -252,6 +254,7 @@ export const chatAPI = {
         message: message,
         model: model,
         image_url: imageUrl || '',
+        video_url: videoUrl || '',
         stream: true
       }))
     })
@@ -271,4 +274,88 @@ export const chatAPI = {
   }
 }
 
-export default api 
+// 文件上传和访问API
+export const fileAPI = {
+  // 获取上传URL
+  getPublicUploadURL(path) {
+    return api.post('/file/public/upload/url', { path })
+  },
+
+  // 获取访问URL
+  getPublicVisitURL(path) {
+    return api.post('/file/public/visit/url', { path })
+  },
+
+  // 上传文件到指定URL
+  uploadFile(uploadURL, method, file) {
+    // 对于PUT方法（华为云OBS预签名URL），完全匹配curl的行为
+    if (method.toUpperCase() === 'PUT') {
+      console.log('使用XHR原始方法上传文件，完全模拟curl --upload-file行为')
+      
+      return new Promise((resolve, reject) => {
+        // 读取文件为ArrayBuffer以确保二进制传输
+        const reader = new FileReader();
+        
+        reader.onload = function() {
+          const xhr = new XMLHttpRequest();
+          
+          // 调试信息：打印上传URL
+          console.log('上传URL:', uploadURL);
+          
+          xhr.open('PUT', uploadURL, true);
+          
+          // 监听状态变化
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+              console.log('上传完成，状态码:', xhr.status);
+              console.log('响应头:', xhr.getAllResponseHeaders());
+              
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({
+                  status: xhr.status,
+                  statusText: xhr.statusText,
+                  data: xhr.responseText
+                });
+              } else {
+                console.error('上传失败，响应内容:', xhr.responseText);
+                reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}`));
+              }
+            }
+          };
+          
+          // 错误处理
+          xhr.onerror = function(e) {
+            console.error('上传发生错误:', e);
+            reject(new Error('网络错误'));
+          };
+          
+          // 不设置任何头信息，直接发送文件内容
+          xhr.send(reader.result);
+        };
+        
+        reader.onerror = function() {
+          reject(new Error('文件读取错误'));
+        };
+        
+        // 读取文件为ArrayBuffer
+        reader.readAsArrayBuffer(file);
+      });
+    } else {
+      // 对于其他方法（如POST），使用FormData
+      console.log('使用FormData上传文件');
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      return axios({
+        url: uploadURL,
+        method: method,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+    }
+  }
+}
+
+export default api
