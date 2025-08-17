@@ -4,7 +4,7 @@
     <div class="page-header">
       <h2>音色克隆详情</h2>
       <div>
-        <el-button type="primary" @click="goBack">返回列表</el-button>
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
       </div>
     </div>
     
@@ -100,7 +100,7 @@
             show-icon>
           </el-alert>
           <div class="retry-button">
-            <el-button type="primary" @click="retryTask">重试</el-button>
+            <el-button type="primary" class="action-button" @click="retryTask">重试</el-button>
           </div>
         </div>
       </div>
@@ -528,6 +528,10 @@ export default {
 <style scoped>
 .voice-clone-detail-container {
   padding: 20px;
+  min-height: 100vh;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .page-header {
@@ -535,9 +539,10 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  max-width: 95%;
-  margin-left: auto;
-  margin-right: auto;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
   box-sizing: border-box;
 }
@@ -546,7 +551,10 @@ export default {
   margin: 0;
   font-size: 20px;
   font-weight: 500;
-  color: #ffffff;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
 }
 
 /* PC端顶部导航栏 */
@@ -560,7 +568,7 @@ export default {
 .voice-clone-detail-container {
   min-height: 100vh;
   padding: 0;
-  background: #fff;
+  background: #ffffff;
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -579,12 +587,12 @@ export default {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 12px;
   z-index: 1001; /* 提高层级，确保在最上层 */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 5px rgba(44, 62, 80, 0.2);
   color: #fff;
   width: 100%;
   max-width: 100vw;
@@ -601,7 +609,7 @@ export default {
 }
 
 .header-back:hover {
-  background-color: rgba(255, 255, 255, 0.1); /* 鼠标悬停效果 */
+  background-color: rgba(255, 255, 255, 0.2); /* 鼠标悬停效果 */
 }
 
 .header-back i {
@@ -641,8 +649,11 @@ export default {
 }
 
 .detail-content {
-  max-width: 100%;
-  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   width: 100%;
   box-sizing: border-box;
 }
@@ -653,7 +664,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -690,7 +701,7 @@ export default {
 .sample-section {
   margin-top: 12px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -706,13 +717,20 @@ export default {
 
 /* 基本信息卡片 */
 .info-card {
-  background: #fff;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #ebeef5;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(200, 200, 200, 0.4);
   max-width: 100%;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
 }
 
 .info-header {
@@ -730,24 +748,32 @@ export default {
 .info-title {
   font-size: 18px;
   font-weight: 500;
-  color: #303133;
+  color: #333;
   margin-bottom: 8px;
 }
 
 /* 详情卡片 */
 .detail-card {
   margin-bottom: 20px;
-  border-radius: 4px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   max-width: 100%;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.detail-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
 }
 
 .card-header {
-  background-color: #fff;
+  background: linear-gradient(180deg, #f1f3f6, #e9ecef);
   padding: 12px 15px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   max-width: 100%;
   display: flex;
   justify-content: space-between;
@@ -757,7 +783,9 @@ export default {
 .card-header span {
   font-size: 16px;
   font-weight: 500;
-  color: #303133;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .audio-info {
@@ -770,12 +798,17 @@ export default {
   margin: 3px 0 8px 0;
   height: 36px;
   max-width: 100%;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .prompt-text {
   margin-top: 12px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.4);
+  padding: 10px;
+  border-radius: 8px;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -789,9 +822,9 @@ export default {
 
 .prompt-text p {
   margin: 0;
-  color: #666;
+  color: rgba(44, 62, 80, 0.85);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.5;
   padding: 0;
   background: none;
   border: none;
@@ -819,17 +852,32 @@ export default {
 /* 错误信息卡 */
 .error-card {
   margin: 0;
-  padding: 8px 12px;
-  background: none;
-  border-top: 1px solid #f0f0f0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .retry-button {
-  margin-top: 10px;
+  margin-top: 15px;
   text-align: center;
   max-width: 100%;
+  animation: fadeIn 0.6s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 移动端适配 */
@@ -1018,6 +1066,34 @@ export default {
   padding: 15px;
 }
 
+/* 表单输入框样式优化 */
+:deep(.el-input__inner),
+:deep(.el-textarea__inner) {
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  background-color: #ffffff;
+}
+
+:deep(.el-input__inner:focus),
+:deep(.el-textarea__inner:focus) {
+  border-color: #2c3e50;
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2);
+}
+
+:deep(.el-button--primary) {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+:deep(.el-button--primary:hover),
+:deep(.el-button--primary:focus) {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
 /* PC端特有样式 */
 @media screen and (min-width: 769px) {
   .mobile-header-bar {
@@ -1033,9 +1109,6 @@ export default {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
-    max-width: 95%;
-    margin-left: auto;
-    margin-right: auto;
     width: 100%;
     box-sizing: border-box;
   }
@@ -1062,13 +1135,12 @@ export default {
   }
 
   .detail-content {
-    background-color: #fff;
-    border-radius: 4px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(200, 200, 200, 0.4);
     overflow: hidden;
-    max-width: 95%;
-    margin-left: auto;
-    margin-right: auto;
     width: 100%;
     box-sizing: border-box;
   }
@@ -1076,14 +1148,14 @@ export default {
   /* 调整PC端卡片内边距 */
   .desktop-content-view {
     padding: 20px;
-    background-color: #fff;
+    background-color: #ffffff;
     box-sizing: border-box;
     width: 100%;
   }
   
   .info-card {
     margin-bottom: 20px;
-    background-color: #fff;
+    background-color: #ffffff;
     border: none;
     box-shadow: none;
     padding: 0;
@@ -1092,7 +1164,7 @@ export default {
   }
   
   .info-header {
-    border-bottom: 1px solid #ebeef5;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     padding-bottom: 15px;
     margin-bottom: 15px;
     width: 100%;
@@ -1102,7 +1174,7 @@ export default {
   .detail-card {
     margin-bottom: 20px;
     box-shadow: none;
-    border: 1px solid #ebeef5;
+    border: 1px solid rgba(200, 200, 200, 0.4);
     width: 100%;
     box-sizing: border-box;
   }
@@ -1110,5 +1182,55 @@ export default {
   .basic-info {
     display: none; /* 隐藏简化版基本信息 */
   }
+}
+
+/* 按钮样式与Home.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
 }
 </style>

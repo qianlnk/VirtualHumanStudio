@@ -141,7 +141,7 @@ export default {
           const path = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2} ${y2}`
           
           line.setAttribute('d', path)
-          line.setAttribute('stroke', 'rgba(0, 255, 255, 0.2)')
+          line.setAttribute('stroke', 'rgba(44, 62, 80, 0.2)')
           line.setAttribute('stroke-width', '2')
           line.setAttribute('fill', 'none')
           
@@ -175,7 +175,7 @@ export default {
         
         // 根据鼠标距离调整线条亮度
         const opacity = Math.max(0.2, 1 - distance / 500)
-        line.style.stroke = `rgba(0, 255, 255, ${opacity})`
+        line.style.stroke = `rgba(44, 62, 80, ${opacity})`
       })
     }
   }
@@ -186,8 +186,8 @@ export default {
 .landing-container {
   min-height: 100vh;
   position: relative;
-  background: linear-gradient(135deg, #1a1a1a, #000);
-  color: #fff;
+  background: linear-gradient(135deg, #f7f7f7, #e9ecef, #2c3e50);
+  color: #333;
   overflow: hidden;
 }
 
@@ -221,12 +221,12 @@ export default {
   display: none;
   font-size: 24px;
   cursor: pointer;
-  color: #00ffff;
+  color: #2c3e50;
 }
 
 .logo h1 {
   font-size: 2rem;
-  background: linear-gradient(120deg, #00ffff, #0099ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0;
@@ -235,6 +235,33 @@ export default {
 .nav-buttons .el-button {
   margin-left: 1rem;
   font-size: 1.1rem;
+}
+
+.nav-buttons .el-button--text {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.nav-buttons .el-button--text:hover {
+  color: #4a6572;
+}
+
+.nav-buttons .el-button--primary,
+.hero-section .el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.nav-buttons .el-button--primary:hover,
+.hero-section .el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
 }
 
 .main-content {
@@ -251,14 +278,14 @@ export default {
 .hero-section h2 {
   font-size: 3.5rem;
   margin-bottom: 1.5rem;
-  background: linear-gradient(120deg, #00ffff, #0099ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .hero-section p {
   font-size: 1.5rem;
-  color: #a0a0a0;
+  color: rgba(44, 62, 80, 0.7);
   margin-bottom: 2rem;
 }
 
@@ -270,7 +297,9 @@ export default {
 }
 
 .feature-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 15px;
   padding: 2rem;
   text-align: center;
@@ -279,23 +308,23 @@ export default {
 
 .feature-card:hover {
   transform: translateY(-10px);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .feature-card i {
   font-size: 3rem;
-  color: #00ffff;
+  color: #2c3e50;
   margin-bottom: 1.5rem;
 }
 
 .feature-card h4 {
   font-size: 1.5rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: #333;
 }
 
 .feature-card p {
-  color: #a0a0a0;
+  color: rgba(44, 62, 80, 0.7);
   line-height: 1.6;
 }
 
@@ -318,17 +347,17 @@ export default {
 
 .tech-icon {
   font-size: 2.5rem;
-  color: #00ffff;
+  color: #2c3e50;
 }
 
 .tech-content h4 {
   font-size: 1.3rem;
   margin-bottom: 0.5rem;
-  color: #fff;
+  color: #333;
 }
 
 .tech-content p {
-  color: #a0a0a0;
+  color: rgba(44, 62, 80, 0.7);
   line-height: 1.6;
 }
 
@@ -336,7 +365,7 @@ h3 {
   font-size: 2.5rem;
   text-align: center;
   margin-bottom: 2rem;
-  background: linear-gradient(120deg, #00ffff, #0099ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -348,6 +377,10 @@ h3 {
   
   .landing-header {
     margin-bottom: 2rem;
+  }
+  
+  .logo h1 {
+    font-size: 1.6rem;
   }
   
   .mobile-menu {
@@ -379,12 +412,20 @@ h3 {
     text-align: center;
   }
   
+  .nav-buttons .el-button--primary,
+  .hero-section .el-button--primary {
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
+    border: none;
+    padding: 10px 0;
+  }
+  
   .hero-section h2 {
     font-size: 2.5rem;
   }
   
   .hero-section p {
     font-size: 1.2rem;
+    color: rgba(44, 62, 80, 0.7);
   }
   
   .feature-grid {

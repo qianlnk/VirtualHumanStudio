@@ -831,8 +831,8 @@ export default {
 .accessory-container {
   padding: 40px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
+  background: linear-gradient(135deg, #ffffff, #f8f8f8, #f0f0f0);
+  color: #333;
 }
 
 .upload-item {
@@ -840,12 +840,12 @@ export default {
 }
 
 .task-list {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   padding: 20px;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(200, 200, 200, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
 }
 
 .preview-container {
@@ -866,7 +866,7 @@ export default {
 
 .page-header h2 {
   font-size: 2em;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #1a73e8, #0d47a1);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -874,7 +874,7 @@ export default {
 .card-title {
   font-size: 16px;
   font-weight: 500;
-  color: #fff;
+  color: #444;
 }
 
 .clearfix::after {
@@ -895,10 +895,10 @@ export default {
 /* 图片预览样式 */
 .image-preview {
   margin-top: 10px;
-  border: 1px dashed #ccc;
+  border: 1px dashed #1a73e8;
   padding: 5px;
   border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(26, 115, 232, 0.05);
   text-align: center;
 }
 
@@ -927,7 +927,7 @@ export default {
   flex-wrap: wrap;
   align-items: center;
   padding: 15px;
-  background-color: #f5f7fa;
+  background-color: rgba(26, 115, 232, 0.05);
   border-radius: 4px;
 }
 
@@ -945,7 +945,7 @@ export default {
 
 .tool-label {
   margin-right: 8px;
-  color: #606266;
+  color: #1a73e8;
   font-size: 14px;
 }
 
@@ -954,7 +954,7 @@ export default {
   display: flex;
   justify-content: center;
   margin: 10px 0;
-  background-color: #eee;
+  background-color: rgba(240, 240, 240, 0.8);
   border-radius: 4px;
   overflow: auto; /* 允许滚动查看大图 */
   max-height: 80vh; /* 限制最大高度，避免超出屏幕 */
@@ -964,8 +964,8 @@ export default {
 .canvas-wrapper {
   position: relative;
   display: inline-block;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #1a73e8;
   /* 确保canvas-wrapper有足够的空间显示canvas */
   min-width: 400px;
   min-height: 300px;

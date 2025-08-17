@@ -5,7 +5,7 @@
         <h2>语音识别</h2>
       </div>
       <div class="header-right">
-        <el-button v-if="!isMobile" type="primary" @click="handleUpload" icon="el-icon-plus">创建语音识别任务</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="handleUpload" icon="el-icon-plus">创建语音识别任务</el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -40,28 +40,31 @@
         </el-table-column>
         <el-table-column label="操作" width="300">
           <template slot-scope="scope">
-            <el-button 
-              type="text" 
-              size="small" 
+            <el-button
+              type="text"
+              size="small"
+              class="table-action-button"
               @click="viewDetail(scope.row.id)"
             >
               <i class="el-icon-view"></i> 查看
             </el-button>
-            <el-button 
-              type="text" 
-              size="small" 
-              @click="playAudio(scope.row)" 
+            <el-button
+              type="text"
+              size="small"
+              class="table-action-button"
+              @click="playAudio(scope.row)"
               :disabled="!scope.row.input_file || scope.row.status !== 'completed'"
             >
               <i class="el-icon-video-play"></i> 播放
             </el-button>
-            <el-button 
-              v-if="scope.row.status === 'failed'" 
-              type="text" 
-              size="small" 
+            <el-button
+              v-if="scope.row.status === 'failed'"
+              type="text"
+              size="small"
+              class="table-action-button"
               @click="handleRetry(scope.row)"
             >重试</el-button>
-            <el-button type="text" size="small" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button type="text" size="small" class="table-action-button" @click="handleDelete(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -107,7 +110,7 @@
               <el-button 
                 type="text" 
                 size="small" 
-                class="action-btn"
+                class="action-btn table-action-button"
                 @click="viewDetail(item.id)"
               >
                 <i class="el-icon-view"></i> 查看
@@ -115,7 +118,7 @@
               <el-button 
                 type="text" 
                 size="small" 
-                class="action-btn"
+                class="action-btn table-action-button"
                 @click="playAudio(item)" 
                 :disabled="!item.input_file || item.status !== 'completed'"
               >
@@ -125,13 +128,13 @@
                 v-if="item.status === 'failed'" 
                 type="text" 
                 size="small" 
-                class="action-btn"
+                class="action-btn table-action-button"
                 @click="handleRetry(item)"
               >重试</el-button>
               <el-button 
                 type="text" 
                 size="small" 
-                class="action-btn"
+                class="action-btn table-action-button"
                 @click="handleDelete(item)"
               >删除</el-button>
             </div>
@@ -207,10 +210,10 @@
               :limit="1"
               :file-list="fileList"
               :before-upload="beforeUpload">
-              <el-button size="small" type="primary">点击上传</el-button>
+              <el-button size="small" type="primary" class="action-button">点击上传</el-button>
             </el-upload>
-            <el-button size="small" type="success" @click="startRecording" v-if="!isRecording">录制</el-button>
-            <el-button size="small" type="danger" @click="stopRecording" v-if="isRecording">停止录制</el-button>
+            <el-button size="small" type="success" @click="startRecording" v-if="!isRecording" class="action-button">录制</el-button>
+            <el-button size="small" type="danger" @click="stopRecording" v-if="isRecording" class="action-button">停止录制</el-button>
             <div slot="tip" class="el-upload__tip">支持MP3、WAV音频或MP4、MOV等视频，不超过50MB</div>
           </div>
           <!-- 录音预览 - 改进播放控件布局 -->
@@ -218,13 +221,13 @@
             <div class="audio-player-wrapper">
               <audio :src="recordedAudioUrl" controls controlsList="nodownload" ref="previewAudio"></audio>
               <div class="audio-player-fallback" v-if="isMobile">
-                <el-button size="small" type="primary" icon="el-icon-video-play" @click="playPreviewAudio">播放</el-button>
-                <el-button size="small" type="info" icon="el-icon-video-pause" @click="pausePreviewAudio">暂停</el-button>
+                <el-button size="small" type="primary" icon="el-icon-video-play" @click="playPreviewAudio" class="action-button">播放</el-button>
+                <el-button size="small" type="info" icon="el-icon-video-pause" @click="pausePreviewAudio" class="action-button">暂停</el-button>
               </div>
             </div>
             <div class="preview-actions">
-              <el-button size="small" type="primary" @click="useRecordedAudio">使用录制的音频</el-button>
-              <el-button size="small" @click="discardRecordedAudio">放弃</el-button>
+              <el-button size="small" type="primary" @click="useRecordedAudio" class="action-button">使用录制的音频</el-button>
+              <el-button size="small" @click="discardRecordedAudio" class="action-button secondary">放弃</el-button>
             </div>
           </div>
         </el-form-item>
@@ -238,14 +241,14 @@
         
         <!-- 移动端底部按钮 -->
         <div v-if="isMobile" class="mobile-form-footer">
-          <el-button type="primary" @click="submitASRTask" class="mobile-submit-btn">创建任务</el-button>
+          <el-button type="primary" @click="submitASRTask" class="action-button mobile-submit-btn">创建任务</el-button>
         </div>
       </el-form>
       
       <!-- 桌面端底部按钮 -->
       <div v-if="!isMobile" slot="footer" class="dialog-footer">
-        <el-button @click="uploadDialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="submitASRTask">确 定</el-button>
+        <el-button @click="uploadDialogVisible = false" class="action-button secondary">取 消</el-button>
+        <el-button type="primary" @click="submitASRTask" class="action-button">确 定</el-button>
       </div>
     </el-dialog>
   </div>
@@ -956,7 +959,7 @@ beforeUpload(file) {
   border-radius: 0;
   padding: 8px 10px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
@@ -987,22 +990,43 @@ beforeUpload(file) {
 .page-header h2 {
   font-size: 1.4rem;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .view-toggle {
   margin-left: 10px;
+  color: #2c3e50;
+  transition: all 0.3s;
+}
+
+.view-toggle:hover {
+  color: #4a6572;
+  transform: translateY(-2px);
+}
+
+.view-toggle i {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+}
+
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 4px;
 }
 
 .task-list {
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
   backdrop-filter: blur(10px);
   padding: 15px;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eaeaea;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
 }
 
 /* 卡片视图相关样式 */
@@ -1047,13 +1071,13 @@ beforeUpload(file) {
 }
 
 .task-card {
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.3s;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eaeaea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1063,9 +1087,9 @@ beforeUpload(file) {
 }
 
 .task-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  transform: none; /* 移除向上移动效果 */
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  transform: translateY(-5px);
 }
 
 .task-card-header {
@@ -1073,19 +1097,19 @@ beforeUpload(file) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid #eaeaea;
+  background: #f1f3f6;
 }
 
 .task-card-title {
   margin: 0;
   font-size: 14px;
-  color: #fff;
+  color: #444;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 65%;
@@ -1108,7 +1132,7 @@ beforeUpload(file) {
 .task-card-info p {
   margin: 6px 0;
   font-size: 13px;
-  color: #ddd;
+  color: #444;
 }
 
 .text-ellipsis {
@@ -1122,7 +1146,7 @@ beforeUpload(file) {
 }
 
 .info-label {
-  color: #aaa;
+  color: #666;
   margin-right: 5px;
 }
 
@@ -1130,8 +1154,8 @@ beforeUpload(file) {
   padding: 10px;
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid #eaeaea;
+  background: #f9f9f9;
   margin-top: auto;
 }
 
@@ -1141,13 +1165,13 @@ beforeUpload(file) {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #1890ff;
+  color: #2c3e50;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(26, 115, 232, 0.1);
   transform: translateY(-2px);
-  color: #fff;
+  color: #2c3e50;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
@@ -1164,13 +1188,13 @@ beforeUpload(file) {
   width: 100%;
   clear: both;
   order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed #e0e0e0;
 }
 
 .load-more-container p {
   margin: 0;
   padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #f5f5f5;
   border-radius: 20px;
   backdrop-filter: blur(5px);
 }
@@ -1184,7 +1208,7 @@ beforeUpload(file) {
 
 .loading-indicator i {
   font-size: 24px;
-  color: #409EFF;
+  color: #2c3e50;
 }
 
 .loading-indicator p {
@@ -1269,7 +1293,7 @@ beforeUpload(file) {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001; /* 确保在底部菜单之上 */
   }
@@ -1280,7 +1304,7 @@ beforeUpload(file) {
   
   /* 移动端底部菜单激活状态 */
   .mobile-footer-menu .menu-item.active {
-    color: #2196f3;
+    color: #2c3e50;
     font-weight: bold;
   }
   
@@ -1316,7 +1340,7 @@ beforeUpload(file) {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1380,7 +1404,7 @@ beforeUpload(file) {
     font-weight: 500;
     border-radius: 0;
     margin: 0;
-    background: linear-gradient(135deg, #1976d2, #64b5f6);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     border: none;
     color: #fff;
     letter-spacing: 1px;
@@ -1392,7 +1416,7 @@ beforeUpload(file) {
   }
   
   .mobile-submit-btn:active {
-    background: linear-gradient(135deg, #1565c0, #42a5f5);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     transform: translateY(1px);
   }
   
@@ -1403,7 +1427,7 @@ beforeUpload(file) {
     left: 0;
     right: 0;
     height: 56px;
-    background-color: #409EFF;
+    background-color: #2c3e50;
     display: flex;
     align-items: center;
     padding: 0 15px;
@@ -1468,9 +1492,9 @@ beforeUpload(file) {
 .recorded-audio-preview {
   margin-top: 15px;
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #eaeaea;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.05);
+  background: #f9f9f9;
 }
 
 .audio-player-wrapper {
@@ -1530,8 +1554,8 @@ beforeUpload(file) {
     margin-top: 15px;
     padding: 15px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #f5f5f5;
+    border: 1px solid #eaeaea;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   
@@ -1543,7 +1567,7 @@ beforeUpload(file) {
     width: 100%;
     height: 40px;
     border-radius: 20px;
-    background: rgba(0, 0, 0, 0.2);
+    background: #f1f3f6;
   }
   
   .audio-player-fallback {
@@ -1601,8 +1625,64 @@ beforeUpload(file) {
   
   /* 输入框聚焦时的样式，提供用户反馈 */
   .el-input.is-focus .el-input__inner {
-    border-color: #409EFF !important;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+    border-color: #2c3e50 !important;
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2) !important;
   }
+}
+
+/* 按钮样式与VoiceClone.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+/* 表格操作按钮样式 */
+.table-action-button {
+  color: #333333;
+  padding: 5px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.table-action-button:hover {
+  color: #000000;
+  transform: translateY(-2px);
 }
 </style>

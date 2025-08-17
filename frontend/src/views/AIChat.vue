@@ -1,88 +1,82 @@
 <template>
-  <div class="ai-chat-container">
-    <!-- 顶部导航栏 -->
-    <div class="chat-header">
-      <div class="header-left">
-        <!-- 侧边栏切换按钮放在顶部导航栏 -->
-        <el-button
-          :icon="sidebarVisible ? 'el-icon-arrow-left' : 'el-icon-notebook-2'"
-          size="small"
-          @click="toggleSidebar"
-          :type="sidebarVisible ? 'info' : 'primary'"
-        >
-          {{ sidebarVisible ? '隐藏历史' : '显示历史' }}
-        </el-button>
-        <el-button
-          type="primary"
-          icon="el-icon-plus"
-          size="small"
-          @click="createNewSession"
-        >
-          新会话
-        </el-button>
-        <el-button
-          icon="el-icon-time"
-          size="small"
-          @click="refreshSessions"
-        >
-          刷新
-        </el-button>
-      </div>
-      
-      <div class="header-center">
-        <h2>AI绘画聊天</h2>
-      </div>
-      
-      <div class="header-right">
-        <el-button
-          icon="el-icon-share"
-          size="small"
-          @click="shareSession"
-        >
-          分享
-        </el-button>
-        <el-button
-          icon="el-icon-more"
-          size="small"
-          @click="showMoreOptions"
-        >
-          更多
-        </el-button>
+  <div class="ai-chat-container theme-background">
+    <!-- 历史侧栏切换按钮（仅PC端显示，移动端使用自定义图标） -->
+    <el-button
+      v-if="!isMobile"
+      class="sidebar-toggle-button chat-btn theme-button--text"
+      :icon="sidebarVisible ? 'el-icon-arrow-left' : 'el-icon-notebook-2'"
+      size="small"
+      @click="toggleSidebar"
+    >
+      {{ sidebarVisible ? '隐藏历史' : '' }}
+    </el-button>
+
+    <!-- 移动端顶部栏：左侧一长一短两条横线按钮切换历史，顶部中间模型下拉 -->
+    <div class="mobile-topbar header-glass" v-if="isMobile">
+      <button class="history-toggle" @click="toggleSidebar" aria-label="切换历史侧栏">
+        <span class="line long"></span>
+        <span class="line short"></span>
+      </button>
+      <div class="topbar-center">
+        <el-select
+          v-model="selectedModel"
+          placeholder="选择模型"
+          size="mini"
+          filterable
+          default-first-option
+          popper-class="model-select-popper"
+          :popper-append-to-body="!isMobile">
+          <el-option
+            v-for="model in availableModels"
+            :key="model.name"
+            :label="model.name"
+            :value="model.name">
+            <div class="model-info">
+              <div class="model-name">{{ model.name }}</div>
+              <div class="model-desc">{{ model.description }}</div>
+            </div>
+          </el-option>
+        </el-select>
       </div>
     </div>
 
     <div class="chat-main">
       <!-- 左侧会话列表 - 根据sidebarVisible控制显示/隐藏 -->
       <transition name="slide-fade">
-        <div class="chat-sidebar" v-if="sidebarVisible">
+        <div class="chat-sidebar glass-card" v-if="sidebarVisible">
           <div class="sidebar-header">
-            <h3>会话历史</h3>
+            <div class="section-title compact">
+              <div class="section-accent"></div>
+              <h3>会话历史</h3>
+            </div>
             <div class="sidebar-actions">
               <el-button
                 icon="el-icon-plus"
                 size="mini"
+                class="theme-button--text"
                 type="text"
                 @click="createNewSession"
-                title="新会话"
-              />
-              <el-button
-                icon="el-icon-time"
-                size="mini"
-                type="text"
-                @click="refreshSessions"
-                title="刷新"
-              />
-              <el-button
-                icon="el-icon-arrow-left"
-                size="mini"
-                type="text"
-                @click="toggleSidebar"
-                title="隐藏会话列表"
+                title="新建会话"
               />
             </div>
           </div>
           
           <div class="session-list">
+            <!-- 移动端新建会话入口：清空当前聊天，由首条消息自动创建会话 -->
+            <div
+              v-if="isMobile"
+              class="session-item new-session"
+              @click="createNewSession"
+            >
+              <div class="session-info">
+                <div class="session-title">
+                  <i class="el-icon-plus" style="margin-right:6px;"></i> 新建会话
+                </div>
+                <div class="session-meta">
+                  <span>清空当前聊天，从第一条消息生成标题</span>
+                </div>
+              </div>
+            </div>
             <div
               v-for="session in sessions"
               :key="session.id"
@@ -101,6 +95,7 @@
                   type="text"
                   icon="el-icon-delete"
                   size="mini"
+                  class="theme-button--text"
                   @click.stop="deleteSession(session.id)"
                 />
               </div>
@@ -109,11 +104,17 @@
         </div>
       </transition>
 
+      <!-- 移动端遮罩，用于全屏侧栏 -->
+      <div v-if="sidebarVisible && isMobile" class="mobile-overlay" @click="toggleSidebar"></div>
       <!-- 右侧聊天区域 -->
       <div class="chat-content">
         <!-- 不再需要这里的侧边栏切换按钮，已移至顶部导航栏 -->
         <!-- 模型选择区域 - 即使在新会话状态下也显示 -->
-        <div class="model-selector">
+        <div class="model-selector glass-card">
+          <div class="section-title compact">
+            <div class="section-accent"></div>
+            <h3>对话设置</h3>
+          </div>
           <div class="selector-header">
             <div class="model-list">
               <el-select
@@ -121,7 +122,9 @@
                 placeholder="请选择AI模型"
                 style="width: 300px;"
                 filterable
-                default-first-option>
+                default-first-option
+                popper-class="model-select-popper"
+                :popper-append-to-body="!isMobile">
                 <el-option
                   v-for="model in availableModels"
                   :key="model.name"
@@ -151,6 +154,7 @@
               <el-button
                 type="text"
                 size="small"
+                class="theme-button--text"
                 @click="showModelInfo"
               >
                 查看模型详情
@@ -160,7 +164,7 @@
         </div>
 
         <!-- 聊天消息区域 -->
-        <div class="chat-messages" ref="messageContainer">
+        <div class="chat-messages glass-card" ref="messageContainer" :style="{ paddingBottom: messagesPadding + 'px' }">
           <div
             v-for="message in messages"
             :key="message.id"
@@ -193,11 +197,10 @@
               <div class="message-text">{{ message.content }}</div>
               <!-- 使用:class动态绑定预览状态类，图片ID使用索引+URL唯一标识 -->
               <div v-if="message.image_url" class="message-image">
-                <img 
-                  :src="message.image_url" 
-                  alt="图像" 
+                <img
+                  :src="message.image_url"
+                  alt="图像"
                   @click="previewImage(message.image_url)"
-                  :class="{'preview-active': currentPreviewUrl === message.image_url}"
                   :ref="'img-' + message.id" />
               </div>
               <div v-if="message.video_url" class="message-video">
@@ -214,18 +217,26 @@
         </div>
 
         <!-- 底部输入区域 -->
-        <div class="chat-input">
-                  <div class="input-toolbar">
+        <div
+          class="chat-input glass-card"
+          ref="chatInput"
+          :style="chatInputStyle"
+        >
+                  <div class="input-toolbar" :class="{'has-media': !!pendingMedia}">
                     <el-button
+                      v-if="!isMobile"
                       icon="el-icon-picture"
                       size="small"
+                      class="chat-btn"
                       @click="uploadImage"
                     >
                       上传图片
                     </el-button>
                     <el-button
+                      v-if="!isMobile"
                       icon="el-icon-video-camera"
                       size="small"
+                      class="chat-btn"
                       @click="uploadVideo"
                     >
                       上传视频
@@ -261,6 +272,7 @@
                         <el-button
                           type="text"
                           icon="el-icon-delete"
+                          class="theme-button--text"
                           @click="clearPendingMedia"></el-button>
                       </div>
                     </div>
@@ -275,16 +287,29 @@
               @keydown.enter.native="handleEnterSend"
               @keydown.shift.enter="() => {}"
             />
+            <!-- 移动端：将“＋”按钮内置到输入框右侧 -->
+            <button v-if="isMobile" class="plus-fab" v-popover:plusMenu aria-label="更多操作">＋</button>
+            <!-- 桌面端：保留发送按钮；移动端去掉发送按钮，使用键盘发送 -->
             <el-button
+              v-if="!isMobile"
+              class="chat-btn chat-btn--send"
               :type="loading ? 'danger' : 'primary'"
               :icon="loading ? 'el-icon-close' : 'el-icon-s-promotion'"
               :loading="false"
-              :disabled="(!inputMessage.trim() || !selectedModel) && !loading"
+              :disabled="((!inputMessage.trim() && !pendingMedia) || !selectedModel) && !loading"
               @click="loading ? cancelRequest() : sendMessage()"
             >
               {{ loading ? '中断' : '发送' }}
             </el-button>
           </div>
+
+          <!-- 输入区右下角 + 按钮及菜单（移动端与PC均可用） -->
+          <el-popover v-if="isMobile" ref="plusMenu" placement="top-end" trigger="click" @show="updateMessagesPadding" @hide="updateMessagesPadding">
+            <div class="plus-menu">
+              <el-button type="text" class="theme-button--text" @click="uploadImage">上传图片</el-button>
+              <el-button type="text" class="theme-button--text" @click="uploadVideo">上传视频</el-button>
+            </div>
+          </el-popover>
         </div>
       </div>
     </div>
@@ -327,14 +352,66 @@
         </el-form-item>
       </el-form>
       <div slot="footer">
-        <el-button @click="newSessionVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmCreateSession">创建</el-button>
+        <el-button class="chat-btn" @click="newSessionVisible = false">取消</el-button>
+        <el-button class="chat-btn" type="primary" @click="confirmCreateSession">创建</el-button>
       </div>
     </el-dialog>
     
-    <!-- 简化的图片预览遮罩 -->
+    <!-- 移动端设置抽屉 -->
+    <el-drawer
+      title="对话设置"
+      :visible.sync="settingsDrawerVisible"
+      direction="rtl"
+      size="86vw"
+      custom-class="settings-drawer"
+      :append-to-body="true"
+      :wrapper-closable="!drawerSelectOpen"
+      :close-on-press-escape="!drawerSelectOpen">
+      <div class="drawer-section">
+        <div class="section-title compact">
+          <div class="section-accent"></div>
+          <h3>选择模型</h3>
+        </div>
+        <el-select
+          v-model="selectedModel"
+          placeholder="请选择AI模型"
+          filterable
+          default-first-option
+          style="width: 100%;"
+          popper-class="model-select-popper"
+          :popper-append-to-body="false"
+          @visible-change="onDrawerSelectVisibleChange">
+          <el-option
+            v-for="model in availableModels"
+            :key="model.name"
+            :label="model.name"
+            :value="model.name">
+            <div class="model-info">
+              <div class="model-name">{{ model.name }}</div>
+              <div class="model-desc">{{ model.description }}</div>
+            </div>
+          </el-option>
+        </el-select>
+
+        <div style="margin-top: 14px; display: flex; align-items: center; gap: 10px;">
+          <el-switch
+            v-model="enableStream"
+            active-text="流式返回"
+            inactive-text="普通返回"
+            size="small" />
+          <span class="stream-status" v-if="enableStream">(实时显示AI思考过程)</span>
+          <span class="stream-status" v-else>(等待完整回复)</span>
+        </div>
+
+        <div style="margin-top: 12px;">
+          <el-button type="text" size="small" class="theme-button--text" @click="showModelInfo">查看模型详情</el-button>
+        </div>
+      </div>
+    </el-drawer>
+
+    <!-- 图片预览遮罩：在遮罩内渲染独立的预览图，避免被遮罩层压暗 -->
     <div v-if="imagePreviewVisible" class="image-preview-overlay" @click="closeImagePreview">
-      <!-- 不创建新的图片元素，而是使用CSS样式控制预览效果 -->
+      <img :src="currentPreviewUrl" alt="预览图像" class="image-preview-img" @click.stop />
     </div>
   </div>
 </template>
@@ -382,9 +459,27 @@ export default {
       // 对话框
       modelInfoVisible: false,
       newSessionVisible: false,
+      settingsDrawerVisible: false,
+      drawerSelectOpen: false,
       newSessionForm: {
         title: ''
-      }
+      },
+
+      // 设备状态
+      isMobile: false,
+      // 消息区底部内边距（用于避免被输入区遮挡，移动端动态计算）
+      messagesPadding: 0,
+      // 软键盘遮挡偏移，仅移动端使用（只移动输入区，不影响菜单栏）
+      keyboardOffset: 0,
+      // 键盘显隐状态（与 keyboardOffset 配合，便于事件总线触发）
+      keyboardShown: false,
+
+      // 观察器
+      chatInputObserver: null,
+      // iOS/Android 键盘补偿轮询定时器
+      keyboardOffsetEnsureTimer: null,
+      // 上次已知的键盘抬升高度（用于首次聚焦时的立即回退抬升，避免被遮挡）
+      lastKeyboardOffset: 0
     }
   },
   
@@ -412,13 +507,151 @@ export default {
     document.addEventListener('keydown', this.handleKeyDown);
     
     // 添加窗口大小变化监听，以保持预览居中
+    this.updateIsMobile();
     window.addEventListener('resize', this.handleWindowResize);
+
+    // 移动端键盘发送提示与布局稳定
+    this.enhanceMobileTextareaAttributes();
+
+    // 初始化计算消息区底部内边距
+    this.updateMessagesPadding();
+
+    // 监听 chatInput 尺寸变化，动态更新消息区底部留白
+    this.$nextTick(() => {
+      const el = this.$refs.chatInput;
+      if (el && 'ResizeObserver' in window) {
+        this.chatInputObserver = new ResizeObserver(() => {
+          this.updateMessagesPadding();
+        });
+        this.chatInputObserver.observe(el);
+      }
+      // 监听移动端可视区域变化（软键盘弹出/收起）
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', this.updateMessagesPadding);
+        window.visualViewport.addEventListener('scroll', this.updateMessagesPadding);
+        window.visualViewport.addEventListener('resize', this.updateKeyboardOffset);
+        window.visualViewport.addEventListener('scroll', this.updateKeyboardOffset);
+        // 初始化键盘偏移
+        this.updateKeyboardOffset();
+      }
+      // 文本域聚焦/失焦时更新（键盘弹出场景）
+      const ta = this.$el && this.$el.querySelector('.el-textarea__inner');
+      if (ta) {
+        ta.addEventListener('focus', () => {
+          setTimeout(() => {
+            this.updateMessagesPadding();
+            try {
+              this.keyboardShown = true;
+              this.$eventBus && this.$eventBus.$emit('keyboard-open');
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.warn('AIChat textarea focus emit error:', e);
+            }
+            // 立即尝试计算一次键盘偏移，并开启短时轮询，避免首次聚焦时遮挡
+            this.updateKeyboardOffset();
+            this.startKeyboardOffsetEnsure();
+          }, 50);
+        });
+        ta.addEventListener('blur', () => {
+          setTimeout(() => {
+            this.updateMessagesPadding();
+            try {
+              this.keyboardShown = false;
+              this.$eventBus && this.$eventBus.$emit('keyboard-close');
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.warn('AIChat textarea blur emit error:', e);
+            }
+            // 停止键盘偏移轮询；不立即将 keyboardOffset 置 0，避免下次聚焦时无回退值可用
+            this.stopKeyboardOffsetEnsure();
+            // 让 visualViewport 的变更驱动 updateKeyboardOffset 自行归零
+            setTimeout(() => {
+              try { this.updateKeyboardOffset(); } catch (err) {
+                // eslint-disable-next-line no-console
+                console.debug('AIChat blur deferred updateKeyboardOffset error:', err);
+              }
+            }, 80);
+          }, 50);
+        });
+      }
+    });
   },
   
   beforeDestroy() {
     // 移除事件监听
     document.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('resize', this.handleWindowResize);
+    // 断开观察器与事件
+    try {
+      if (this.chatInputObserver) {
+        this.chatInputObserver.disconnect();
+        this.chatInputObserver = null;
+      }
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', this.updateMessagesPadding);
+        window.visualViewport.removeEventListener('scroll', this.updateMessagesPadding);
+        window.visualViewport.removeEventListener('resize', this.updateKeyboardOffset);
+        window.visualViewport.removeEventListener('scroll', this.updateKeyboardOffset);
+      }
+      if (this.keyboardOffsetEnsureTimer) {
+        clearTimeout(this.keyboardOffsetEnsureTimer);
+        this.keyboardOffsetEnsureTimer = null;
+      }
+    } catch (e) {
+      // 确保非空catch以通过eslint，并记录清理异常
+      // eslint-disable-next-line no-console
+      console.warn('AIChat beforeDestroy cleanup error:', e);
+    }
+  },
+  
+  watch: {
+    isMobile() {
+      this.$nextTick(() => {
+        this.updateKeyboardOffset();
+        this.updateMessagesPadding();
+      });
+    },
+    sidebarVisible() {
+      this.$nextTick(() => this.updateMessagesPadding());
+    },
+    'messages.length'() {
+      // 消息数量变化时确保底部留白正确
+      this.$nextTick(() => this.updateMessagesPadding());
+    }
+  },
+  
+  computed: {
+    // 移动端将输入条抬高至底部导航（App.vue .mobile-bottom-nav，高度60px）之上
+    // 键盘弹出时（App会隐藏底部导航），自动还原为贴底并跟随 keyboardOffset 上移
+    chatInputStyle() {
+      if (!this.isMobile) return {};
+      const style = {};
+      // 键盘打开：贴底并随键盘上移
+      if (this.keyboardShown || this.keyboardOffset > 0) {
+        // 优先使用实时 keyboardOffset；若暂不可得，使用上次已知高度做“立即抬升”回退，避免一瞬间被遮挡
+        const lift = this.keyboardOffset > 0
+          ? this.keyboardOffset
+          : (this.keyboardShown && this.lastKeyboardOffset > 0 ? this.lastKeyboardOffset : 0);
+        if (lift > 0) {
+          style.transform = `translateY(-${lift}px)`;
+        }
+        style.bottom = '0px';
+        return style;
+      }
+      // 键盘关闭：紧贴底部菜单顶边（动态读取 App.vue 中 .mobile-bottom-nav 实际高度）
+      let navH = 60;
+      try {
+        const navEl = document.querySelector('.mobile-bottom-nav');
+        if (navEl && navEl.offsetHeight) navH = navEl.offsetHeight;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('AIChat chatInputStyle read .mobile-bottom-nav height error:', e);
+      }
+      style.bottom = navH + 'px';
+      // 取消额外底部内边距，视觉上“紧贴”菜单栏
+      style.paddingBottom = '0px';
+      return style;
+    }
   },
   
   methods: {
@@ -435,9 +668,134 @@ export default {
     
     // 处理窗口大小变化
     handleWindowResize() {
-      // 如果有预览激活，重新调整预览图片的位置
+      // 更新移动端状态
+      this.updateIsMobile();
+      // 更新移动端输入属性
+      this.enhanceMobileTextareaAttributes();
+
+      // 如果有预览激活，重新调整预览图片的位置（占位：避免 no-empty）
       if (this.imagePreviewVisible && this.activeImageRef) {
-        // 可以在这里添加逻辑来重新定位预览图片
+        // eslint-disable-next-line no-console
+        console.debug('AIChat handleWindowResize: imagePreview active; no reposition logic needed currently');
+      }
+
+      // 更新消息区底部内边距，避免被输入区遮挡
+      this.updateMessagesPadding();
+    },
+
+    // 计算软键盘遮挡偏移，仅在移动端启用，使仅输入区跟随上移；并通过事件总线通知 App 隐藏底部菜单
+    updateKeyboardOffset() {
+      try {
+        if (!this.isMobile || !window.visualViewport) {
+          const wasOpen = this.keyboardShown;
+          this.keyboardOffset = 0;
+          if (wasOpen) {
+            this.keyboardShown = false;
+            try {
+              this.$eventBus && this.$eventBus.$emit('keyboard-close');
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              console.warn('AIChat emit keyboard-close error:', err);
+            }
+          }
+          return;
+        }
+        const vv = window.visualViewport;
+        // 底部遮挡 = 布局高度 - (可视高度 + 可视偏移Top)
+        const bottomOverlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+        const offset = Math.round(bottomOverlap);
+        const wasOpen = this.keyboardShown;
+        const isOpen = offset > 0;
+
+        this.keyboardOffset = offset;
+        if (offset > 0) {
+          // 记录上次已知的键盘高度，供下次首次聚焦时“立即抬升”回退使用
+          this.lastKeyboardOffset = offset;
+        }
+ 
+        if (isOpen && !wasOpen) {
+          this.keyboardShown = true;
+          try {
+            this.$eventBus && this.$eventBus.$emit('keyboard-open');
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn('AIChat emit keyboard-open error:', err);
+          }
+        } else if (!isOpen && wasOpen) {
+          this.keyboardShown = false;
+          try {
+            this.$eventBus && this.$eventBus.$emit('keyboard-close');
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn('AIChat emit keyboard-close error:', err);
+          }
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('updateKeyboardOffset error:', e);
+        this.keyboardOffset = 0;
+      }
+    },
+    
+    // 在键盘聚焦初期进行多次补偿，直至获得有效的 keyboardOffset 或超时
+    startKeyboardOffsetEnsure() {
+      try {
+        this.stopKeyboardOffsetEnsure();
+        let tries = 0;
+        const maxTries = 12; // ~12 * 60ms ≈ 720ms
+        const tick = () => {
+          tries += 1;
+          this.updateKeyboardOffset();
+          this.updateMessagesPadding();
+          if (this.keyboardOffset > 0 || !this.keyboardShown || tries >= maxTries) {
+            if (this.keyboardOffsetEnsureTimer) {
+              clearTimeout(this.keyboardOffsetEnsureTimer);
+              this.keyboardOffsetEnsureTimer = null;
+            }
+            return;
+          }
+          this.keyboardOffsetEnsureTimer = setTimeout(tick, 60);
+        };
+        this.keyboardOffsetEnsureTimer = setTimeout(tick, 0);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('startKeyboardOffsetEnsure error:', e);
+      }
+    },
+    
+    stopKeyboardOffsetEnsure() {
+      try {
+        if (this.keyboardOffsetEnsureTimer) {
+          clearTimeout(this.keyboardOffsetEnsureTimer);
+          this.keyboardOffsetEnsureTimer = null;
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('stopKeyboardOffsetEnsure error:', e);
+      }
+    },
+    
+    // 计算是否为移动端
+    updateIsMobile() {
+      try {
+        this.isMobile = window.innerWidth <= 768;
+      } catch (e) {
+        this.isMobile = false;
+      }
+    },
+
+    // 打开设置抽屉（仅移动端展示按钮）
+    openSettingsDrawer() {
+      this.settingsDrawerVisible = true;
+    },
+
+    // 下拉显隐时，暂时禁用抽屉遮罩点击与 ESC 关闭，避免弹层抖动与误关
+    onDrawerSelectVisibleChange(visible) {
+      try {
+        this.drawerSelectOpen = !!visible;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('onDrawerSelectVisibleChange error:', e);
       }
     },
     
@@ -451,64 +809,17 @@ export default {
     // 预览图片 - 使用已经加载的图片元素，不再创建新的img元素
     previewImage(url) {
       if (!url) return;
-      
-      // 记录当前预览的URL
       this.currentPreviewUrl = url;
       this.imagePreviewVisible = true;
-      
-      // 查找对应的消息，从而定位到正确的图片元素
-      const messageWithImage = this.messages.find(msg => msg.image_url === url);
-      if (messageWithImage) {
-        // 获取对应的图片引用
-        const imgRef = this.$refs[`img-${messageWithImage.id}`];
-        if (imgRef && imgRef[0]) {
-          // 设置当前激活的图片元素
-          this.activeImageRef = imgRef[0];
-          
-          // 添加预览样式类
-          imgRef[0].classList.add('image-preview-mode');
-          
-          // 调整图片元素的样式，使其在预览时居中显示
-          this.$nextTick(() => {
-            imgRef[0].style.position = 'fixed';
-            imgRef[0].style.top = '50%';
-            imgRef[0].style.left = '50%';
-            imgRef[0].style.transform = 'translate(-50%, -50%)';
-            imgRef[0].style.maxWidth = '90vw';
-            imgRef[0].style.maxHeight = '90vh';
-            imgRef[0].style.zIndex = '10000';
-            imgRef[0].style.objectFit = 'contain';
-            
-            // 增加过渡动画
-            imgRef[0].style.transition = 'all 0.3s ease';
-          });
-        }
-      }
-      
       // 禁止页面滚动
       document.body.style.overflow = 'hidden';
     },
     
     // 关闭图片预览
     closeImagePreview() {
-      if (this.activeImageRef) {
-        // 恢复原始样式
-        this.activeImageRef.classList.remove('image-preview-mode');
-        this.activeImageRef.style.position = '';
-        this.activeImageRef.style.top = '';
-        this.activeImageRef.style.left = '';
-        this.activeImageRef.style.transform = '';
-        this.activeImageRef.style.maxWidth = '';
-        this.activeImageRef.style.maxHeight = '';
-        this.activeImageRef.style.zIndex = '';
-        this.activeImageRef.style.objectFit = '';
-        this.activeImageRef.style.transition = '';
-      }
-      
       this.imagePreviewVisible = false;
       this.currentPreviewUrl = null;
       this.activeImageRef = null;
-      
       // 恢复页面滚动
       document.body.style.overflow = '';
     },
@@ -570,6 +881,10 @@ export default {
     async selectSession(session) {
       this.currentSession = session
       await this.loadSessionMessages(session.id)
+      if (this.isMobile) {
+        this.sidebarVisible = false
+        localStorage.setItem('aichat_sidebar_visible', 'false')
+      }
     },
     
     // 加载会话消息
@@ -636,9 +951,10 @@ export default {
       
       if (!this.currentSession) {
         // 首次发送消息时，使用消息前50字作为标题创建会话
-        const title = this.inputMessage.length > 50
-          ? this.inputMessage.substring(0, 50) + '...'
-          : this.inputMessage;
+        const rawTitle = (this.inputMessage || '').trim();
+        const title = rawTitle
+          ? (rawTitle.length > 50 ? rawTitle.substring(0, 50) + '...' : rawTitle)
+          : '新会话';
         
         try {
           const response = await chatAPI.createSession(title);
@@ -700,6 +1016,12 @@ export default {
         const messageText = this.inputMessage
         this.inputMessage = ''
         this.clearPendingMedia()
+
+        // 移动端：发送后收起键盘，防止页面放大与布局跳动
+        if (this.isMobile) {
+          const ta = this.$el && this.$el.querySelector('.el-textarea__inner');
+          if (ta) ta.blur();
+        }
         
         // 滚动到底部 - 仅在用户发送新消息时
         const shouldScroll = true // 这里可以添加条件判断是否需要滚动
@@ -1009,19 +1331,28 @@ export default {
       }
     },
     
-    // 创建新会话
+    // 创建新会话（在历史会话中触发，打开对话框）
     createNewSession() {
-      // 判断当前是否已经是空会话
-      if (!this.currentSession) {
-        // 已经是空会话，不需要再创建
-        console.log('当前已经是空会话，无需创建');
+      // 统一“新建会话”行为：清空当前聊天，由首条消息自动创建会话
+      if (!this.currentSession && this.messages.length === 0) {
+        // 已处于新会话
+        if (this.isMobile) {
+          this.sidebarVisible = false;
+          localStorage.setItem('aichat_sidebar_visible', 'false');
+        }
+        // this.$message.info('已在新会话页');
         return;
       }
-      
-      // 不是空会话，清空当前会话状态
       this.currentSession = null;
       this.messages = [];
-      console.log('已清空当前会话，等待用户输入');
+      if (this.isMobile) {
+        this.sidebarVisible = false;
+        localStorage.setItem('aichat_sidebar_visible', 'false');
+      }
+      this.$nextTick(() => {
+        this.scrollToBottom(false);
+      });
+      // this.$message.success('已切换到新会话');
     },
     
     // 确认创建会话
@@ -1125,6 +1456,7 @@ export default {
         }
         
         this.$message.success('图片已选择，发送消息时将自动上传')
+        this.$nextTick(() => this.updateMessagesPadding())
       } catch (error) {
         console.error('处理图片上传失败:', error)
         this.$message.error('处理图片失败')
@@ -1167,6 +1499,7 @@ export default {
         }
         
         this.$message.success('视频已选择，发送消息时将自动上传')
+        this.$nextTick(() => this.updateMessagesPadding())
       } catch (error) {
         console.error('处理视频上传失败:', error)
         this.$message.error('处理视频失败')
@@ -1180,6 +1513,7 @@ export default {
         URL.revokeObjectURL(this.pendingMedia.previewUrl)
       }
       this.pendingMedia = null
+      this.$nextTick(() => this.updateMessagesPadding())
     },
     
     // 格式化文件大小
@@ -1261,13 +1595,19 @@ export default {
     
     // 滚动到底部
     scrollToBottom(smooth = true) {
-      const container = this.$refs.messageContainer
-      if (container) {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: smooth ? 'smooth' : 'auto'
-        });
-      }
+      const doScroll = () => {
+        // 先保证底部留白为最新
+        this.updateMessagesPadding();
+        const container = this.$refs.messageContainer
+        if (container) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: smooth ? 'smooth' : 'auto'
+          });
+        }
+      };
+      // 等待DOM包含新消息后再滚动
+      this.$nextTick(doScroll);
     },
     
     // 禁用输入框的自动滚动
@@ -1283,6 +1623,72 @@ export default {
             }
           });
         });
+      });
+    },
+
+    // 移动端输入属性增强：显示键盘“发送”并保持布局稳定
+    enhanceMobileTextareaAttributes() {
+      this.$nextTick(() => {
+        const ta = this.$el && this.$el.querySelector('.el-textarea__inner');
+        if (!ta) return;
+        if (this.isMobile) {
+          ta.setAttribute('enterkeyhint', 'send');
+          ta.setAttribute('inputmode', 'text');
+          ta.setAttribute('autocapitalize', 'off');
+          ta.setAttribute('autocomplete', 'off');
+        } else {
+          ta.removeAttribute('enterkeyhint');
+          ta.removeAttribute('inputmode');
+        }
+      });
+    },
+
+    // 动态计算消息区底部内边距，确保输入区不会遮挡内容
+    // 使用“实际重叠量”而非仅仅使用输入区高度，适配不同设备/键盘场景
+    updateMessagesPadding() {
+      this.$nextTick(() => {
+        const container = this.$refs.messageContainer;
+        const input = this.$refs.chatInput;
+        if (!container || !input) {
+          this.messagesPadding = 0;
+          return;
+        }
+
+        // 非移动端不需要额外留白
+        if (!this.isMobile) {
+          this.messagesPadding = 0;
+          return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const inputRect = input.getBoundingClientRect();
+
+        // 与输入区的重叠
+        const overlapInput = Math.max(containerRect.bottom - inputRect.top, 0);
+
+        // 与右下角“＋”按钮的重叠（如果存在）
+        let overlapPlus = 0;
+        let plusHeight = 0;
+        const plus = this.$el && this.$el.querySelector('.plus-fab');
+        if (plus) {
+          const plusRect = plus.getBoundingClientRect();
+          overlapPlus = Math.max(containerRect.bottom - plusRect.top, 0);
+          plusHeight = plusRect.height || 0;
+        }
+
+        // 取更大的实际重叠量
+        const overlap = Math.max(overlapInput, overlapPlus);
+
+        // 小缓冲，避免视觉贴边
+        const extraBuffer = 12;
+
+        // 回退高度：在没有重叠但需要留白的情况下，取输入区/按钮中较大者
+        const fallbackHeight = Math.max(inputRect.height || 0, plusHeight || 0);
+        const fallback = fallbackHeight > 0 ? fallbackHeight + extraBuffer : 0;
+
+        const padding = overlap > 0 ? (overlap + extraBuffer) : fallback;
+
+        this.messagesPadding = Math.max(0, Math.round(padding));
       });
     },
     
@@ -1398,11 +1804,14 @@ export default {
   display: none;
 }
 .ai-chat-container {
-  height: 100vh;
+  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
+  background: transparent; /* 由 theme-background 提供背景 */
   overflow: hidden; /* 防止页面滑动 */
+  padding: 12px 16px; /* 让顶部玻璃卡片有留白圆角 */
+  box-sizing: border-box;
 }
 
 /* 强制覆盖所有可能的间距 */
@@ -1417,22 +1826,31 @@ export default {
   padding-top: 0 !important;
 }
 
-/* 调整导航栏底部无间隙 */
+/* 调整导航栏与主体间距，营造玻璃卡片层次 */
 .chat-header + .chat-main {
-  margin-top: 0 !important;
+  margin-top: 12px !important;
   border-top: 0 !important;
 }
 
 .chat-header {
   height: 60px;
-  background: white;
-  border-bottom: 1px solid #e4e7ed;
+  background: transparent;
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0 16px;
   margin-bottom: 0 !important;
+}
+
+/* 顶部栏玻璃质感，与Home风格统一 */
+.header-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(200, 200, 200, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
 }
 
 .header-left, .header-right {
@@ -1451,6 +1869,7 @@ export default {
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 0; /* 允许内部可滚动区域正确收缩 */
   margin-top: 0 !important;
   padding-top: 0 !important;
   border-top: none !important;
@@ -1458,10 +1877,11 @@ export default {
 
 .chat-sidebar {
   width: 300px;
-  background: white;
-  border-right: 1px solid #e4e7ed;
+  background: transparent; /* 由 glass-card 提供背景 */
+  border-right: none;
   display: flex;
   flex-direction: column;
+  border-radius: 12px;
 }
 
 .sidebar-header {
@@ -1479,8 +1899,8 @@ export default {
 
 .sidebar-toggle-button {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 2px;
+  left: 0px;
   z-index: 10;
 }
 
@@ -1558,21 +1978,29 @@ export default {
   opacity: 1;
 }
 
+/* 主体区域内边距，形成统一留白 */
+.chat-main {
+  padding: 12px 0 12px 0;
+  gap: 12px;
+}
+
 .chat-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  min-height: 0; /* 关键：使内部chat-messages可滚动而不撑破布局 */
+  background: transparent; /* 避免与子级glass-card冲突 */
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
 .model-selector {
-  padding: 5px 20px !important;
-  border-bottom: 1px solid #e4e7ed;
-  background-color: #fafafa;
+  padding: 12px 16px !important;
+  border-bottom: none;
+  background-color: transparent;
   margin-top: 0 !important;
-  margin-bottom: 0 !important;
+  margin-bottom: 12px !important;
+  flex-shrink: 0; /* 防止被挤压，保持顶部固定高度 */
 }
 
 .selector-header {
@@ -1655,8 +2083,11 @@ export default {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
-  background-color: #fafafa;
+  padding: 16px;
+  background-color: transparent; /* 使用glass卡片背景 */
+  margin-bottom: 12px;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .message-item {
@@ -1687,7 +2118,9 @@ export default {
 }
 
 .message-content {
-  max-width: 70%;
+  /* 限制气泡两侧留出头像+间距的空间，避免跨越对侧头像区域 */
+  /* 计算：2 * (头像40px + 间距12px) = 104px */
+  max-width: calc(100% - 104px);
   background: white;
   border-radius: 12px;
   padding: 12px 16px;
@@ -1784,6 +2217,14 @@ export default {
   cursor: pointer;
 }
 
+.image-preview-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  object-fit: contain;
+}
+
 /* 当图片处于预览模式时应用的样式 */
 .message-image img.image-preview-mode {
   max-width: none;
@@ -1842,9 +2283,10 @@ export default {
 }
 
 .chat-input {
-  padding: 20px;
-  border-top: 1px solid #e4e7ed;
-  background: white;
+  padding: 16px;
+  border-top: none;
+  background: transparent; /* 由 glass-card 提供背景 */
+  flex-shrink: 0; /* 固定在底部，不随消息区滚动 */
 }
 
 .input-toolbar {
@@ -1897,5 +2339,452 @@ export default {
   background: #f5f7fa;
   padding: 4px 8px;
   border-radius: 4px;
+}
+
+/* 与Home统一的区段标题样式（紧凑版） */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px 0;
+  padding-left: 2px;
+}
+.section-title.compact {
+  margin: 0 0 6px 0;
+}
+.section-title .section-accent {
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  box-shadow: 0 0 6px rgba(0,0,0,0.06);
+}
+.section-title h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: #2c3e50;
+  letter-spacing: 0.2px;
+}
+
+/* removed duplicate section-title styles */
+/* 按钮统一风格（与Home保持一致的圆角与轻微悬浮效果） */
+.chat-btn.el-button {
+  border-radius: 10px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.chat-btn.el-button:not(.el-button--text) {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.chat-btn.el-button:not(.el-button--text):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+.chat-btn.el-button.is-disabled,
+.theme-button--text.el-button.is-disabled {
+  opacity: 0.6;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+/* 发送按钮强调 */
+.chat-btn.chat-btn--send {
+  font-weight: 600;
+  min-width: 88px;
+}
+/* 文本按钮统一（与 theme.css 的 theme-button--text 呼应） */
+.theme-button--text.el-button--text {
+  border-radius: 8px;
+  padding: 4px 6px;
+  color: #444;
+}
+.theme-button--text.el-button--text:hover {
+  color: #000;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+/* 标题栏样式参考自 TTSDetail.vue 的 page-header */
+.tts-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 标题文案样式（与TTSDetail保持一致的视觉权重与字重） */
+.tts-page-header .header-center h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* 主按钮颜色统一为深蓝灰渐变（与TTSDetail的action-button主色一致） */
+.chat-btn.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+.chat-btn.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+/* 文本按钮色系微调，贴合深蓝灰主题 */
+.theme-button--text.el-button--text {
+  color: #2c3e50;
+}
+.theme-button--text.el-button--text:hover {
+  color: #1f2d3d;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+/* 移动端适配（不影响PC端） */
+@media (max-width: 768px) {
+  .ai-chat-container {
+    padding: 0;
+    height: 100dvh;
+    min-height: 100svh;
+    position: fixed;
+    inset: 0;
+  }
+
+  /* 移动端顶部栏 */
+  .mobile-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px 0 56px; /* 预留左侧历史按钮点击区 */
+    z-index: 2000;
+    border-radius: 0;
+    margin: 0;
+  }
+  .history-toggle {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    z-index: 2100; /* 确保在下拉框之上，避免被遮挡 */
+  }
+  .history-toggle .line {
+    display: block;
+    height: 3px;
+    background: #2c3e50;
+    border-radius: 999px;
+    margin: 6px 0;
+  }
+  .history-toggle .line.long { width: 22px; }
+  .history-toggle .line.short { width: 14px; }
+
+  .topbar-center { width: 100%; max-width: 260px; }
+  .topbar-center .el-select { width: 100%; }
+
+  /* 为顶部栏预留空间 */
+  .chat-content {
+    padding-top: 60px !important;
+    height: 100%;
+    position: relative;
+  }
+
+  /* 全屏化聊天区域，移除多层背景 */
+  .glass-card {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .chat-main {
+    padding: 0 !important;
+    gap: 0 !important;
+    height: 100%;
+  }
+  .chat-messages {
+    margin-bottom: 0 !important;
+  }
+
+  /* 顶部侧栏开关在移动端固定，避免被内容挤压（桌面端按钮已隐藏） */
+  .sidebar-toggle-button {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 2000;
+  }
+
+  /* 输入区右下角 + 按钮 */
+  /* 将“＋”按钮内置到输入框内侧的最右边 */
+  .input-area .plus-fab {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
+    color: #fff;
+    font-size: 20px;
+    line-height: 36px;
+    text-align: center;
+    border: none;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    z-index: 2; /* 置于文本域之上，但不遮挡弹层 */
+  }
+  .input-area .plus-fab:active { transform: scale(0.98); }
+  .plus-menu { display: flex; flex-direction: column; gap: 6px; }
+
+  /* 侧栏以浮层覆盖形式出现 */
+  .chat-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 66.6667vw;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1500;
+    border-radius: 0;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+    background: rgba(18, 18, 18, 0.92);
+  }
+
+  .chat-main {
+    padding: 0;
+    gap: 0;
+  }
+
+  .chat-content {
+    margin-left: 0 !important;
+  }
+
+  /* 模型选择区域紧凑化，纵向排布 */
+  .model-selector {
+    padding: 10px 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .selector-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .model-list {
+    width: 100%;
+  }
+
+  /* 覆盖 el-select 的内联宽度（300px） */
+  .model-selector .el-select {
+    width: 100% !important;
+  }
+
+  .selector-controls {
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .stream-status {
+    margin-left: 0;
+  }
+
+  /* 消息区与消息卡片在小屏下更紧凑 */
+  .chat-messages {
+    padding: 0;
+    margin-bottom: 0;
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .message-content {
+    /* 移动端：头像32px，间距10px，需为两侧同时预留 => 2 * (32 + 10) = 84px */
+    max-width: calc(100% - 84px);
+    padding: 10px 12px;
+  }
+
+  .message-item {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  /* 图片、视频在小屏下自适应 */
+  .message-image img {
+    max-width: 80vw;
+    max-height: 60vh;
+  }
+
+  .message-video-player {
+    max-width: 100%;
+  }
+
+  /* 输入区改为上下堆叠，发送键全宽 */
+  .input-area {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    position: relative;
+  }
+  .input-area .el-textarea { width: 100%; }
+  .input-area .el-textarea__inner {
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    padding: 10px 58px 10px 12px; /* 右侧为“＋”按钮留出空间 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    /* 防止 iOS 聚焦时页面放大（<16px 会触发自动缩放） */
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .chat-btn.chat-btn--send {
+    width: 100%;
+  }
+
+  .input-toolbar {
+    margin-bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .input-toolbar.has-media {
+    margin-bottom: 10px;
+  }
+
+  .pending-media {
+    align-items: flex-start;
+  }
+
+  /* Element 对话框移动端宽度适配（scoped 深度选择器） */
+  ::v-deep .el-dialog {
+    width: 90vw !important;
+    max-width: 90vw !important;
+    margin-top: 10vh !important;
+  }
+  ::v-deep .el-dialog__body {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* 覆盖与增强（参考移动端布局需求） */
+  .chat-sidebar {
+    width: 66.6667vw !important;
+    max-width: 66.6667vw !important;
+  }
+  /* 新建会话入口样式（移动端抽屉） */
+  .chat-sidebar .session-item.new-session {
+    border: 1px dashed rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+  }
+  .chat-sidebar .session-item.new-session .session-title { color: #f9fafb; }
+  .chat-sidebar .session-item.new-session .session-meta { color: #cbd5e1; }
+  .chat-sidebar .session-item.new-session:hover { background: rgba(255,255,255,0.12); }
+  /* 移动端历史侧栏深色主题以提升对比度 */
+  .chat-sidebar { color: #f2f3f5; }
+  .chat-sidebar .sidebar-header { border-bottom: 1px solid rgba(255,255,255,0.12); }
+  .chat-sidebar .sidebar-header h3 { color: #f9fafb; }
+  .chat-sidebar .session-title { color: #f3f4f6; }
+  .chat-sidebar .session-meta { color: #cbd5e1; }
+  .chat-sidebar .session-item:hover { background: rgba(255,255,255,0.06); }
+  .chat-sidebar .session-item.active { background: rgba(255,255,255,0.12); border-left: 3px solid #60a5fa; }
+  .chat-sidebar .session-actions .el-button { color: #e5e7eb; }
+
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1400;
+  }
+
+  /* 隐藏顶部模型卡片，改由齿轮打开抽屉 */
+  .model-selector {
+    display: none !important;
+  }
+
+  /* 齿轮按钮固定在右上角，仅移动端显示（模板已用 v-if 控制） */
+  .settings-toggle-button {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 2000;
+  }
+
+  /* 输入区固定底部并适配安全区 */
+  .chat-input {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    padding: 8px 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    padding-bottom: calc(16px + constant(safe-area-inset-bottom));
+    border-radius: 0;
+    z-index: 1200;
+    background: transparent;
+    will-change: transform;
+  }
+
+  /* 为固定输入区预留空间，避免消息被遮挡（由JS动态计算） */
+  .chat-messages {
+    padding-bottom: 0;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 气泡样式：圆角（最大宽度在上方规则已计算两侧头像与间距） */
+  .message-content {
+    border-radius: 14px !important;
+  }
+
+  /* 移动端模型下拉宽度与换行优化：宽度等同组件，字体大小继承组件 */
+  /* 仅限“未 append-to-body”的下拉：限制在组件容器内，宽度与组件一致 */
+  .ai-chat-container ::v-deep .model-select-popper.el-select-dropdown {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    z-index: 2500 !important; /* 高于顶部栏与历史按钮 */
+  }
+  /* body 挂载的下拉层同样提升层级，避免被抽屉/遮罩覆盖 */
+  ::v-deep .model-select-popper.el-select-dropdown {
+    z-index: 2500 !important;
+  }
+  ::v-deep .model-select-popper .el-select-dropdown__wrap,
+  ::v-deep .model-select-popper .el-scrollbar__wrap {
+    max-height: 56vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+  ::v-deep .model-select-popper .el-select-dropdown__item {
+    white-space: normal !important;
+    line-height: 1.4;
+  }
+  /* 不覆盖字体大小，保持与组件一致，仅做描述两行省略 */
+  ::v-deep .model-select-popper .model-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    margin-top: 4px;
+    color: inherit;
+  }
 }
 </style>

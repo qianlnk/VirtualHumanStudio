@@ -5,7 +5,9 @@
         <h2>音色克隆</h2>
       </div>
       <div class="header-right">
-        <el-button v-if="!isMobile" type="primary" @click="createVoiceClone" icon="el-icon-plus">创建音色克隆任务</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="createVoiceClone">
+          <i class="el-icon-plus"></i> 创建音色克隆任务
+        </el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -39,8 +41,8 @@
         </el-table-column>
         <el-table-column label="操作" width="200">
           <template slot-scope="scope">
-            <el-button type="text" size="small" @click="viewDetail(scope.row.id)">查看</el-button>
-            <el-button type="text" size="small" @click="confirmDelete(scope.row.id)">删除</el-button>
+            <el-button type="text" size="small" class="table-action-button" @click="viewDetail(scope.row.id)">查看</el-button>
+            <el-button type="text" size="small" class="table-action-button" @click="confirmDelete(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -139,19 +141,19 @@
         <el-form-item label="录制/上传音频" prop="audio_file">
           <div class="audio-upload-container">
             <!-- 上传按钮 -->
-            <el-button 
-              type="primary" 
-              @click="showFileUpload = true" 
-              class="upload-button">
+            <el-button
+              type="primary"
+              @click="showFileUpload = true"
+              class="action-button upload-button">
               <i class="el-icon-upload2"></i> 上传音频
             </el-button>
             
             <!-- 录制按钮 -->
-            <el-button 
-              :type="isRecording ? 'danger' : 'success'" 
-              @click="isRecording ? stopRecording() : startRecording()" 
-              class="record-button">
-              <i :class="isRecording ? 'el-icon-video-pause' : 'el-icon-video-play'"></i> 
+            <el-button
+              :type="isRecording ? 'danger' : 'success'"
+              @click="isRecording ? stopRecording() : startRecording()"
+              class="action-button record-button">
+              <i :class="isRecording ? 'el-icon-video-pause' : 'el-icon-video-play'"></i>
               {{ isRecording ? '停止录制' : '开始录制' }}
             </el-button>
             
@@ -163,7 +165,7 @@
                 :limit="1"
                 :file-list="fileList"
                 :before-upload="beforeUpload">
-                <el-button size="small" type="primary">选择文件</el-button>
+                <el-button size="small" type="primary" class="action-button">选择文件</el-button>
               </el-upload>
               <div class="upload-tip">支持MP3、WAV音频或MP4、MOV等视频，不超过50MB</div>
             </div>
@@ -187,9 +189,9 @@
             </div>
             <audio :src="recordedAudioUrl" controls ref="audioPlayer" @error="handleAudioError" @canplay="handleCanPlay"></audio>
             <div class="preview-actions">
-              <el-button size="small" type="primary" @click="useRecordedAudio">使用录制的音频</el-button>
-              <el-button size="small" @click="discardRecordedAudio">放弃</el-button>
-              <el-button size="small" type="info" @click="playRecordedAudio">播放</el-button>
+              <el-button size="small" type="primary" @click="useRecordedAudio" class="action-button">使用录制的音频</el-button>
+              <el-button size="small" @click="discardRecordedAudio" class="action-button secondary">放弃</el-button>
+              <el-button size="small" type="info" @click="playRecordedAudio" class="action-button">播放</el-button>
             </div>
           </div>
         </el-form-item>
@@ -205,14 +207,14 @@
         
         <!-- 移动端底部按钮 -->
         <div v-if="isMobile" class="mobile-form-footer">
-          <el-button type="primary" :loading="submitting" @click="submitForm" class="mobile-submit-btn">创建任务</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm" class="action-button mobile-submit-btn">创建任务</el-button>
         </div>
       </el-form>
       
       <!-- 桌面端底部按钮 -->
       <span v-if="!isMobile" slot="footer" class="dialog-footer">
-        <el-button @click="dialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitForm">确 定</el-button>
+        <el-button @click="dialogVisible = false" class="action-button secondary">取 消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitForm" class="action-button">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -1088,9 +1090,8 @@ export default {
 
 <style scoped>
 .voice-clone-container {
-  padding: 15px;
+  padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
   color: #fff;
 }
 
@@ -1098,7 +1099,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
@@ -1122,24 +1123,45 @@ export default {
 }
 
 .page-header h2 {
-  font-size: 1.4em;
+  font-size: 1.4rem;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .view-toggle {
   margin-left: 10px;
+  color: #2c3e50;
+  transition: all 0.3s;
+}
+
+.view-toggle:hover {
+  color: #4a6572;
+  transform: translateY(-2px);
+}
+
+.view-toggle i {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+}
+
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 4px;
 }
 
 .task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 /* 卡片视图相关样式 */
@@ -1184,13 +1206,13 @@ export default {
 }
 
 .task-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
   overflow: hidden;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1200,9 +1222,9 @@ export default {
 }
 
 .task-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  transform: none; /* 移除向上移动效果 */
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  transform: translateY(-5px);
 }
 
 .task-card-header {
@@ -1210,19 +1232,19 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f1f3f6;
 }
 
 .task-card-title {
   margin: 0;
   font-size: 14px;
-  color: #fff;
+  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 65%;
@@ -1245,7 +1267,7 @@ export default {
 .task-card-info p {
   margin: 6px 0;
   font-size: 13px;
-  color: #ddd;
+  color: #444;
 }
 
 .text-ellipsis {
@@ -1259,7 +1281,7 @@ export default {
 }
 
 .info-label {
-  color: #aaa;
+  color: #777;
   margin-right: 5px;
 }
 
@@ -1267,8 +1289,8 @@ export default {
   padding: 10px;
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f7f9fc;
   margin-top: auto;
 }
 
@@ -1278,14 +1300,15 @@ export default {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #1890ff;
+  color: #333333;
+  font-weight: 500;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(64, 158, 255, 0.1);
   transform: translateY(-2px);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  color: #000000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .load-more-container {
@@ -1301,15 +1324,14 @@ export default {
   width: 100%;
   clear: both;
   order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(0, 0, 0, 0.1);
 }
 
 .load-more-container p {
   margin: 0;
   padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(64, 158, 255, 0.1);
   border-radius: 20px;
-  backdrop-filter: blur(5px);
 }
 
 .loading-indicator {
@@ -1321,7 +1343,7 @@ export default {
 
 .loading-indicator i {
   font-size: 24px;
-  color: #409EFF;
+  color: #64b5f6;
 }
 
 .loading-indicator p {
@@ -1369,15 +1391,14 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(20, 20, 40, 0.95);
+  background: rgba(26, 26, 46, 0.95);
   display: flex;
   height: 60px;
   justify-content: center;
   align-items: center;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
   z-index: 1000;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(168, 85, 247, 0.15);
 }
 
 .mobile-footer-menu .menu-item {
@@ -1386,7 +1407,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 5px 20px;
-  color: #2196f3;
+  color: #a855f7;
   transition: all 0.3s;
   cursor: pointer;
   font-weight: bold;
@@ -1402,7 +1423,7 @@ export default {
 }
 
 .mobile-footer-menu .menu-item.active {
-  color: #2196f3;
+  color: #a855f7;
   font-weight: bold;
 }
 
@@ -1418,7 +1439,7 @@ export default {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1506,7 +1527,7 @@ export default {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001; /* 确保在底部菜单之上 */
   }
@@ -1637,7 +1658,7 @@ export default {
 .el-textarea__inner {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: #333;
   transition: all 0.3s;
 }
 
@@ -1650,7 +1671,7 @@ export default {
 
 .el-input__inner::placeholder,
 .el-textarea__inner::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.3);
 }
 
 /* 对话框按钮样式优化 */
@@ -1669,7 +1690,7 @@ export default {
 
 /* 移动端对话框样式 - 简化并修复 */
 .voice-clone-dialog {
-  background: #fff; /* 使用白色背景 */
+  background: #ffffff; /* 使用白色背景 */
 }
 
 .mobile-header-bar {
@@ -1678,7 +1699,7 @@ export default {
   left: 0;
   right: 0;
   height: 50px;
-  background-color: #fff;
+  background-color: #409EFF;
   display: flex;
   align-items: center;
   padding: 0 15px;
@@ -1689,7 +1710,7 @@ export default {
 .header-back {
   display: flex;
   align-items: center;
-  color: #409EFF;
+  color: #fff;
   font-size: 16px;
   cursor: pointer;
 }
@@ -1704,19 +1725,10 @@ export default {
 }
 
 /* 录音和上传按钮 */
-.upload-button, 
+.upload-button,
 .record-button {
   width: 100%;
-  height: 42px;
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.3s;
   margin-bottom: 10px;
-  padding: 0 16px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .upload-button i, 
@@ -1736,19 +1748,19 @@ export default {
 
 /* 上传区域样式 */
 .upload-area {
-  background-color: #f8f9fa;
+  background-color: #f0f2f5;
   border-radius: 4px;
   padding: 15px;
-  border: 1px dashed #dcdfe6;
+  border: 1px dashed #c0c4cc;
   margin-top: 5px;
 }
 
 /* 已选择音频文件区域 */
 .audio-selected {
   padding: 12px 15px;
-  background-color: #f0f9ff;
+  background-color: #f0f2f5;
   border-radius: 6px;
-  border: 1px solid #cce7ff;
+  border: 1px solid #c0c4cc;
   margin-top: 5px;
 }
 
@@ -1759,7 +1771,7 @@ export default {
 
 .audio-file-info i {
   font-size: 18px;
-  color: #409EFF;
+  color: #64b5f6;
 }
 
 .file-name {
@@ -1788,17 +1800,17 @@ export default {
 /* 录音预览 */
 .recorded-audio-preview {
   margin-top: 15px;
-  background-color: #f4f9ff;
+  background-color: #f0f2f5;
   border-radius: 8px;
   padding: 15px;
-  border: 1px solid #e0efff;
+  border: 1px solid #c0c4cc;
 }
 
 .recorded-audio-preview audio {
   width: 100%;
   margin-bottom: 15px;
   border-radius: 6px;
-  background-color: #fff;
+  background-color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -1809,7 +1821,6 @@ export default {
 
 .preview-actions .el-button {
   flex: 1;
-  height: 36px;
 }
 
 /* 移动端特定优化 */
@@ -1842,7 +1853,7 @@ export default {
     padding: 0;
     margin-bottom: 10px;
     font-size: 15px;
-    color: #303133;
+    color: #333;
     font-weight: 500;
   }
   
@@ -1877,32 +1888,15 @@ export default {
     left: 0;
     right: 0;
     padding: 0;
-    background-color: #fff;
+    background-color: #ffffff;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
     z-index: 100;
   }
   
   .mobile-submit-btn {
     width: 100%;
-    height: 56px;
-    font-size: 16px;
-    font-weight: 500;
     border-radius: 0;
     margin: 0;
-    background: linear-gradient(135deg, #1976d2, #64b5f6);
-    border: none;
-    color: #fff;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease;
-  }
-  
-  .mobile-submit-btn:active {
-    background: linear-gradient(135deg, #1565c0, #42a5f5);
-    transform: translateY(1px);
   }
   
   /* 调整表单内容区，避免被底部按钮遮挡 */
@@ -1938,8 +1932,8 @@ export default {
 /* 输入框美化 */
 .voice-clone-dialog :deep(.el-input__inner) {
   border-radius: 4px;
-  border: 1px solid #dcdfe6;
-  background-color: #fff;
+  border: 1px solid #c0c4cc;
+  background-color: #f0f2f5;
   transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
   padding: 0 15px;
 }
@@ -1975,5 +1969,61 @@ export default {
 /* 表单布局 */
 .voice-clone-form {
   padding: 20px 15px 100px;
+}
+
+/* 表格操作按钮样式 */
+.table-action-button {
+  color: #333333;
+  padding: 5px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.table-action-button:hover {
+  color: #000000;
+  transform: translateY(-2px);
+}
+
+/* 按钮样式与Home.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572) !important;
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
 }
 </style>

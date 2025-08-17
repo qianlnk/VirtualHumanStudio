@@ -2,8 +2,14 @@ import axios from 'axios'
 import store from '@/store'
 
 // 创建axios实例
+function buildApiBase() {
+  const raw = (process.env.VUE_APP_API_URL || '').trim();
+  const base = raw ? raw : 'http://localhost:8080';
+  const normalized = base.replace(/\/+$/, '');
+  return normalized + '/api';
+}
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: buildApiBase(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -129,26 +135,18 @@ export const chatAPI = {
     
     // 创建请求Promise
     controller.requestPromise = new Promise((resolve, reject) => {
-      // 创建FormData
-      const formData = new FormData()
-      formData.append('session_id', sessionId)
-      formData.append('message', message)
-      formData.append('model', JSON.stringify(model))
-      formData.append('image_url', imageUrl || '')
-      formData.append('video_url', videoUrl || '')
-      formData.append('stream', 'true')
-      
-      // 创建XMLHttpRequest来处理流式响应
+      // 创建XMLHttpRequest来处理流式响应（直接使用 JSON 请求体）
       const xhr = new XMLHttpRequest()
       
       // 保存xhr到控制器
       controller.xhr = xhr
       
-      // 先打开连接
-      xhr.open('POST', `${process.env.VUE_APP_API_BASE_URL || 'http://localhost:8080/api'}/chat/messages`)
-      
-      // 设置请求头
-      xhr.setRequestHeader('Content-Type', 'application/json')
+            // 先打开连接（统一使用规范化 API 基址）
+            xhr.open('POST', `${buildApiBase()}/chat/messages`)
+            
+            // 设置请求头
+            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8')
+            xhr.setRequestHeader('Accept', 'text/event-stream')
       
       // 获取token并设置认证头
       const token = store.state.token

@@ -5,7 +5,7 @@
         <h2>数字人模版</h2>
       </div>
       <div class="header-right">
-        <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" icon="el-icon-plus">创建模版</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="showCreateDialog" icon="el-icon-plus">创建模版</el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -39,13 +39,13 @@
         <el-table-column label="操作" width="200">
           <template slot-scope="scope">
             <div class="action-buttons">
-              <el-button 
-                type="text" 
-                size="mini" 
-                class="action-btn"
+              <el-button
+                type="text"
+                size="mini"
+                class="table-action-button"
                 @click="viewDetail(scope.row)"
               >查看</el-button>
-              <el-button type="text" size="mini" class="action-btn" @click="confirmDelete(scope.row.id)">删除</el-button>
+              <el-button type="text" size="mini" class="table-action-button" @click="confirmDelete(scope.row.id)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -71,8 +71,8 @@
 
       <div v-else class="card-view-content" ref="cardViewContent">
         <div class="waterfall-container" ref="cardContainer" :class="{'mobile-card-container': isMobile}">
-          <div class="task-card" v-for="(item, index) in templates" :key="item.id || index" :ref="`templateCard_${item.id || index}`">
-            <div class="task-card-header">
+          <div class="task-card template-card" v-for="(item, index) in templates" :key="item.id || index" :ref="`templateCard_${item.id || index}`">
+            <div class="task-card-header template-card-header">
               <h3 class="task-card-title">{{ item.name || '未命名模版' }}</h3>
               <div class="status-icon">
                 <i v-if="item.status === 'completed'" class="el-icon-check" style="color: #67c23a;"></i>
@@ -84,13 +84,16 @@
             </div>
             <div class="task-card-content">
               <div class="task-card-info">
-                <p><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
-                <p v-if="item.description"><i class="el-icon-document"></i> {{ item.description }}</p>
+                <div class="text-with-copy card-text">
+                  <p class="text-ellipsis card-text-content">{{ item.name || '未命名模版' }}</p>
+                </div>
+                <p class="card-text-secondary"><i class="el-icon-time"></i> {{ formatDate(item.created_at) }}</p>
+                <p v-if="item.description" class="card-text-secondary"><i class="el-icon-document"></i> {{ item.description }}</p>
               </div>
             </div>
-            <div class="task-card-footer">
-              <el-button type="text" size="small" class="action-btn" @click="viewDetail(item)">查看</el-button>
-              <el-button type="text" size="small" class="action-btn" @click="confirmDelete(item.id)">删除</el-button>
+            <div class="task-card-footer template-card-footer">
+              <el-button type="text" size="small" class="table-action-button" @click="viewDetail(item)">查看</el-button>
+              <el-button type="text" size="small" class="table-action-button" @click="confirmDelete(item.id)">删除</el-button>
             </div>
           </div>
         </div>
@@ -152,7 +155,7 @@
             :on-change="handleVideoChange"
             :limit="1"
             :file-list="videoFileList">
-            <el-button size="small" type="primary">选择视频</el-button>
+            <el-button size="small" type="primary" class="action-button">选择视频</el-button>
             <div slot="tip" class="el-upload__tip">只能上传MP4文件</div>
           </el-upload>
         </el-form-item>
@@ -164,7 +167,7 @@
             :on-change="handleFaceChange"
             :limit="1"
             :file-list="faceFileList">
-            <el-button size="small">选择图片</el-button>
+            <el-button size="small" class="action-button">选择图片</el-button>
             <div slot="tip" class="el-upload__tip">可选，仅支持JPG/PNG</div>
           </el-upload>
         </el-form-item>
@@ -176,21 +179,21 @@
             :on-change="handleBgChange"
             :limit="1"
             :file-list="bgFileList">
-            <el-button size="small">选择文件</el-button>
+            <el-button size="small" class="action-button">选择文件</el-button>
             <div slot="tip" class="el-upload__tip">可选，支持JPG/PNG/MP4</div>
           </el-upload>
         </el-form-item>
 
         <!-- 移动端底部按钮 -->
         <div v-if="isMobile" class="mobile-form-footer">
-          <el-button type="primary" @click="submitForm" :loading="submitting" class="mobile-submit-btn">创建任务</el-button>
+          <el-button type="primary" @click="submitForm" :loading="submitting" class="mobile-submit-btn action-button">创建任务</el-button>
         </div>
       </el-form>
       
       <!-- 桌面端底部按钮 -->
       <div v-if="!isMobile" slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitting">提交</el-button>
+        <el-button type="primary" class="action-button" @click="submitForm" :loading="submitting">提交</el-button>
       </div>
     </el-dialog>
     
@@ -476,12 +479,90 @@ export default {
 }
 </script>
 
+<style>
+/* 按钮样式与TTS模块保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.el-button--success {
+  background: linear-gradient(90deg, #2c8572, #2c5950);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 133, 114, 0.2);
+}
+
+.action-button.el-button--success:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 133, 114, 0.3);
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
+</style>
+
 <style scoped>
-.digital-human-container {
+.digital-human-template-container {
   padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .page-header {
@@ -531,23 +612,45 @@ export default {
 
 .page-header h2 {
   font-size: 1.4rem;
+  font-weight: 500;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .view-toggle {
   margin-left: 10px;
+  color: #2c3e50;
+  transition: all 0.3s;
 }
 
-.task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+.view-toggle:hover {
+  color: #4a6572;
+  transform: translateY(-2px);
+}
+
+.view-toggle i {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+}
+
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 4px;
+}
+
+.template-list {
+  background: #ffffff;
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .responsive-table {
@@ -560,16 +663,19 @@ export default {
 }
 
 .responsive-table th {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  color: #fff !important;
+  background-color: rgba(44, 62, 80, 0.1) !important;
+  color: #606266 !important;
   font-weight: 600;
   padding: 8px 0;
 }
 
 .responsive-table td {
   background-color: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #fff;
+  border-bottom: 1px solid rgba(200, 200, 200, 0.5) !important;
+  color: #606266;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .action-buttons {
@@ -578,14 +684,27 @@ export default {
   flex-wrap: nowrap;
 }
 
-.action-buttons .action-btn {
+.action-buttons .table-action-button {
   margin: 0 3px;
   transition: all 0.2s;
 }
 
-.action-buttons .action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.action-buttons .table-action-button:hover {
+  background: rgba(44, 62, 80, 0.05);
   border-radius: 4px;
+}
+
+/* 表格操作按钮样式 */
+.table-action-button {
+  color: #333333;
+  padding: 5px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.table-action-button:hover {
+  color: #000000;
+  transform: translateY(-2px);
 }
 
 .pagination-container {
@@ -606,7 +725,7 @@ export default {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -621,9 +740,9 @@ export default {
   font-size: 24px;
 }
 
-.floating-add-btn:active {
-  transform: scale(0.95);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+.floating-add-btn:hover, .floating-add-btn:active {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* 移动端对话框样式 */
@@ -633,7 +752,7 @@ export default {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 15px;
@@ -674,7 +793,7 @@ export default {
   font-weight: 500;
   border-radius: 0;
   margin: 0;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   border: none;
   color: #fff;
   letter-spacing: 1px;
@@ -686,13 +805,80 @@ export default {
 }
 
 .mobile-submit-btn:active {
-  background: linear-gradient(135deg, #1565c0, #42a5f5);
+  background: linear-gradient(135deg, #1c2e40, #3a5562);
   transform: translateY(1px);
 }
 
 /* 响应式样式 */
+/* 文本复制相关样式 */
+.text-with-copy {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: 4px 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.text-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 覆盖默认卡片标题样式，确保标题颜色统一 */
+.task-card-title {
+  background: linear-gradient(120deg, #2c3e50, #4a6572) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 65%;
+}
+
+.card-text-content {
+  color: #606266;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.card-text-secondary {
+  color: #909399;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+}
+
+/* 统一卡片样式 */
+.template-card {
+  background: #ffffff !important;
+  border: 1px solid #ebeef5;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.template-card-header {
+  background: #f5f7fa !important;
+  border-bottom: 1px solid #ebeef5;
+  padding: 12px 15px;
+}
+
+.template-card-footer {
+  background: #f5f7fa !important;
+  border-top: 1px solid #ebeef5;
+  padding: 10px 15px;
+}
+
 @media screen and (max-width: 768px) {
-  .digital-human-container {
+  .digital-human-template-container {
     padding: 0;
     width: 100%;
     overflow-x: hidden;
@@ -714,7 +900,7 @@ export default {
     border-radius: 0;
     padding: 10px 12px;
     margin: 0;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     flex-direction: row;
@@ -766,7 +952,7 @@ export default {
     padding: 0;
   }
   
-  .task-list {
+  .template-list {
     margin-top: 10px;
     padding-bottom: 60px;
   }
@@ -801,7 +987,7 @@ export default {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(135deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001;
   }
@@ -884,8 +1070,8 @@ export default {
   
   /* 输入框聚焦时的样式，提供用户反馈 */
   .el-input.is-focus .el-input__inner {
-    border-color: #409EFF !important;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+    border-color: #2c3e50 !important;
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2) !important;
   }
   
   .card-list .el-empty {

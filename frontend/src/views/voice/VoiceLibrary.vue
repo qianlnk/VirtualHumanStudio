@@ -6,7 +6,7 @@
       </div>
       <div class="header-right">
         <!-- <el-button type="primary" @click="showUploadDialog">上传音色</el-button> -->
-        <el-button v-if="!isMobile" type="primary" @click="refreshVoices">刷新</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="refreshVoices">刷新</el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -56,8 +56,8 @@
         </el-table-column>
         <el-table-column label="操作" width="150">
           <template slot-scope="scope">
-            <el-button type="text" size="small" @click="useForTTS(scope.row.id)">用于TTS</el-button>
-            <el-button type="text" size="small" @click="confirmDelete(scope.row.id)">删除</el-button>
+            <el-button type="text" size="small" class="table-action-button" @click="useForTTS(scope.row.id)">用于TTS</el-button>
+            <el-button type="text" size="small" class="table-action-button" @click="confirmDelete(scope.row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -726,6 +726,9 @@ export default {
 .voice-library-container {
   padding: 20px;
   min-height: 100vh;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .page-header {
@@ -744,9 +747,10 @@ export default {
   border-radius: 0;
   padding: 8px 10px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(200, 200, 200, 0.4);
 }
 
 .mobile-header-placeholder {
@@ -775,22 +779,44 @@ export default {
 .page-header h2 {
   font-size: 1.4em;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .view-toggle {
   margin-left: 10px;
+  color: #2c3e50;
+  transition: all 0.3s;
+}
+
+.view-toggle:hover {
+  color: #4a6572;
+  transform: translateY(-2px);
+}
+
+.view-toggle i {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+}
+
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 4px;
 }
 
 .voice-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 /* 卡片视图相关样式 */
@@ -835,13 +861,13 @@ export default {
 }
 
 .voice-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
   overflow: hidden;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -851,9 +877,9 @@ export default {
 }
 
 .voice-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  transform: none;
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  transform: translateY(-5px);
 }
 
 .voice-card-header {
@@ -861,19 +887,19 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, #f1f3f6, #e9ecef);
 }
 
 .voice-card-title {
   margin: 0;
   font-size: 14px;
-  color: #fff;
+  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 65%;
@@ -896,7 +922,7 @@ export default {
 .voice-card-info p {
   margin: 6px 0;
   font-size: 13px;
-  color: #ddd;
+  color: #444;
 }
 
 .text-ellipsis {
@@ -910,7 +936,7 @@ export default {
 }
 
 .info-label {
-  color: #aaa;
+  color: #2c3e50;
   margin-right: 5px;
 }
 
@@ -918,8 +944,8 @@ export default {
   padding: 10px;
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, #f7f9fc, #eef1f5);
   margin-top: auto;
 }
 
@@ -929,21 +955,28 @@ export default {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #1890ff;
+  color: #2c3e50;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   transform: translateY(-2px);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  color: #2c3e50;
+  box-shadow: 0 2px 6px rgba(44, 62, 80, 0.15);
+}
+
+.action-btn:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
 }
 
 .load-more-container {
   text-align: center;
   padding: 20px 0;
   margin: 20px 0;
-  color: #909399;
+  color: rgba(85, 85, 85, 0.9);
   font-size: 14px;
   height: 80px;
   display: flex;
@@ -952,13 +985,16 @@ export default {
   width: 100%;
   clear: both;
   order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(200, 200, 200, 0.7);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(5px);
 }
 
 .load-more-container p {
   margin: 0;
   padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   border-radius: 20px;
   backdrop-filter: blur(5px);
 }
@@ -972,7 +1008,7 @@ export default {
 
 .loading-indicator i {
   font-size: 24px;
-  color: #409EFF;
+  color: #2c3e50;
 }
 
 .loading-indicator p {
@@ -1027,7 +1063,8 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: bold;
+    font-weight: 700;
+    letter-spacing: 0.3px;
   }
   
   .page-header .el-button {
@@ -1053,7 +1090,7 @@ export default {
   
   /* 移动端底部菜单激活状态 */
   .mobile-footer-menu .menu-item.active {
-    color: #2196f3;
+    color: #2c3e50;
     font-weight: bold;
   }
   
@@ -1091,7 +1128,7 @@ export default {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(135deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001;
   }
@@ -1109,7 +1146,7 @@ export default {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1124,5 +1161,116 @@ export default {
 .floating-refresh-btn:hover, .floating-refresh-btn:active {
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voice-card, .voice-list {
+  animation: fadeIn 0.6s ease forwards;
+}
+
+.voice-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.voice-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.voice-card:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.voice-card:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-card,
+  .voice-list {
+    animation: none !important;
+  }
+  
+  .voice-card:hover {
+    transform: none;
+  }
+}
+
+/* 表格操作按钮样式 */
+.table-action-button {
+  color: #333333;
+  padding: 5px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.table-action-button:hover {
+  color: #2c3e50;
+  transform: translateY(-2px);
+}
+
+.table-action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 按钮样式与Home.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
 }
 </style>

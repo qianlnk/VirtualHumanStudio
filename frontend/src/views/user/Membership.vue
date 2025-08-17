@@ -1,6 +1,7 @@
 <template>
   <div class="membership-container">
-    <div class="page-header">
+    <div class="section-title">
+      <div class="section-accent"></div>
       <h2>会员中心</h2>
     </div>
     
@@ -8,12 +9,13 @@
     <el-row :gutter="20" class="top-cards">
       <!-- 当前会员状态 -->
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <el-card class="membership-status" shadow="hover">
-          <div class="membership-header">
-            <i class="el-icon-medal"></i>
+        <div class="glass-card membership-status" v-loading="loading">
+          <div class="section-header">
+            <div class="section-accent"></div>
+            <i class="el-icon-medal header-icon"></i>
             <h3>我的会员</h3>
           </div>
-          <div v-loading="loading" class="membership-content">
+          <div class="membership-content">
             <template v-if="membership">
               <div class="membership-level" :class="getLevelClass(membership.level)">
                 <span class="level-icon"><i class="el-icon-trophy"></i></span>
@@ -45,20 +47,21 @@
               <p>暂无会员信息</p>
             </div>
           </div>
-        </el-card>
+        </div>
       </el-col>
       
       <!-- 每日使用统计 -->
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <el-card class="usage-card" shadow="hover">
-          <div class="usage-header">
-            <i class="el-icon-data-analysis"></i>
+        <div class="glass-card usage-card" v-loading="usageLoading">
+          <div class="section-header">
+            <div class="section-accent"></div>
+            <i class="el-icon-data-analysis header-icon"></i>
             <h3>今日使用量</h3>
-            <el-button 
-              type="text" 
-              icon="el-icon-refresh" 
+            <el-button
+              type="text"
+              icon="el-icon-refresh"
               class="refresh-btn"
-              @click="fetchDailyUsage" 
+              @click="fetchDailyUsage"
               :loading="usageLoading">
               刷新
             </el-button>
@@ -141,32 +144,36 @@
               </div>
             </div>
           </div>
-        </el-card>
+        </div>
       </el-col>
     </el-row>
     
     <!-- 待审核订单区域 -->
     <el-row v-if="pendingOrders.length > 0" class="pending-orders-row">
       <el-col :span="24">
-        <el-card class="pending-orders-card" shadow="hover">
-          <div class="pending-orders-header">
-            <i class="el-icon-time"></i>
+        <div class="glass-card pending-orders-card">
+          <div class="section-header">
+            <div class="section-accent"></div>
+            <i class="el-icon-time header-icon"></i>
             <h3>待审核订单</h3>
-            <el-button 
-              type="text" 
-              icon="el-icon-refresh" 
+            <el-button
+              type="text"
+              icon="el-icon-refresh"
               class="refresh-btn"
-              @click="fetchPendingOrders" 
+              @click="fetchPendingOrders"
               :loading="orderLoading">
               刷新
             </el-button>
           </div>
           <div class="pending-orders-content">
-            <el-table 
-              :data="pendingOrders" 
-              stripe 
+            <el-table
+              :data="pendingOrders"
+              stripe
+              size="small"
               style="width: 100%"
-              v-loading="orderLoading">
+              v-loading="orderLoading"
+              :header-cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.85)', fontWeight: '600' }"
+              :cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.75)' }">
               <el-table-column prop="created_at" label="提交时间" width="180">
                 <template slot-scope="scope">
                   {{ formatDateTime(scope.row.created_at) }}
@@ -195,21 +202,22 @@
               订单审核通常在1-2个工作日内完成，如有疑问请联系客服
             </div>
           </div>
-        </el-card>
+        </div>
       </el-col>
     </el-row>
     
     <!-- 会员计划列表 -->
     <el-row>
       <el-col :span="24">
-        <el-card class="plans-card" shadow="hover">
-          <div class="plans-header">
-            <i class="el-icon-shopping-cart-2"></i>
+        <div class="glass-card plans-card">
+          <div class="section-header">
+            <div class="section-accent"></div>
+            <i class="el-icon-shopping-cart-2 header-icon"></i>
             <h3>会员套餐</h3>
-            <el-button 
-              v-if="membershipPlans.length === 0 && !plansLoading" 
-              type="text" 
-              icon="el-icon-refresh" 
+            <el-button
+              v-if="membershipPlans.length === 0 && !plansLoading"
+              type="text"
+              icon="el-icon-refresh"
               class="refresh-btn"
               @click="fetchMembershipPlans">
               重新加载
@@ -248,12 +256,12 @@
                   </div>
                   
                   <div class="plan-action">
-                    <el-button 
+                    <el-button
+                      class="action-button"
                       :type="membership && membership.level === plan.level ? 'success' : 'primary'"
                       :disabled="membership && membership.level === plan.level"
                       @click="handlePurchasePlan(plan)"
-                      v-if="plan.level !== 'free'"
-                      >
+                      v-if="plan.level !== 'free'">
                       {{ membership && membership.level === plan.level ? '当前方案' : '立即购买' }}
                     </el-button>
                     <span v-else-if="plan.level === 'free'">免费方案</span>
@@ -262,36 +270,40 @@
               </el-col>
             </el-row>
           </div>
-        </el-card>
+        </div>
       </el-col>
     </el-row>
     
     <!-- 订单历史区域（可折叠） -->
     <el-row class="order-history-row">
       <el-col :span="24">
-        <el-card class="order-history-card" shadow="hover">
-          <div class="order-history-header" @click="toggleOrderHistory">
-            <i class="el-icon-document"></i>
+        <div class="glass-card order-history-card">
+          <div class="section-header order-history-header" @click="toggleOrderHistory">
+            <div class="section-accent"></div>
+            <i class="el-icon-document header-icon"></i>
             <h3>购买记录</h3>
+            <el-button
+              type="text"
+              icon="el-icon-refresh"
+              class="refresh-btn"
+              @click.stop="fetchOrderHistory"
+              :loading="historyLoading">
+              刷新
+            </el-button>
             <span class="expand-icon">
               <i :class="orderHistoryExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
             </span>
           </div>
           <div v-show="orderHistoryExpanded" class="order-history-content">
-            <el-button 
-              type="text" 
-              icon="el-icon-refresh" 
-              class="refresh-btn"
-              @click="fetchOrderHistory" 
-              :loading="historyLoading">
-              刷新
-            </el-button>
-            <el-table 
-              :data="orderHistory" 
-              stripe 
+            <el-table
+              :data="orderHistory"
+              stripe
+              size="small"
               style="width: 100%; margin-top: 15px;"
               v-loading="historyLoading"
-              empty-text="暂无购买记录">
+              empty-text="暂无购买记录"
+              :header-cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.85)', fontWeight: '600' }"
+              :cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.75)' }">
               <el-table-column prop="created_at" label="提交时间" width="180">
                 <template slot-scope="scope">
                   {{ formatDateTime(scope.row.created_at) }}
@@ -330,7 +342,7 @@
               </el-table-column>
             </el-table>
           </div>
-        </el-card>
+        </div>
       </el-col>
     </el-row>
     
@@ -780,8 +792,8 @@ export default {
     getUsageColor(used, total) {
       if (!total || total <= 0) return '#67c23a'
       const percentage = (used / total) * 100
-      if (percentage < 50) return '#67c23a'
-      if (percentage < 80) return '#e6a23c'
+      if (percentage < 50) return '#a855f7'
+      if (percentage < 80) return '#d8b4fe'
       return '#f56c6c'
     },
     
@@ -834,7 +846,7 @@ export default {
 }
 
 .page-header h2 {
-  color: #409EFF;
+  color: #8a2be2;
   font-weight: 400;
 }
 
@@ -920,7 +932,7 @@ export default {
 .membership-header i, .usage-header i, .plans-header i {
   font-size: 24px;
   margin-right: 10px;
-  color: #409EFF;
+  color: #8a2be2;
 }
 
 .membership-header h3, .usage-header h3, .plans-header h3 {
@@ -964,8 +976,8 @@ export default {
 }
 
 .level-monthly {
-  background-color: #ecf5ff;
-  color: #409EFF;
+  background-color: #f3e8ff;
+  color: #8a2be2;
 }
 
 .level-quarter {
@@ -1039,8 +1051,8 @@ export default {
 }
 
 .active-plan {
-  border-color: #67c23a;
-  box-shadow: 0 0 10px rgba(103, 194, 58, 0.2);
+  border-color: #6d28d9;
+  box-shadow: 0 0 10px rgba(109, 40, 217, 0.2);
 }
 
 .free-plan {
@@ -1062,7 +1074,7 @@ export default {
 .plan-price {
   font-size: 24px;
   font-weight: 700;
-  color: #409EFF;
+  color: #8a2be2;
 }
 
 .plan-price .currency {
@@ -1104,7 +1116,7 @@ export default {
 
 .plan-features li i {
   margin-right: 5px;
-  color: #67c23a;
+  color: #a855f7;
 }
 
 .plan-action {
@@ -1126,7 +1138,7 @@ export default {
 .plan-price-large {
   font-size: 36px;
   font-weight: 700;
-  color: #409EFF;
+  color: #8a2be2;
   margin: 20px 0;
 }
 
@@ -1216,6 +1228,39 @@ export default {
     min-height: auto;
     padding: 10px;
   }
+
+  /* 今日使用量：移动端优化，避免横向挤压与溢出 */
+  .usage-progress-container {
+    padding: 10px 0;
+  }
+  .usage-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .usage-label {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 6px;
+  }
+  .usage-bar-wrap {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .usage-bar-wrap .el-progress {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .usage-value,
+  .usage-percent {
+    min-width: 0;
+    text-align: left;
+    font-size: 12px;
+  }
+  .usage-percent {
+    margin-left: auto; /* 让百分比在同一行靠右对齐（若与数值同行） */
+  }
   
   .plan-list {
     display: block;
@@ -1295,7 +1340,7 @@ export default {
 .order-history-header i {
   font-size: 24px;
   margin-right: 10px;
-  color: #409EFF;
+  color: #8a2be2;
 }
 
 .order-history-header h3 {
@@ -1304,7 +1349,7 @@ export default {
 }
 
 .expand-icon {
-  margin-left: auto;
+  margin-left: 8px;
   color: #909399;
   font-size: 16px;
 }
@@ -1313,8 +1358,123 @@ export default {
   padding: 0 15px 15px;
 }
 
-.order-history-content .refresh-btn {
-  margin-left: auto;
-  float: right;
+/* refresh moved into header; no special override needed here */
+/* .order-history-content .refresh-btn { } */
+/* ========== Unified tech theme styles for Membership (aligned with Home.vue) ========== */
+.section-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-left: 10px;
 }
+.section-title h2 {
+  font-size: 1.7em;
+  font-weight: 700;
+  margin: 0;
+  color: #2c3e50;
+  position: relative;
+}
+@media (min-width: 768px) {
+  .section-title { margin-bottom: 30px; }
+  .section-title h2 { font-size: 2em; }
+}
+.section-accent {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  box-shadow: 0 0 10px rgba(0,0,0,0.08);
+  margin-right: 12px;
+}
+
+/* Card header style */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-header .header-icon {
+  font-size: 20px;
+  color: #2c3e50;
+}
+
+/* Glass card look (match Home.vue) */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  will-change: transform, box-shadow;
+}
+.glass-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Primary action button (match Home.vue) */
+.action-button {
+  padding: 10px 20px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+/* Page container unified spacing (match Home.vue) */
+.membership-container {
+  min-height: 100vh;
+  padding: 20px;
+  color: rgba(44, 62, 80, 0.9);
+  position: relative;
+  overflow-x: hidden;
+  transition: all 0.3s ease;
+}
+@media (min-width: 768px) {
+  .membership-container { padding: 40px; }
+}
+@media (max-width: 767px) {
+  .membership-container { padding: 15px; }
+}
+
+/* Refine plan price color to match palette */
+.plan-price {
+  color: #2c3e50 !important;
+}
+.plan-price-large {
+  color: #2c3e50 !important;
+}
+/* Refresh buttons alignment overrides (unify with Home.vue section header) */
+.section-header .refresh-btn {
+  margin-left: auto;
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  transform: none !important;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+/* Ensure order history refresh stays at the right without float conflicts */
+.order-history-content .refresh-btn {
+  display: block;
+  margin-left: auto;
+  float: none !important;
+}
+
 </style> 

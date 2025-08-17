@@ -4,7 +4,7 @@
     <div class="page-header">
       <h2>语音识别任务详情</h2>
       <div>
-        <el-button type="primary" @click="goBack">返回列表</el-button>
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
       </div>
     </div>
     
@@ -61,7 +61,7 @@
                 </el-skeleton>
               </div>
               <div class="action-buttons">
-                <el-button type="primary" @click="downloadAudio">下载音频</el-button>
+                <el-button type="primary" class="action-button" @click="downloadAudio">下载音频</el-button>
               </div>
             </div>
             
@@ -77,7 +77,7 @@
               <h3>错误信息</h3>
               <div class="error-message">{{ task.error_msg || '任务处理失败' }}</div>
               <div class="action-buttons">
-                <el-button type="primary" @click="handleRetry">重试任务</el-button>
+                <el-button type="primary" class="action-button" @click="handleRetry">重试任务</el-button>
               </div>
             </div>
           </el-card>
@@ -125,7 +125,7 @@
                 </el-skeleton>
               </div>
               <div class="action-buttons">
-                <el-button type="primary" @click="downloadAudio" size="small">下载音频</el-button>
+                <el-button type="primary" class="action-button" @click="downloadAudio" size="small">下载音频</el-button>
               </div>
             </div>
             
@@ -143,7 +143,7 @@
               <h4 class="section-title">错误信息</h4>
               <div class="error-message">{{ task.error_msg || '任务处理失败' }}</div>
               <div class="action-buttons">
-                <el-button type="primary" @click="handleRetry" size="small">重试任务</el-button>
+                <el-button type="primary" class="action-button" @click="handleRetry" size="small">重试任务</el-button>
               </div>
             </div>
           </div>
@@ -372,14 +372,77 @@ html, body {
     max-width: 100% !important;
   }
 }
+
+/* 按钮样式与TTS模块保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
 </style>
 
 <style scoped>
 .asr-detail-container {
-  padding: 40px;
+  padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   width: 100%;
   box-sizing: border-box;
 }
@@ -388,16 +451,23 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
   box-sizing: border-box;
 }
 
 .page-header h2 {
-  font-size: 2em;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
 }
 
 .detail-content-wrapper {
@@ -406,12 +476,11 @@ html, body {
 }
 
 .detail-content {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   width: 100%;
   box-sizing: border-box;
 }
@@ -460,7 +529,7 @@ html, body {
 .audio-section h3,
 .error-section h3 {
   margin-bottom: 15px;
-  color: #409EFF;
+  color: rgba(44, 62, 80, 0.9);
 }
 
 .text-content-wrapper {
@@ -493,7 +562,7 @@ html, body {
 }
 
 .copy-btn:hover {
-  color: #409EFF;
+  color: #2c3e50;
   background-color: rgba(255, 255, 255, 0.9);
 }
 
@@ -535,7 +604,7 @@ html, body {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -595,7 +664,7 @@ html, body {
   display: none; /* 默认隐藏，在移动端显示 */
   padding: 0;
   width: 100%;
-  background-color: #fff;
+  background-color: #ffffff;
   min-height: 100%;
   box-sizing: border-box;
 }
@@ -659,12 +728,16 @@ html, body {
   padding: 2px 5px;
   margin: 0;
   font-size: 16px;
-  color: #409EFF;
+  color: #ffffff;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+  border-radius: 4px;
 }
 
 .mobile-text-content {
   padding: 10px;
-  background-color: #f8f8f8;
+  background-color: #f0f2f5;
   border-radius: 4px;
   white-space: pre-wrap;
   line-height: 1.5;
@@ -717,20 +790,20 @@ html, body {
   }
   
   .asr-detail-container {
-    padding: 0;
-    width: 100%;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1000;
-    background-color: #fff;
-    color: #333;
-    height: 100vh;
-    overflow-x: hidden; /* 禁止水平滚动 */
-    box-sizing: border-box;
-  }
+      padding: 0;
+      width: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      background-color: #ffffff;
+      color: #333;
+      height: 100vh;
+      overflow-x: hidden; /* 禁止水平滚动 */
+      box-sizing: border-box;
+    }
   
   .detail-content-wrapper {
     padding: 0;
@@ -747,18 +820,18 @@ html, body {
   }
   
   .detail-content {
-    width: 100%;
-    margin: 0;
-    background: #fff;
-    backdrop-filter: none;
-    box-shadow: none;
-    border: none;
-    border-radius: 0;
-    min-height: 100%;
-    overflow-x: hidden; /* 禁止水平滚动 */
-    box-sizing: border-box;
-    padding: 0;
-  }
+      width: 100%;
+      margin: 0;
+      background: #ffffff;
+      backdrop-filter: none;
+      box-shadow: none;
+      border: none;
+      border-radius: 0;
+      min-height: 100%;
+      overflow-x: hidden; /* 禁止水平滚动 */
+      box-sizing: border-box;
+      padding: 0;
+    }
   
   .mobile-section {
     padding: 8px 12px;
@@ -773,8 +846,12 @@ html, body {
   }
   
   .mobile-copy-btn {
-    color: #409EFF;
-  }
+      color: #ffffff;
+      background: linear-gradient(90deg, #2c3e50, #4a6572);
+      border: none;
+      box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+      border-radius: 4px;
+    }
   
   .mobile-text-content {
     background-color: #f8f8f8;

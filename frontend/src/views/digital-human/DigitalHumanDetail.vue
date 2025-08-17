@@ -4,8 +4,8 @@
     <div class="page-header">
       <h2>数字人合成任务详情</h2>
       <div>
-        <el-button type="primary" @click="goBack">返回列表</el-button>
-        <el-button type="success" @click="shareTask" v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.share_status !== 'approved' && digitalHuman.share_status !== 'pending_review'">分享</el-button>
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
+        <el-button type="success" class="action-button" @click="shareTask" v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.share_status !== 'approved' && digitalHuman.share_status !== 'pending_review'">分享</el-button>
       </div>
     </div>
     
@@ -32,7 +32,7 @@
         <div class="desktop-content-view">
           <el-card v-if="digitalHuman">
             <div slot="header" class="card-header">
-              <span>{{ digitalHuman.name }}</span>
+              <span style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-weight: 500;">{{ digitalHuman.name }}</span>
               <el-tag :type="getStatusType(digitalHuman.status)" class="status-tag">{{ getStatusText(digitalHuman.status) }}</el-tag>
               <el-tag v-if="digitalHuman.share_status === 'approved'" type="success" class="status-tag" style="margin-left: 8px">已分享</el-tag>
               <el-tag v-else-if="digitalHuman.share_status === 'pending_review'" type="warning" class="status-tag" style="margin-left: 8px">审核中</el-tag>
@@ -42,47 +42,47 @@
             <div class="task-info">
               <div class="info-item">
                 <span class="label">创建时间：</span>
-                <span>{{ formatDate(digitalHuman.created_at) }}</span>
+                <span style="color: #606266;">{{ formatDate(digitalHuman.created_at) }}</span>
               </div>
               <div class="info-item">
                 <span class="label">任务代码：</span>
-                <span>{{ digitalHuman.task_code }}</span>
+                <span style="color: #606266;">{{ digitalHuman.task_code }}</span>
               </div>
               <div class="info-item" v-if="digitalHuman.description">
                 <span class="label">任务描述：</span>
-                <span>{{ digitalHuman.description }}</span>
+                <span style="color: #606266;">{{ digitalHuman.description }}</span>
               </div>
               <div class="info-item">
                 <span class="label">超分：</span>
-                <span>{{ digitalHuman.chaofen ? '开启' : '关闭' }}</span>
+                <span style="color: #606266;">{{ digitalHuman.chaofen ? '开启' : '关闭' }}</span>
               </div>
               <div class="info-item">
                 <span class="label">水印：</span>
-                <span>{{ digitalHuman.watermark_switch ? '开启' : '关闭' }}</span>
+                <span style="color: #606266;">{{ digitalHuman.watermark_switch ? '开启' : '关闭' }}</span>
               </div>
               <div class="info-item">
                 <span class="label">PN值：</span>
-                <span>{{ digitalHuman.pn }}</span>
+                <span style="color: #606266;">{{ digitalHuman.pn }}</span>
               </div>
             </div>
             
             <!-- 音频和视频预览 -->
             <div class="media-section">
-              <h3>输入文件</h3>
+              <h3 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">输入文件</h3>
               <div class="media-preview">
                 <div class="audio-preview">
-                  <h4>音频文件</h4>
+                  <h4 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">音频文件</h4>
                   <audio controls style="width: 100%" ref="audioPlayer">
                     <source :src="audioUrl" type="audio/wav">
                     您的浏览器不支持音频播放
                   </audio>
                 </div>
                 <div class="video-preview" :class="{'video-loaded': videoUrl && videoLoaded, 'video-loading': !videoUrl || !videoLoaded}">
-                  <h4>原始视频文件</h4>
+                  <h4 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">原始视频文件</h4>
                   <div v-if="videoUrl" class="video-container">
-                    <video 
-                      controls 
-                      style="width: 100%; max-height: 300px; background-color: #000; z-index: 0 !important; transform: translateZ(0);" 
+                    <video
+                      controls
+                      style="width: 100%; max-height: 280px; background-color: #000; z-index: 0 !important; transform: translateZ(0);"
                       ref="videoPlayer"
                       class="desktop-video"
                       data-video-type="original"
@@ -107,13 +107,13 @@
             
             <!-- 合成结果 -->
             <div class="result-section">
-              <h3>合成结果</h3>
+              <h3 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">合成结果</h3>
               <!-- 有结果视频时显示视频播放器 -->
-              <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url && resultUrl" 
+              <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url && resultUrl"
                   class="result-preview" :class="{'video-loaded': resultUrl && resultLoaded}">
-                <video 
-                  controls 
-                  style="width: 100%; max-height: 400px; background-color: #000; z-index: 0 !important; transform: translateZ(0);" 
+                <video
+                  controls
+                  style="width: 100%; max-height: 350px; background-color: #000; z-index: 0 !important; transform: translateZ(0);"
                   ref="resultPlayer"
                   class="desktop-video"
                   data-video-type="result"
@@ -129,7 +129,7 @@
                 <template v-if="digitalHuman && digitalHuman.status === 'processing'">
                   <div class="processing-info">
                     <el-progress :percentage="progress" :format="progressFormat"></el-progress>
-                    <p>视频正在处理中，请等待完成后查看结果</p>
+                    <p style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">视频正在处理中，请等待完成后查看结果</p>
                   </div>
                 </template>
                 <template v-else-if="digitalHuman && digitalHuman.status === 'failed'">
@@ -139,7 +139,7 @@
                 </template>
                 <template v-else>
                   <div class="waiting-info">
-                    <p>尚未生成结果视频</p>
+                    <p style="color: #909399; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">尚未生成结果视频</p>
                   </div>
                 </template>
               </div>
@@ -148,8 +148,8 @@
             <!-- 下载结果按钮区域 - PC端 -->
             <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url" class="download-section">
               <div class="download-container">
-                <h3>下载视频</h3>
-                <p class="download-tips">合成任务已完成，您可以下载生成的视频文件</p>
+                <h3 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">下载视频</h3>
+                <p class="download-tips" style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">合成任务已完成，您可以下载生成的视频文件</p>
                 <div class="action-buttons-group">
                 <el-button type="primary" size="large" @click="downloadResult" class="download-button">
                   <i class="el-icon-download"></i> 下载合成结果
@@ -173,36 +173,36 @@
                 <el-tag v-else-if="digitalHuman.share_status === 'pending_review'" type="warning" class="status-tag" style="margin-left: 8px">审核中</el-tag>
                 <el-tag v-else-if="digitalHuman.share_status === 'rejected'" type="danger" class="status-tag" style="margin-left: 8px">已拒绝</el-tag>
               </div>
-              <div class="create-time">创建时间：{{ formatDate(digitalHuman.created_at) }}</div>
+              <div class="create-time" style="color: #909399; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">创建时间：{{ formatDate(digitalHuman.created_at) }}</div>
             </div>
             
             <!-- 任务信息 -->
             <div class="mobile-task-info">
               <div class="info-item">
                 <span class="label">任务代码：</span>
-                <span>{{ digitalHuman.task_code }}</span>
+                <span style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ digitalHuman.task_code }}</span>
               </div>
               <div class="info-item" v-if="digitalHuman.description">
                 <span class="label">任务描述：</span>
-                <span>{{ digitalHuman.description }}</span>
+                <span style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ digitalHuman.description }}</span>
               </div>
               <div class="info-item">
                 <span class="label">超分：</span>
-                <span>{{ digitalHuman.chaofen ? '开启' : '关闭' }}</span>
+                <span style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ digitalHuman.chaofen ? '开启' : '关闭' }}</span>
               </div>
               <div class="info-item">
                 <span class="label">水印：</span>
-                <span>{{ digitalHuman.watermark_switch ? '开启' : '关闭' }}</span>
+                <span style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ digitalHuman.watermark_switch ? '开启' : '关闭' }}</span>
               </div>
               <div class="info-item">
                 <span class="label">PN值：</span>
-                <span>{{ digitalHuman.pn }}</span>
+                <span style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">{{ digitalHuman.pn }}</span>
               </div>
             </div>
             
             <!-- 音频文件 -->
             <div class="mobile-section">
-              <h4 class="section-title">音频文件</h4>
+              <h4 class="section-title" style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">音频文件</h4>
               <div v-if="audioUrl" class="audio-player">
                 <audio controls ref="mobileAudioPlayer" style="width: 100%">
                   <source :src="audioUrl" type="audio/wav">
@@ -220,7 +220,7 @@
             
             <!-- 原始视频文件 -->
             <div class="mobile-section" id="mobile-original-video">
-              <h4 class="section-title">原始视频文件</h4>
+              <h4 class="section-title" style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">原始视频文件</h4>
               <div v-if="videoUrl" class="video-player">
                 <video 
                   ref="mobileVideoPlayer" 
@@ -246,7 +246,7 @@
             
             <!-- 合成结果视频 -->
             <div class="mobile-section" id="mobile-result-video">
-              <h4 class="section-title">合成结果视频</h4>
+              <h4 class="section-title" style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">合成结果视频</h4>
               <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url && resultUrl" 
                  class="video-player has-result">
                 <video 
@@ -265,7 +265,7 @@
                 <template v-if="digitalHuman && digitalHuman.status === 'processing'">
                   <div class="processing-info">
                     <el-progress :percentage="progress" :format="progressFormat"></el-progress>
-                    <p>视频正在处理中，请等待完成后查看结果</p>
+                    <p style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">视频正在处理中，请等待完成后查看结果</p>
                   </div>
                 </template>
                 <template v-else-if="digitalHuman && digitalHuman.status === 'failed'">
@@ -275,7 +275,7 @@
                 </template>
                 <template v-else>
                   <div class="waiting-info">
-                    <p>尚未生成结果视频</p>
+                    <p style="color: #909399; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">尚未生成结果视频</p>
                   </div>
                 </template>
               </div>
@@ -284,8 +284,8 @@
             <!-- 下载结果按钮区域 - 移动端 -->
             <div v-if="digitalHuman && digitalHuman.status === 'completed' && digitalHuman.result_url" class="mobile-download-section">
               <div class="mobile-download-container">
-                <h3>下载视频</h3>
-                <p>合成任务已完成，您可以下载生成的视频</p>
+                <h3 style="color: #303133; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">下载视频</h3>
+                <p style="color: #606266; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">合成任务已完成，您可以下载生成的视频</p>
                 <div class="action-buttons">
                   <el-button type="primary" @click="downloadResult" class="download-button" block>
                     <i class="el-icon-download"></i> 下载合成结果
@@ -1035,8 +1035,74 @@ export default {
 </script>
 
 <style>
+/* 按钮样式与Home.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
 /* 全局样式覆盖，强制禁止水平滚动 */
 .digital-human-detail-container {
+  padding: 20px;
+  min-height: 100vh;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transform: translateZ(0); /* 创建新的堆叠上下文 */
   isolation: isolate; /* 现代浏览器隔离堆叠上下文 */
   position: relative;
@@ -1044,6 +1110,7 @@ export default {
   overflow-x: hidden !important;
   width: 100% !important;
   max-width: 100% !important;
+  box-sizing: border-box;
 }
 
 /* 强制所有视频元素不能超出其父容器的堆叠上下文 */
@@ -1061,6 +1128,40 @@ export default {
   max-height: 100%;
 }
 
+/* 内容区域容器样式 */
+.digital-human-detail-container .detail-content-wrapper {
+  /* 桌面端与标题栏左右对齐 */
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0 20px;
+}
+
+.digital-human-detail-container .detail-content {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+/* 覆盖Element UI的卡片样式 */
+.digital-human-detail-container .el-card {
+  /* 让卡片填满内容区域容器，由容器控制左右对齐 */
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 覆盖卡片内容区域样式 */
+.digital-human-detail-container .el-card .el-card__body {
+  padding: 20px;
+}
+
+/* 覆盖卡片头部样式 */
+.digital-human-detail-container .el-card .el-card__header {
+  padding: 15px 20px;
+}
+
 /* 移动端顶部导航栏 - 提高层级 */
 .digital-human-detail-container .mobile-header-bar {
   position: fixed;
@@ -1068,7 +1169,7 @@ export default {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -1085,18 +1186,25 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  background-color: transparent; /* 改为透明背景 */
-  border-bottom: 1px solid rgba(235, 238, 245, 0.6); /* 稍微透明的边框 */
   margin-bottom: 20px;
-  box-shadow: none; /* 移除阴影 */
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: calc(100% - 40px); /* 减去左右margin和padding */
+  margin-left: 20px;
+  margin-right: 20px;
+  box-sizing: border-box;
 }
 
 .digital-human-detail-container .page-header h2 {
-  color: #303133;
-  font-size: 20px;
-  font-weight: 600;
   margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
 }
 
 /* PC端下载区域样式 */
@@ -1123,7 +1231,7 @@ export default {
 }
 
 .digital-human-detail-container .download-container h3 {
-  color: #409EFF;
+  color: #2c3e50;
   font-size: 20px;
   margin-bottom: 15px;
   font-weight: 600;
@@ -1163,7 +1271,7 @@ export default {
 }
 
 .digital-human-detail-container .mobile-download-container {
-  background: linear-gradient(135deg, #e6f3ff 0%, #f0f9ff 100%);
+  background: linear-gradient(135deg, #f1f3f6 0%, #ffffff 100%);
   border-radius: 12px;
   padding: 20px 15px;
   text-align: center;
@@ -1204,8 +1312,8 @@ export default {
   font-size: 16px;
   border-radius: 6px;
   margin-bottom: 5px;
-  background-color: #409EFF;
-  border-color: #409EFF;
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
+  border: none;
   color: white;
   box-shadow: 0 4px 8px rgba(64, 158, 255, 0.3);
 }
@@ -1259,6 +1367,7 @@ export default {
   display: block; /* 默认显示 */
   width: 100%;
   box-sizing: border-box;
+  max-width: 100%;
 }
 
 /* 移动端内容区 */
@@ -1364,28 +1473,32 @@ export default {
   }
   
   .digital-human-detail-container .detail-content-wrapper {
-    transform: translateZ(0);
+    padding: 0;
+    width: 100%;
     position: absolute;
     top: 56px;
     left: 0;
     right: 0;
     bottom: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    margin: 0; /* 移动端取消左右外边距，铺满屏幕 */
     box-sizing: border-box;
-    padding-bottom: 120px !important; /* 增加更多底部空间 */
-    z-index: 1 !important;
+    background-color: #ffffff;
+    height: calc(100vh - 56px);
+    overflow-y: auto; /* 允许垂直滚动 */
+    overflow-x: hidden; /* 禁止水平滚动 */
+    transform: translateZ(0);
     isolation: isolate;
+    z-index: 1 !important;
   }
   
   .digital-human-detail-container .detail-content {
     width: 100%;
     margin: 0;
-    background: #fff;
-    backdrop-filter: none;
-    box-shadow: none;
-    border: none;
-    border-radius: 0;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    border: 1px solid rgba(200, 200, 200, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
     min-height: 100%;
     overflow-x: hidden;
     box-sizing: border-box;

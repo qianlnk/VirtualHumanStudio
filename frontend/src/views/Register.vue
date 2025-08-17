@@ -169,18 +169,27 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  position: relative;
+  overflow: hidden;
 }
 
 .register-box {
   width: 400px;
-  padding: 30px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  position: relative;
+  z-index: 1;
+}
+
+.register-box:hover {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
 }
 
 .register-title {
@@ -189,16 +198,18 @@ export default {
 }
 
 .register-title h2 {
-  font-size: 24px;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .register-title p {
-  font-size: 14px;
-  color: #b3e5fc;
+  font-size: 16px;
+  color: rgba(44, 62, 80, 0.7);
+  letter-spacing: 0.5px;
 }
 
 .register-form {
@@ -207,16 +218,96 @@ export default {
 
 .register-button {
   width: 100%;
+  background: linear-gradient(90deg, #2c3e50, #4a6572) !important;
+  border: none !important;
+  border-radius: 8px;
+  padding: 12px 0;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.register-button:hover,
+.register-button:focus,
+.register-button:active {
+  background: linear-gradient(90deg, #2c3e50, #4a6572) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+/* 覆盖所有可能的Element UI样式 */
+.el-button.el-button--primary.register-button:hover,
+.el-button.el-button--primary.register-button:focus,
+.el-button.el-button--primary.register-button:active {
+  background: linear-gradient(90deg, #2c3e50, #4a6572) !important;
+  border-color: transparent !important;
 }
 
 .register-options {
   text-align: center;
   font-size: 14px;
-  color: #b3e5fc;
+  color: rgba(44, 62, 80, 0.7);
+  margin-top: 15px;
 }
 
 .register-options a {
-  color: #64b5f6;
+  color: #2c3e50;
   margin-left: 5px;
+  font-weight: 600;
+  text-decoration: none;
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.register-options a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, #2c3e50, transparent);
+  transform: scaleX(0.5);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.register-options a:hover::after {
+  transform: scaleX(1);
+}
+
+.el-input__inner {
+  border-radius: 8px;
+  border: 1px solid rgba(44, 62, 80, 0.15);
+  padding: 12px;
+  height: 45px;
+}
+
+.el-input__inner:focus {
+  border-color: rgba(44, 62, 80, 0.5);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.register-box {
+  animation: fadeIn 0.6s ease forwards;
+}
+
+@media (max-width: 767px) {
+  .register-box {
+    width: 85%;
+    padding: 30px 20px;
+  }
 }
 </style>

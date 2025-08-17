@@ -3,7 +3,7 @@
     <div class="page-header">
       <h2>饰品替换任务详情</h2>
       <div>
-        <el-button type="primary" @click="goBack">返回列表</el-button>
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
       </div>
     </div>
     <div class="image-preview-overlay" v-if="isPreviewActive" @click="closePreview" @wheel.prevent="handleZoom" @mousedown="startDrag" @mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag">
@@ -60,8 +60,8 @@
             <img :src="result_image" alt="替换结果" class="result-image" crossorigin="anonymous" @click="previewImageDirect(result_image)">
           </div>
           <div class="action-buttons">
-            <el-button type="primary" @click="downloadResult">下载结果</el-button>
-            <el-button type="success" @click="shareTask" class="share-button" :disabled="isShared">
+            <el-button type="primary" class="action-button" @click="downloadResult">下载结果</el-button>
+            <el-button type="success" class="action-button" @click="shareTask" :disabled="isShared">
               {{ getShareButtonText() }}
             </el-button>
           </div>
@@ -441,30 +441,116 @@ export default {
 }
 </script>
 
+<style>
+/* 按钮样式与TTS模块保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.el-button--success {
+  background: linear-gradient(90deg, #2c8572, #2c5950);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 133, 114, 0.2);
+}
+
+.action-button.el-button--success:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 133, 114, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
+</style>
+
 <style scoped>
 .accessory-detail-container {
-  padding: 40px;
+  padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #fff;
+  background: linear-gradient(135deg, #ffffff, #f8f8f8, #f0f0f0);
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header h2 {
-  font-size: 2em;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
 }
 
 .detail-content {
   margin-top: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .card-header {
@@ -480,8 +566,9 @@ export default {
 .task-info {
   margin-bottom: 20px;
   padding: 15px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(250, 250, 250, 0.8);
   border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .info-item {
@@ -492,20 +579,21 @@ export default {
 .info-item .label {
   font-weight: bold;
   width: 100px;
-  color: #64b5f6;
+  color: #1a73e8;
 }
 
 .images-section, .result-section, .error-section {
   margin-top: 20px;
   padding: 15px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .images-section h3, .result-section h3, .error-section h3 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #64b5f6;
+  color: rgba(44, 62, 80, 0.9);
   font-size: 1.2em;
 }
 
@@ -519,17 +607,19 @@ export default {
 .image-item h4 {
   margin-top: 0;
   margin-bottom: 10px;
-  color: #fff;
+  color: #333;
   font-size: 1em;
+  font-weight: 500;
 }
 
 .image-container {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(200, 200, 200, 0.5);
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.8);
   padding: 10px;
   text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .detail-image {
@@ -553,12 +643,13 @@ export default {
   max-width: 100%;
   max-height: 400px;
   object-fit: contain;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(200, 200, 200, 0.5);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.8);
   padding: 10px;
   cursor: pointer;
   transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .result-image:hover {
@@ -571,10 +662,11 @@ export default {
 }
 
 .error-message {
-  color: #f56c6c;
+  color: #d32f2f;
   padding: 10px;
-  background: rgba(245, 108, 108, 0.1);
+  background: rgba(211, 47, 47, 0.05);
   border-radius: 4px;
+  border-left: 3px solid #d32f2f;
 }
 
 /* 图片预览对话框样式 */
@@ -584,7 +676,7 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(240, 240, 240, 0.95);
   z-index: 1000;
   display: flex;
   justify-content: center;

@@ -5,7 +5,7 @@
         <h2>语音合成</h2>
       </div>
       <div class="header-right">
-        <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" icon="el-icon-plus">创建任务</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="showCreateDialog" icon="el-icon-plus">创建任务</el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -25,12 +25,11 @@
           <template slot-scope="scope">
             <div class="text-with-copy">
               <span class="text-content">{{ scope.row.input_text || '-' }}</span>
-              <el-button 
-                v-if="scope.row.input_text" 
-                type="primary" 
-                size="mini" 
-                icon="el-icon-document-copy" 
-                class="copy-btn" 
+              <el-button
+                v-if="scope.row.input_text"
+                size="mini"
+                icon="el-icon-document-copy"
+                class="copy-btn"
                 @click.stop.prevent="copyText(scope.row.input_text)">
               </el-button>
             </div>
@@ -57,29 +56,29 @@
         <el-table-column label="操作" width="200">
           <template slot-scope="scope">
             <div class="action-buttons">
-              <el-button 
-                type="text" 
-                size="mini" 
-                class="action-btn"
+              <el-button
+                type="text"
+                size="mini"
+                class="table-action-button"
                 @click="viewDetail(scope.row.id)"
               >查看</el-button>
-              <el-button 
-                type="text" 
-                size="mini" 
-                class="action-btn"
-                @click="playAudio(scope.row)" 
+              <el-button
+                type="text"
+                size="mini"
+                class="table-action-button"
+                @click="playAudio(scope.row)"
                 :disabled="scope.row.status !== 'completed'"
               >
                 <i class="el-icon-video-play"></i>
               </el-button>
-              <el-button 
-                type="text" 
-                size="mini" 
-                class="action-btn"
-                @click="downloadOutput(scope.row.id)" 
+              <el-button
+                type="text"
+                size="mini"
+                class="table-action-button"
+                @click="downloadOutput(scope.row.id)"
                 :disabled="scope.row.status !== 'completed'"
               >下载</el-button>
-              <el-button type="text" size="mini" class="action-btn" @click="confirmDelete(scope.row.id)">删除</el-button>
+              <el-button type="text" size="mini" class="table-action-button" @click="confirmDelete(scope.row.id)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -118,12 +117,11 @@
               <div class="task-card-info">
                 <div class="text-with-copy card-text">
                   <p class="text-ellipsis">{{ item.input_text || '-' }}</p>
-                  <el-button 
-                    v-if="item.input_text" 
-                    type="primary" 
-                    size="mini" 
-                    icon="el-icon-document-copy" 
-                    class="copy-btn" 
+                  <el-button
+                    v-if="item.input_text"
+                    size="mini"
+                    icon="el-icon-document-copy"
+                    class="copy-btn"
                     @click.stop.prevent="copyText(item.input_text)">
                   </el-button>
                 </div>
@@ -131,24 +129,24 @@
               </div>
             </div>
             <div class="task-card-footer">
-              <el-button type="text" size="small" class="action-btn" @click="viewDetail(item.id)">查看</el-button>
-              <el-button 
-                type="text" 
-                size="small" 
-                class="action-btn" 
-                @click="playAudio(item)" 
+              <el-button type="text" size="small" class="table-action-button" @click="viewDetail(item.id)">查看</el-button>
+              <el-button
+                type="text"
+                size="small"
+                class="table-action-button"
+                @click="playAudio(item)"
                 :disabled="item.status !== 'completed'"
               >
                 <i class="el-icon-video-play"></i>
               </el-button>
-              <el-button 
-                type="text" 
-                size="small" 
-                class="action-btn" 
-                @click="downloadOutput(item.id)" 
+              <el-button
+                type="text"
+                size="small"
+                class="table-action-button"
+                @click="downloadOutput(item.id)"
                 :disabled="item.status !== 'completed'"
               >下载</el-button>
-              <el-button type="text" size="small" class="action-btn" @click="confirmDelete(item.id)">删除</el-button>
+              <el-button type="text" size="small" class="table-action-button" @click="confirmDelete(item.id)">删除</el-button>
             </div>
           </div>
         </div>
@@ -183,7 +181,7 @@
       title="创建语音合成任务" 
       :visible.sync="dialogVisible" 
       :fullscreen="isMobile"
-      :modal="true"
+      :modal="false"
       :close-on-click-modal="false"
       :append-to-body="true"
       :show-close="!isMobile"
@@ -224,14 +222,14 @@
         
         <!-- 移动端底部按钮 -->
         <div v-if="isMobile" class="mobile-form-footer">
-          <el-button type="primary" :loading="submitting" @click="submitForm" class="mobile-submit-btn">创建任务</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm" class="action-button mobile-submit-btn">创建任务</el-button>
         </div>
       </el-form>
       
       <!-- 桌面端底部按钮 -->
       <span v-if="!isMobile" slot="footer" class="dialog-footer">
-        <el-button @click="dialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitForm">确 定</el-button>
+        <el-button @click="dialogVisible = false" class="action-button secondary">取 消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitForm" class="action-button">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -931,6 +929,10 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .mobile-header {
@@ -942,9 +944,9 @@ export default {
   border-radius: 0;
   padding: 8px 10px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .mobile-header-placeholder {
@@ -973,18 +975,18 @@ export default {
 .page-header h2 {
   font-size: 1.4rem;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .responsive-table {
@@ -997,16 +999,16 @@ export default {
 }
 
 .responsive-table th {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  color: #fff !important;
+  background-color: rgba(44, 62, 80, 0.1) !important;
+  color: #333 !important;
   font-weight: 600;
   padding: 8px 0;
 }
 
 .responsive-table td {
   background-color: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #fff;
+  border-bottom: 1px solid rgba(200, 200, 200, 0.5) !important;
+  color: #333;
 }
 
 .action-buttons {
@@ -1031,13 +1033,13 @@ export default {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #f5f5f5;
+  color: #2c3e50;
 }
 
 .action-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px);
-  color: #fff;
+  color: #4a6572;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
@@ -1073,7 +1075,9 @@ export default {
   flex: 0 0 auto;
   padding: 2px;
   border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
   transition: all 0.3s;
   white-space: nowrap;
   display: inline-flex;
@@ -1083,6 +1087,7 @@ export default {
   min-width: auto;
   width: 24px;
   height: 24px;
+  color: white;
 }
 
 .copy-btn i {
@@ -1090,13 +1095,14 @@ export default {
 }
 
 .copy-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
 }
 
 .copy-btn:active {
   transform: scale(0.95);
-  background-color: #409EFF;
+  background: linear-gradient(90deg, #1e293b, #2c3e50);
   color: white;
 }
 
@@ -1151,13 +1157,13 @@ export default {
 }
 
 .task-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
   overflow: hidden;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1167,9 +1173,9 @@ export default {
 }
 
 .task-card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  transform: none;
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  transform: translateY(-5px);
 }
 
 .task-card-header {
@@ -1177,19 +1183,19 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f1f3f6;
 }
 
 .task-card-title {
   margin: 0;
   font-size: 14px;
-  color: #fff;
+  color: #333;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 65%;
@@ -1212,7 +1218,7 @@ export default {
 .task-card-info p {
   margin: 6px 0;
   font-size: 13px;
-  color: #ddd;
+  color: #333;
 }
 
 .text-ellipsis {
@@ -1234,8 +1240,8 @@ export default {
   padding: 10px;
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f7f9fc;
   margin-top: auto;
 }
 
@@ -1245,13 +1251,13 @@ export default {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #1890ff;
+  color: #2c3e50;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   transform: translateY(-2px);
-  color: #fff;
+  color: #4a6572;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
@@ -1268,13 +1274,13 @@ export default {
   width: 100%;
   clear: both;
   order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(44, 62, 80, 0.3);
 }
 
 .load-more-container p {
   margin: 0;
   padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   border-radius: 20px;
   backdrop-filter: blur(5px);
 }
@@ -1288,7 +1294,7 @@ export default {
 
 .loading-indicator i {
   font-size: 24px;
-  color: #409EFF;
+  color: #64b5f6;
 }
 
 .loading-indicator p {
@@ -1373,7 +1379,7 @@ export default {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(135deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001; /* 确保在底部菜单之上 */
   }
@@ -1384,7 +1390,7 @@ export default {
   
   /* 移动端底部菜单激活状态 */
   .mobile-footer-menu .menu-item.active {
-    color: #2196f3;
+    color: #2c3e50;
     font-weight: bold;
   }
   
@@ -1425,7 +1431,7 @@ export default {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1440,9 +1446,9 @@ export default {
   font-size: 24px;
 }
 
-.floating-add-btn:active {
-  transform: scale(0.95);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+.floating-add-btn:hover, .floating-add-btn:active {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* 防止对话框打开时背景滚动 */
@@ -1462,7 +1468,7 @@ body.dialog-open {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background-color: #2c3e50;
   display: flex;
   align-items: center;
   padding: 0 15px;
@@ -1498,7 +1504,7 @@ body.dialog-open {
   font-weight: 500;
   border-radius: 0;
   margin: 0;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(135deg, #2c3e50, #4a6572);
   border: none;
   color: #fff;
   letter-spacing: 1px;
@@ -1510,7 +1516,7 @@ body.dialog-open {
 }
 
 .mobile-submit-btn:active {
-  background: linear-gradient(135deg, #1565c0, #42a5f5);
+  background: linear-gradient(135deg, #1e293b, #2c3e50);
   transform: translateY(1px);
 }
 
@@ -1567,5 +1573,102 @@ body.dialog-open {
 /* 修复iOS上的滚动问题 */
 .el-dialog__wrapper {
   -webkit-overflow-scrolling: touch;
+}
+
+/* 视图切换按钮样式 */
+.view-toggle {
+  margin-left: 10px;
+  color: #2c3e50;
+  transition: all 0.3s;
+}
+
+.view-toggle:hover {
+  color: #4a6572;
+  transform: translateY(-2px);
+}
+
+.view-toggle i {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+}
+
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 4px;
+}
+
+/* 按钮样式与VoiceClone.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+/* 表格操作按钮样式 */
+.table-action-button {
+  color: #333333;
+  padding: 5px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.table-action-button:hover {
+  color: #000000;
+  transform: translateY(-2px);
+}
+
+/* 修复遮罩问题 */
+:deep(.v-modal) {
+  opacity: 0 !important;
+  background-color: transparent !important;
+}
+
+/* 确保元素可点击 */
+.tts-dialog,
+.tts-form,
+.audio-upload-container,
+.el-button {
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 </style>

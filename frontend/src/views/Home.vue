@@ -2,32 +2,73 @@
   <div class="home-container">
     <!-- 顶部欢迎区域 -->
     <div class="welcome-section">
-      <h1>欢迎使用 Virtual Human Studio</h1>
-      <p>探索AI驱动的数字人创作平台</p>
+      <div class="welcome-decorations">
+        <div class="welcome-bg-orb"></div>
+        <div class="welcome-bg-orb secondary"></div>
+        <div class="welcome-grid"></div>
+        <div class="tech-circles"></div>
+      </div>
+      <div class="welcome-content">
+        <h1>欢迎使用 <span class="highlight">Virtual Human Studio</span></h1>
+        <p>探索AI驱动的数字人创作平台，释放创意无限可能</p>
+        <div class="welcome-actions">
+          <el-button type="primary" class="action-button" @click="navigateTo('/digital-human')">
+            <i class="el-icon-video-camera"></i> 开始创作
+          </el-button>
+          <el-button class="action-button secondary" @click="navigateTo('/voice-clone')">
+            <i class="el-icon-microphone"></i> 克隆音色
+          </el-button>
+        </div>
+      </div>
     </div>
 
     <!-- 功能卡片区域 -->
-    <el-row :gutter="30" class="feature-section" v-if="!isMobile">
+    <div class="section-title">
+      <div class="section-accent"></div>
+      <h2>核心功能</h2>
+    </div>
+    <el-row :gutter="30" class="feature-section">
       <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="(card, index) in featureCards" :key="index">
-        <div class="glass-card feature-card" @click="navigateTo(card.route)">
-          <div class="card-icon">
-            <i :class="card.icon"></i>
+        <div class="glass-card feature-card"
+             @click="navigateTo(card.route)"
+             tabindex="0"
+             @keyup.enter="navigateTo(card.route)">
+          <div class="card-icon-wrapper">
+            <div class="card-icon">
+              <i :class="card.icon"></i>
+            </div>
           </div>
           <div class="card-content">
             <h3>{{ card.title }}</h3>
             <p>{{ card.description }}</p>
+            <div class="card-action">
+              <span class="explore-link">
+                <i class="el-icon-right"></i> 立即体验
+              </span>
+            </div>
           </div>
           <div class="hover-effect"></div>
+          <div class="card-decoration"></div>
         </div>
       </el-col>
     </el-row>
     
     <!-- 统计数据区域 -->
-    <el-row :gutter="30" class="stats-section" v-if="!isMobile">
+    <div class="section-title stats-title">
+      <div class="section-accent"></div>
+      <h2>平台数据</h2>
+    </div>
+    <el-row :gutter="30" class="stats-section">
       <el-col :xs="12" :sm="8" :md="6" :lg="4" v-for="(stat, index) in stats" :key="index">
-        <div class="glass-card stat-card">
-          <div class="stat-value">{{ stat.value }}</div>
-          <div class="stat-label">{{ stat.label }}</div>
+        <div class="glass-card stat-card" :class="getStatClass(index)">
+          <div class="stat-icon">
+            <i :class="getStatIcon(index)"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" v-countup:onece="stat.value">{{ stat.value }}</div>
+            <div class="stat-label">{{ stat.label }}</div>
+          </div>
+          <div class="stat-bg-circle"></div>
         </div>
       </el-col>
     </el-row>
@@ -35,7 +76,13 @@
     <!-- 最近活动区域 -->
     <div class="glass-card recent-section">
       <div class="section-header">
+        <div class="section-accent"></div>
         <h2>最近活动</h2>
+        <div class="section-actions">
+          <el-button type="text" size="small" @click="handleRefresh" :loading="loading">
+            <i class="el-icon-refresh"></i> 刷新
+          </el-button>
+        </div>
       </div>
       
       <!-- 移动端下拉刷新容器 -->
@@ -46,22 +93,31 @@
         
         <!-- 移动端卡片式布局 -->
         <div class="activity-cards">
-          <div 
-            v-for="(activity, index) in recentActivities" 
-            :key="index" 
+          <div
+            v-for="(activity, index) in recentActivities"
+            :key="index"
             class="glass-card activity-card"
+            :class="'activity-' + getStatusType(activity.status)"
             @click="viewDetail(activity)">
             <div class="activity-card-header">
-              <div class="activity-type">{{ activity.type }}</div>
-              <el-tag size="mini" :type="getStatusType(activity.status)">{{ activity.status }}</el-tag>
+              <div class="activity-type-tag" :class="'type-' + getActivityTypeClass(activity.type)">
+                <i :class="getActivityTypeIcon(activity.type)"></i>
+                <span>{{ activity.type }}</span>
+              </div>
+              <el-tag size="mini" :type="getStatusType(activity.status)" class="status-tag">{{ activity.status }}</el-tag>
             </div>
             <div class="activity-card-content">
               <div class="activity-name">{{ activity.name }}</div>
-              <div class="activity-time">{{ activity.created_at }}</div>
+              <div class="activity-time">
+                <i class="el-icon-time"></i> {{ activity.created_at }}
+              </div>
             </div>
             <div class="activity-card-footer">
-              <el-button type="text" size="mini" @click.stop="viewDetail(activity)">查看详情</el-button>
+              <el-button type="text" size="mini" class="detail-button" @click.stop="viewDetail(activity)">
+                查看详情 <i class="el-icon-arrow-right"></i>
+              </el-button>
             </div>
+            <div class="card-highlight"></div>
           </div>
           
           <!-- 无限滚动加载更多 -->
@@ -83,31 +139,46 @@
       
       <!-- 桌面端表格布局 -->
       <div class="table-container" v-else>
-        <el-table 
-          :data="recentActivities" 
+        <el-table
+          :data="recentActivities"
           style="width: 100%"
-          :header-cell-style="{background: 'transparent', color: '#333'}"
-          :cell-style="{background: 'transparent', color: '#333'}"
-          size="small">
-        <el-table-column prop="type" label="类型" width="180">
+          :header-cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.85)', fontWeight: '600' }"
+          :cell-style="{ background: 'transparent', color: 'rgba(44, 62, 80, 0.75)' }"
+          :row-class-name="tableRowClassName"
+          size="small"
+          highlight-current-row>
+        <el-table-column prop="type" label="类型" width="160">
           <template slot-scope="scope">
-            <span>{{ scope.row.type }}</span>
+            <div class="type-cell">
+              <div class="type-icon-container" :class="'type-' + getActivityTypeClass(scope.row.type)">
+                <i :class="getActivityTypeIcon(scope.row.type)"></i>
+              </div>
+              <span>{{ scope.row.type }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="名称" width="180">
+        <el-table-column prop="name" label="名称" min-width="180">
           <template slot-scope="scope">
-            <span>{{ scope.row.name }}</span>
+            <span class="table-text-ellipsis table-name" :title="scope.row.name">{{ scope.row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="status" label="状态" width="120" align="center">
           <template slot-scope="scope">
-            <el-tag size="mini" :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
+            <el-tag size="small" :type="getStatusType(scope.row.status)" effect="light" class="status-tag-table">{{ scope.row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间"></el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column prop="created_at" label="创建时间" width="180">
           <template slot-scope="scope">
-            <el-button type="text" size="mini" @click="viewDetail(scope.row)">查看</el-button>
+            <span class="created-time">
+              <i class="el-icon-time"></i> {{ scope.row.created_at }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right" align="center">
+          <template slot-scope="scope">
+            <el-button type="text" size="small" @click="viewDetail(scope.row)" class="table-action-button">
+              <i class="el-icon-view"></i> 查看
+            </el-button>
           </template>
         </el-table-column>
         </el-table>
@@ -185,6 +256,51 @@ export default {
     },
     navigateTo(route) {
       this.$router.push(route)
+    },
+    getStatClass(index) {
+      const classes = ['voice-stat', 'tts-stat', 'digital-human-stat', 'speech-stat', 'image-stat']
+      return classes[index % classes.length]
+    },
+    getStatIcon(index) {
+      const icons = [
+        'el-icon-microphone',
+        'el-icon-reading',
+        'el-icon-video-camera',
+        'el-icon-headset',
+        'el-icon-picture'
+      ]
+      return icons[index % icons.length]
+    },
+    getActivityTypeClass(type) {
+      const typeMap = {
+        '音色克隆': 'voice',
+        'TTS': 'tts',
+        '数字人': 'human',
+        '语音识别': 'speech',
+        '图像处理': 'image'
+      }
+      return typeMap[type] || 'default'
+    },
+    getActivityTypeIcon(type) {
+      const iconMap = {
+        '音色克隆': 'el-icon-microphone',
+        'TTS': 'el-icon-reading',
+        '数字人': 'el-icon-video-camera',
+        '语音识别': 'el-icon-headset',
+        '图像处理': 'el-icon-picture'
+      }
+      return iconMap[type] || 'el-icon-document'
+    },
+    tableRowClassName({row}) {
+      const status = row.status;
+      if (status === 'completed') {
+        return 'success-row';
+      } else if (status === 'failed') {
+        return 'danger-row';
+      } else if (status === 'processing') {
+        return 'warning-row';
+      }
+      return '';
     },
     getStatusType(status) {
       const statusMap = {
@@ -362,8 +478,11 @@ export default {
 .home-container {
   min-height: 100vh;
   padding: 20px;
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #333;
+  color: rgba(44, 62, 80, 0.9);
+  position: relative;
+  overflow-x: hidden;
+  transition: all 0.3s ease;
+  scroll-behavior: smooth;
 }
 
 @media (min-width: 768px) {
@@ -372,49 +491,153 @@ export default {
   }
 }
 
+@media (max-width: 767px) {
+  .home-container {
+    padding: 15px;
+  }
+}
+
 .welcome-section {
+  position: relative;
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
+  padding: 40px 20px;
+  border-radius: 20px;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
   .welcome-section {
-    margin-bottom: 60px;
+    margin-bottom: 70px;
+    padding: 60px 20px 70px;
+    border-radius: 24px;
   }
 }
 
+.welcome-decorations {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 .welcome-section h1 {
-  font-size: 1.8em;
-  margin-bottom: 10px;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  font-size: 2.2em;
+  margin-bottom: 16px;
+  background: linear-gradient(120deg, #333333, #000000);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.welcome-section h1 .highlight {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  position: relative;
+  white-space: nowrap;
+}
+
+.welcome-section h1 .highlight::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(74, 101, 114, 0.7), transparent);
+  border-radius: 3px;
 }
 
 @media (min-width: 768px) {
   .welcome-section h1 {
-    font-size: 2.5em;
+    font-size: 3em;
+    margin-bottom: 20px;
   }
 }
 
 .welcome-section p {
-  font-size: 1em;
-  color: #b3e5fc;
+  font-size: 1.1em;
+  color: #555555;
+  max-width: 600px;
+  margin: 0 auto 30px;
+  line-height: 1.6;
 }
 
 @media (min-width: 768px) {
   .welcome-section p {
-    font-size: 1.2em;
+    font-size: 1.3em;
+    margin-bottom: 36px;
   }
 }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
   transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .feature-card {
@@ -446,7 +669,7 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1));
+  background: linear-gradient(45deg, transparent, rgba(0, 0, 0, 0.03));
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -458,7 +681,7 @@ export default {
 .card-icon {
   font-size: 2em;
   margin-bottom: 15px;
-  color: #64b5f6;
+  color: #333333;
 }
 
 @media (min-width: 768px) {
@@ -471,7 +694,7 @@ export default {
 .card-content h3 {
   font-size: 1.2em;
   margin-bottom: 8px;
-  color: #fff;
+  color: #222222;
 }
 
 @media (min-width: 768px) {
@@ -482,7 +705,7 @@ export default {
 }
 
 .card-content p {
-  color: #b3e5fc;
+  color: #555555;
   line-height: 1.3;
   font-size: 0.9em;
 }
@@ -494,65 +717,188 @@ export default {
   }
 }
 
+.stats-title {
+  margin-top: 40px;
+}
+
 .stats-section {
-  margin: 30px 0;
+  margin: 25px 0 40px;
 }
 
 @media (min-width: 768px) {
   .stats-section {
-    margin: 40px 0;
+    margin: 30px 0 60px;
   }
 }
 
 .stat-card {
-  padding: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.4s ease;
+  border-radius: 16px;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1);
+}
+
+.stat-icon i {
+  font-size: 20px;
+  color: #2c3e50;
+}
+
+.stat-content {
+  position: relative;
+  z-index: 2;
   text-align: center;
-  margin-bottom: 15px;
+}
+
+.stat-value {
+  font-size: 2.4em;
+  font-weight: 700;
+  margin-bottom: 8px;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  line-height: 1;
+}
+
+.stat-label {
+  color: rgba(85, 85, 85, 0.9);
+  font-size: 0.9em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-bg-circle {
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.03), transparent 70%);
+  z-index: 1;
+}
+
+/* Stat card color variants */
+.voice-stat .stat-icon {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+}
+
+.tts-stat .stat-icon {
+  background: linear-gradient(135deg, #f1f8ff, #e1f0ff);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+}
+
+.digital-human-stat .stat-icon {
+  background: linear-gradient(135deg, #fff8f1, #ffedd8);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+}
+
+.speech-stat .stat-icon {
+  background: linear-gradient(135deg, #f1fff8, #dff7eb);
+  border: 1px solid rgba(44, 62, 80, 0.05);
+}
+
+.image-stat .stat-icon {
+  background: linear-gradient(135deg, #f8f1ff, #eedff7);
+  border: 1px solid rgba(44, 62, 80, 0.05);
 }
 
 @media (min-width: 768px) {
   .stat-card {
-    padding: 30px;
+    padding: 25px;
     margin-bottom: 0;
   }
-}
-
-.stat-value {
-  font-size: 1.8em;
-  font-weight: bold;
-  margin-bottom: 5px;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-@media (min-width: 768px) {
+  
   .stat-value {
-    font-size: 2.5em;
+    font-size: 2.8em;
     margin-bottom: 10px;
+  }
+  
+  .stat-label {
+    font-size: 1em;
   }
 }
 
-.stat-label {
-  color: #b3e5fc;
-  font-size: 0.9em;
-}
-
-@media (min-width: 768px) {
+@media (max-width: 767px) {
+  .stat-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 15px;
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 15px;
+    margin-bottom: 0;
+  }
+  
+  .stat-icon i {
+    font-size: 18px;
+  }
+  
+  .stat-content {
+    text-align: left;
+  }
+  
+  .stat-value {
+    font-size: 1.8em;
+    margin-bottom: 2px;
+  }
+  
   .stat-label {
-    font-size: 1.1em;
+    font-size: 0.75em;
   }
 }
 
 .recent-section {
-  padding: 15px;
+  padding: 22px;
   margin-top: 30px;
+  border-radius: 18px;
 }
 
 @media (min-width: 768px) {
   .recent-section {
     padding: 30px;
     margin-top: 40px;
+  }
+}
+
+@media (max-width: 767px) {
+  .recent-section {
+    padding: 18px;
+    margin-top: 25px;
   }
 }
 
@@ -582,7 +928,7 @@ export default {
 }
 
 .section-header h2 {
-  color: #fff;
+  color: #222222;
   font-size: 1.5em;
   margin: 0;
 }
@@ -625,7 +971,7 @@ export default {
 }
 
 .el-table td, .el-table th {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   padding: 10px 5px;
 }
 
@@ -636,12 +982,12 @@ export default {
 }
 
 .el-button--text {
-  color: #64b5f6;
+  color: #333333;
   padding: 5px;
 }
 
 .el-button--text:hover {
-  color: #1976d2;
+  color: #000000;
 }
 
 /* 活动卡片样式 */
@@ -672,7 +1018,7 @@ export default {
 
 .activity-type {
   font-weight: bold;
-  color: #fff;
+  color: #222222;
   font-size: 14px;
 }
 
@@ -682,14 +1028,18 @@ export default {
 
 .activity-name {
   font-size: 13px;
-  color: #b3e5fc;
+  color: #555555;
   margin-bottom: 5px;
-  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* show up to 2 lines on mobile cards */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .activity-time {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .activity-card-footer {
@@ -700,7 +1050,7 @@ export default {
 /* 加载更多和无数据样式 */
 .loading-more {
   text-align: center;
-  color: #b3e5fc;
+  color: #555555;
   padding: 15px 0;
   font-size: 14px;
 }
@@ -711,7 +1061,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 30px 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .no-data i {
@@ -721,5 +1071,521 @@ export default {
 
 .no-data p {
   font-size: 14px;
+}
+
+/* Tech decorative elements for hero */
+.welcome-bg-orb {
+  position: absolute;
+  top: -60px;
+  right: -80px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle at 30% 30%, rgba(74, 101, 114, 0.25), rgba(44, 62, 80, 0.1) 60%, transparent 70%);
+  filter: blur(60px);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+  animation: pulse 10s infinite alternate ease-in-out;
+}
+
+.welcome-bg-orb.secondary {
+  top: 40%;
+  left: -120px;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle at 70% 70%, rgba(100, 100, 120, 0.2), rgba(70, 70, 90, 0.05) 60%, transparent 70%);
+  opacity: 0.4;
+  animation-delay: 2s;
+  animation-duration: 14s;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.05); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 0.4; }
+}
+
+.welcome-grid {
+  position: absolute;
+  inset: -20%;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-size: 30px 30px;
+  transform: rotate(2deg);
+  -webkit-mask-image: radial-gradient(ellipse at 60% 50%, rgba(0,0,0,0.8), transparent 75%);
+  mask-image: radial-gradient(ellipse at 60% 50%, rgba(0,0,0,0.8), transparent 75%);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tech-circles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.5;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tech-circles::before,
+.tech-circles::after {
+  content: '';
+  position: absolute;
+  border: 1px dashed rgba(44, 62, 80, 0.1);
+  border-radius: 50%;
+}
+
+.tech-circles::before {
+  top: -150px;
+  right: -150px;
+  width: 300px;
+  height: 300px;
+}
+
+.tech-circles::after {
+  bottom: -100px;
+  left: -100px;
+  width: 200px;
+  height: 200px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-bg-orb {
+    animation: none;
+  }
+}
+
+/* Section accent bar */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-accent {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  box-shadow: 0 0 10px rgba(0,0,0,0.08);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-left: 10px;
+}
+
+.section-title h2 {
+  font-size: 1.7em;
+  font-weight: 700;
+  margin: 0;
+  color: #2c3e50;
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  .section-title {
+    margin-bottom: 30px;
+  }
+  
+  .section-title h2 {
+    font-size: 2em;
+  }
+}
+
+/* Table text ellipsis */
+.table-text-ellipsis {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Merged into main .home-container block above for consistency */
+
+/* Feature card hover refinements */
+.feature-card:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .feature-card,
+  .feature-card .hover-effect {
+    transition: none;
+  }
+  .feature-card:hover {
+    transform: none;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Desktop table row hover highlight */
+@media (min-width: 768px) {
+  .el-table .el-table__body tr:hover > td {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+  }
+}
+</style>
+<style scoped>
+/* ========== Modern tech theme refinements (append) ========== */
+/* Typography & smoothing */
+.home-container {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  .home-container {
+    /* Dark mode styles would go here */
+    /* Currently not implementing full dark mode */
+    /* but setting up the hook for future implementation */
+  }
+}
+
+/* Welcome headline polish */
+.welcome-section h1 {
+  letter-spacing: 0.5px;
+  text-shadow: 0 4px 24px rgba(74, 101, 114, 0.22);
+}
+.welcome-section p {
+  color: rgba(85, 85, 85, 0.92);
+}
+
+/* Elevate generic glass look */
+.glass-card {
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Feature section spacing */
+.feature-section {
+  margin-top: 6px;
+}
+
+/* Feature card: minimalist, techy */
+.feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-radius: 16px;
+}
+@media (min-width: 768px) {
+  .feature-card {
+    gap: 16px;
+  }
+}
+
+/* Icon container with neon glaze */
+.feature-card .card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(240, 240, 240, 0.9), rgba(210, 210, 210, 0.7));
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow:
+    inset 0 0 24px rgba(100, 100, 100, 0.1),
+    0 6px 18px rgba(0, 0, 0, 0.05);
+  display: grid;
+  place-items: center;
+  color: #333333;
+  flex: 0 0 auto;
+}
+@media (min-width: 768px) {
+  .feature-card .card-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+}
+.feature-card .card-icon i {
+  font-size: 1.5rem;
+}
+
+/* Card content tweaks */
+.card-content h3 {
+  letter-spacing: 0.3px;
+}
+.card-content p {
+  color: rgba(85, 85, 85, 0.9);
+}
+
+.card-action {
+  margin-top: 12px;
+}
+
+.explore-link {
+  color: #409EFF;
+  font-weight: 600;
+  font-size: 0.95em;
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(90deg, #409EFF, #2c3e50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+  padding: 3px 0;
+  transition: all 0.3s ease;
+}
+
+.explore-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, #409EFF, transparent);
+  opacity: 0.5;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: scaleX(0.3);
+  transform-origin: left;
+}
+
+.explore-link i {
+  margin-right: 6px;
+  font-size: 1em;
+  transition: transform 0.3s ease;
+  color: #409EFF;
+  -webkit-text-fill-color: #409EFF;
+}
+
+.feature-card:hover .explore-link i {
+  transform: translateX(4px);
+}
+
+.feature-card:hover .explore-link::after {
+  opacity: 0.8;
+  transform: scaleX(1);
+}
+
+/* Sheen sweep on hover */
+.feature-card .hover-effect {
+  background: linear-gradient(100deg, transparent 40%, rgba(0,0,0,0.05) 50%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+.feature-card:hover .hover-effect {
+  opacity: 1;
+  transform: translateX(120%);
+}
+
+/* Click/keyboard feedback */
+.feature-card:active {
+  transform: translateY(-3px) scale(0.995);
+}
+.feature-card:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.2);
+  outline-offset: 2px;
+}
+
+/* Stats: add subtle radial energy */
+.stat-card {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(245,245,245,0.7));
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -10%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(closest-side, rgba(100, 100, 100, 0.1), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+}
+.stat-value {
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+.stat-label {
+  color: rgba(85, 85, 85, 0.88);
+}
+
+/* Table polish */
+.el-table th {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.10);
+}
+.el-table td, .el-table th {
+  padding: 12px 10px;
+}
+.el-table .cell {
+  color: rgba(0, 0, 0, 0.75);
+}
+.el-table .el-table__header th .cell {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.85);
+  letter-spacing: 0.2px;
+}
+
+/* Text buttons accent */
+.el-button--text {
+  color: #555555;
+}
+.el-button--text:hover {
+  color: #000000;
+}
+
+/* Activity name: already clamped; add slight weight */
+.activity-name {
+  font-weight: 500;
+}
+
+/* Mobile fine-tune */
+@media (max-width: 767px) {
+  .feature-card {
+    padding: 16px;
+    min-height: 160px;
+  }
+  
+  .stat-card {
+    padding: 20px;
+    margin-bottom: 15px;
+  }
+  
+  .recent-section {
+    padding: 18px;
+  }
+  
+  .welcome-section {
+    padding: 30px 15px;
+  }
+  
+  .welcome-section h1 {
+    font-size: 2em;
+  }
+  
+  .welcome-section p {
+    font-size: 1em;
+    margin-bottom: 20px;
+  }
+  
+  .action-button {
+    padding: 10px 20px;
+    font-size: 0.95em;
+  }
+  
+  .section-title h2 {
+    font-size: 1.5em;
+  }
+  
+  .section-accent {
+    width: 28px;
+    height: 3px;
+  }
+  
+  .activity-type-tag {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .activity-card {
+    padding: 16px;
+  }
+  
+  .no-data i {
+    font-size: 36px;
+  }
+}
+
+/* Respect reduced motion (extends previous block) */
+@media (prefers-reduced-motion: reduce) {
+  .feature-card,
+  .feature-card .hover-effect,
+  .el-table tr {
+    transition: none !important;
+  }
+  .feature-card:hover .hover-effect {
+    transform: none !important;
+  }
+}
+
+/* General animation effects */
+.glass-card {
+  will-change: transform, box-shadow;
+}
+
+.glass-card:hover {
+  transform: translateY(-5px) translateZ(0);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.welcome-content,
+.feature-card,
+.stat-card,
+.activity-card {
+  animation: fadeIn 0.6s ease forwards;
+}
+
+.feature-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.feature-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.feature-card:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.feature-card:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+.stat-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.stat-card:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.stat-card:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-card,
+  .stat-card,
+  .activity-card,
+  .welcome-content {
+    animation: none !important;
+  }
+}
+
+/* Accessibility improvements */
+.activity-card:focus,
+.feature-card:focus {
+  outline: 2px solid rgba(74, 101, 114, 0.4);
+  outline-offset: 2px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(74, 101, 114, 0.4);
+  outline-offset: 2px;
 }
 </style>

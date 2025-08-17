@@ -4,7 +4,7 @@
     <div class="page-header">
       <h2>语音合成任务详情</h2>
       <div>
-        <el-button type="primary" @click="goBack">返回列表</el-button>
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
       </div>
     </div>
     
@@ -73,7 +73,7 @@
                 </el-skeleton>
               </div>
               <div class="action-buttons">
-                <el-button type="primary" @click="downloadOutput">下载音频</el-button>
+                <el-button type="primary" class="action-button" @click="downloadOutput">下载音频</el-button>
               </div>
             </div>
             
@@ -139,7 +139,7 @@
                 </el-skeleton>
               </div>
               <div class="action-buttons">
-                <el-button type="primary" @click="downloadOutput" size="small">下载音频</el-button>
+                <el-button type="primary" class="action-button" @click="downloadOutput" size="small">下载音频</el-button>
               </div>
             </div>
             
@@ -372,11 +372,76 @@ html, body {
     max-width: 100% !important;
   }
 }
+/* 按钮样式与Home.vue保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
 </style>
 
 <style scoped>
 .tts-detail-container {
   padding: 20px;
+  min-height: 100vh;
+  color: rgba(44, 62, 80, 0.9);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   width: 100%;
   box-sizing: border-box;
 }
@@ -386,13 +451,30 @@ html, body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
   box-sizing: border-box;
 }
 
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
+}
+
 .detail-content {
-  background-color: #fff;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   width: 100%;
   box-sizing: border-box;
 }
@@ -432,7 +514,7 @@ html, body {
 .error-section {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid #e0e0e0;
   width: 100%;
   box-sizing: border-box;
 }
@@ -445,7 +527,7 @@ html, body {
 
 .text-content {
   padding: 10px;
-  background-color: #f8f8f8;
+  background-color: #f0f2f5;
   border-radius: 4px;
   white-space: pre-wrap;
   line-height: 1.5;
@@ -460,14 +542,24 @@ html, body {
   right: 5px;
   font-size: 16px;
   padding: 5px;
-  color: #606266;
-  background-color: rgba(255, 255, 255, 0.7);
+  color: #ffffff;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
   border-radius: 4px;
+  transition: all 0.3s;
 }
 
 .copy-btn:hover {
-  color: #409EFF;
-  background-color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.copy-btn:active {
+  transform: scale(0.95);
+  background: linear-gradient(90deg, #1e293b, #2c3e50);
+  color: white;
 }
 
 .audio-player {
@@ -485,7 +577,7 @@ html, body {
 .error-message {
   color: #f56c6c;
   padding: 10px;
-  background-color: #fef0f0;
+  background-color: rgba(245, 108, 108, 0.1);
   border-radius: 4px;
   width: 100%;
   box-sizing: border-box;
@@ -499,13 +591,13 @@ html, body {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 12px;
   z-index: 1001;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  color: #fff;
+  box-shadow: 0 1px 5px rgba(44, 62, 80, 0.2);
+  color: #ffffff;
   width: 100%;
   display: none; /* 默认隐藏，在移动端显示 */
   box-sizing: border-box;
@@ -522,7 +614,7 @@ html, body {
 }
 
 .header-back:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .header-back i {
@@ -557,13 +649,13 @@ html, body {
   display: none; /* 默认隐藏，在移动端显示 */
   padding: 0;
   width: 100%;
-  background-color: #fff;
+  background-color: #ffffff;
   min-height: 100%;
   box-sizing: border-box;
 }
 
 .mobile-content-inner {
-  background-color: #fff;
+  background-color: #ffffff;
   min-height: calc(100vh - 56px);
   width: 100%;
   box-sizing: border-box;
@@ -575,10 +667,10 @@ html, body {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #e0e0e0;
   width: 100%;
   box-sizing: border-box;
-  background-color: #fff;
+  background-color: #ffffff;
 }
 
 .create-time {
@@ -588,16 +680,16 @@ html, body {
 
 .mobile-task-info {
   padding: 8px 12px;
-  background-color: #fff;
+  background-color: #ffffff;
   box-sizing: border-box;
   width: 100%;
 }
 
 .mobile-section {
   padding: 8px 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #e0e0e0;
   margin-top: 8px;
-  background-color: #fff;
+  background-color: #ffffff;
   box-sizing: border-box;
   width: 100%;
 }
@@ -625,12 +717,23 @@ html, body {
   padding: 2px 5px;
   margin: 0;
   font-size: 16px;
-  color: #409EFF;
+  color: #ffffff;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.mobile-copy-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
 }
 
 .mobile-text-content {
   padding: 10px;
-  background-color: #f8f8f8;
+  background-color: #f0f2f5;
   border-radius: 4px;
   white-space: pre-wrap;
   line-height: 1.5;
@@ -689,7 +792,7 @@ html, body {
     right: 0;
     bottom: 0;
     z-index: 1000;
-    background-color: #fff;
+    background-color: #ffffff;
     height: 100vh;
     overflow-x: hidden; /* 禁止水平滚动 */
     box-sizing: border-box;
@@ -704,7 +807,7 @@ html, body {
     right: 0;
     bottom: 0;
     box-sizing: border-box;
-    background-color: #fff;
+    background-color: #ffffff;
     height: calc(100vh - 56px);
     overflow-y: auto; /* 允许垂直滚动 */
     overflow-x: hidden; /* 禁止水平滚动 */
@@ -713,7 +816,7 @@ html, body {
   .detail-content {
     width: 100%;
     margin: 0;
-    background-color: #fff;
+    background-color: #ffffff;
     box-shadow: none;
     border-radius: 0;
     min-height: 100%;
@@ -722,7 +825,7 @@ html, body {
   }
   
   .mobile-content-inner {
-    background-color: #fff;
+    background-color: #ffffff;
     min-height: 100%;
     width: 100%;
     box-sizing: border-box;

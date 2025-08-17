@@ -2,29 +2,29 @@
 
 /* 背景渐变 */
 .theme-background {
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    color: #fff;
+    background: linear-gradient(135deg, #ffffff, #f8f8f8, #f0f0f0);
+    color: #333;
     min-height: 100vh;
 }
 
 /* 玻璃卡片效果 */
 .glass-card {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(10px);
     border-radius: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(200, 200, 200, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
 }
 
 .glass-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
 }
 
 /* 文字渐变效果 */
 .gradient-text {
-    background: linear-gradient(120deg, #64b5f6, #1976d2);
+    background: linear-gradient(120deg, #444444, #000000);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -33,11 +33,11 @@
 .card-content h3 {
     font-size: 1.4em;
     margin-bottom: 10px;
-    color: #fff;
+    color: #333;
 }
 
 .card-content p {
-    color: #b3e5fc;
+    color: #666;
     line-height: 1.4;
 }
 
@@ -56,16 +56,16 @@
 
 .theme-table td,
 .theme-table th {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* 按钮样式 */
 .theme-button--text {
-    color: #64b5f6;
+    color: #444;
 }
 
 .theme-button--text:hover {
-    color: #1976d2;
+    color: #000;
 }
 
 /* 页面容器 */
@@ -83,6 +83,6 @@
 /* 页面描述 */
 .page-description {
     font-size: 1.2em;
-    color: #b3e5fc;
+    color: #666;
     margin-bottom: 30px;
 }

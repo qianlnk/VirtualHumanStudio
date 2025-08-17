@@ -5,7 +5,7 @@
         <h2>{{ currentModule ? currentModule.name : '图像处理' }}</h2>
       </div>
       <div class="header-right">
-        <el-button v-if="!isMobile" type="primary" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
+        <el-button v-if="!isMobile" type="primary" class="action-button" @click="showCreateDialog" :disabled="!currentModule" icon="el-icon-plus">创建{{currentModule ? currentModule.name : ''}}任务</el-button>
         <el-button v-if="!isMobile" type="text" size="small" class="view-toggle" @click="toggleView">
           <i :class="isCardView ? 'el-icon-menu' : 'el-icon-s-grid'"></i>
           <span class="toggle-text">{{ isCardView ? '列表视图' : '卡片视图' }}</span>
@@ -330,16 +330,18 @@
                     :show-file-list="true"
                     accept="image/*"
                     :limit="1">
-                    <el-button size="small" type="primary">选择图片</el-button>
+                    <el-button size="small" type="primary" class="action-button" style="padding: 6px 12px; font-size: 12px;">选择图片</el-button>
                     <div slot="tip" class="el-upload__tip">{{ param.description }}</div>
                   </el-upload>
                   <div class="image-preview" v-if="previewUrls[param.key]">
                     <img :src="previewUrls[param.key]" class="preview-thumbnail" :alt="`${param.alias}预览`">
                   </div>
-                  <el-button 
-                    v-if="param.type === 'mask'" 
-                    size="small" 
-                    type="success" 
+                  <el-button
+                    v-if="param.type === 'mask'"
+                    size="small"
+                    type="success"
+                    class="action-button"
+                    style="padding: 6px 12px; font-size: 12px;"
                     @click="startMaskEditing(param)"
                     :disabled="!form.params[param.key.replace('Mask', '')]">编辑蒙版</el-button>
                 </div>
@@ -355,7 +357,7 @@
                   :show-file-list="true"
                   accept="video/*"
                   :limit="1">
-                  <el-button size="small" type="primary">选择视频</el-button>
+                  <el-button size="small" type="primary" class="action-button" style="padding: 6px 12px; font-size: 12px;">选择视频</el-button>
                   <div slot="tip" class="el-upload__tip">{{ param.description }}</div>
                 </el-upload>
               </template>
@@ -373,8 +375,8 @@
       
       <!-- 桌面端底部按钮 -->
       <div v-if="!isMobile" slot="footer" class="dialog-footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm" :loading="submitting">创建</el-button>
+        <el-button class="action-button secondary" @click="dialogVisible = false">取消</el-button>
+        <el-button class="action-button" type="primary" @click="submitForm" :loading="submitting">创建</el-button>
       </div>
     </el-dialog>
 
@@ -2239,18 +2241,18 @@ export default {
 .page-header h2 {
   font-size: 1.4em;
   margin: 0;
-  background: linear-gradient(120deg, #64b5f6, #1976d2);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .task-list {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(15px);
   padding: 15px;
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .card-list {
@@ -2294,13 +2296,13 @@ export default {
 }
 
 .task-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
   overflow: hidden;
   transition: all 0.3s;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(200, 200, 200, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -2311,9 +2313,9 @@ export default {
 }
 
 .task-card:hover {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: none !important; /* 确保悬停时没有变形 */
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  transform: translateY(-5px);
 }
 
 .task-card-header {
@@ -2321,8 +2323,8 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid #ebeef5;
+  background: #f5f7fa;
 }
 
 .task-card-title {
@@ -2333,7 +2335,7 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  background: linear-gradient(120deg, #e6f7ff, #1890ff);
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   max-width: 65%;
@@ -2359,7 +2361,7 @@ export default {
 .task-card-info p {
   margin: 0;
   font-size: 13px;
-  color: #ddd;
+  color: #606266;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2369,8 +2371,8 @@ export default {
   padding: 10px;
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid #ebeef5;
+  background: #f5f7fa;
   margin-top: auto;
   flex-shrink: 0; /* 防止底部被压缩 */
 }
@@ -2381,13 +2383,13 @@ export default {
   border-radius: 4px;
   transition: all 0.3s;
   font-size: 13px;
-  color: #1890ff;
+  color: #2c3e50;
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   transform: translateY(-2px);
-  color: #fff;
+  color: #4a6572;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
@@ -2404,13 +2406,13 @@ export default {
   width: 100%;
   clear: both;
   order: 999;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border: 1px dashed rgba(44, 62, 80, 0.3);
 }
 
 .load-more-container p {
   margin: 0;
   padding: 15px 30px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(44, 62, 80, 0.1);
   border-radius: 20px;
   backdrop-filter: blur(5px);
 }
@@ -2424,7 +2426,7 @@ export default {
 
 .loading-indicator i {
   font-size: 24px;
-  color: #409EFF;
+  color: #64b5f6;
 }
 
 .loading-indicator p {
@@ -2557,7 +2559,7 @@ export default {
     right: 16px;
     width: 56px;
     height: 56px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1001; /* 确保在底部菜单之上 */
   }
@@ -2603,7 +2605,7 @@ export default {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1976d2, #64b5f6);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2783,7 +2785,7 @@ export default {
 }
 
 .carousel-input-label {
-  background: linear-gradient(90deg, #1976d2, #64b5f6);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -2791,7 +2793,7 @@ export default {
 }
 
 .carousel-output-label {
-  background: linear-gradient(90deg, #43a047, #81c784);
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: bold;
@@ -2805,10 +2807,10 @@ export default {
   position: absolute;
   left: 0;
   top: -1px;
-  color: #4caf50;
+  color: #2c3e50;
   font-size: 14px;
   text-shadow: none;
-  -webkit-text-fill-color: #4caf50;
+  -webkit-text-fill-color: #2c3e50;
 }
 
 /* 响应式样式调整 */
@@ -2841,8 +2843,8 @@ export default {
 
 /* 结果图片的特殊效果 */
 .carousel-item[data-is-output="true"] .carousel-image-wrapper {
-  border: 2px solid rgba(76, 175, 80, 0.5);
-  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  border: 2px solid rgba(44, 62, 80, 0.4);
+  box-shadow: 0 0 8px rgba(44, 62, 80, 0.25);
   box-sizing: border-box;
   margin: 2px;
   width: calc(100% - 4px);
@@ -2941,9 +2943,165 @@ export default {
     -webkit-user-drag: none;
   }
 }
+/* 列表/卡片视图“切换”按钮对齐数字人模块的渐变与交互 */
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #2c3e50;
+  transition: all 0.25s ease;
+  font-weight: 500;
+  text-decoration: none;
+  user-select: none;
+}
+
+.view-toggle i,
+.view-toggle .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.view-toggle:hover {
+  transform: translateY(-1px);
+  background: rgba(44, 62, 80, 0.08);
+}
+
+.view-toggle:hover i,
+.view-toggle:hover .toggle-text {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.view-toggle:active {
+  transform: translateY(0);
+  background: rgba(44, 62, 80, 0.12);
+}
 </style>
 
 <style>
+/* 按钮样式与TTS模块保持一致 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+
+.action-button.el-button--success {
+  background: linear-gradient(90deg, #2c8572, #2c5950);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 133, 114, 0.2);
+}
+
+.action-button.el-button--success:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 133, 114, 0.3);
+}
+
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.action-button i {
+  font-size: 16px;
+}
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 创建任务对话框（桌面端）对齐数字人模块 */
+.el-dialog.image-processing-dialog .el-dialog__header {
+  background: #f5f7fa;
+  border-bottom: 1px solid #ebeef5;
+  padding: 16px 20px;
+}
+
+.el-dialog.image-processing-dialog .el-dialog__title {
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+}
+
+.el-dialog.image-processing-dialog .el-dialog__body {
+  background: #fff;
+  color: #606266;
+}
+
+.el-dialog.image-processing-dialog .el-dialog__footer {
+  background: #f5f7fa;
+  border-top: 1px solid #ebeef5;
+  padding: 12px 20px;
+}
+
+.el-dialog.image-processing-dialog .el-form-item__label {
+  color: #606266;
+  font-weight: 500;
+}
+
+.el-dialog.image-processing-dialog .el-input__inner,
+.el-dialog.image-processing-dialog .el-textarea__inner,
+.el-dialog.image-processing-dialog .el-select .el-input__inner {
+  border-radius: 6px;
+}
+
+.el-dialog.image-processing-dialog .el-input__inner:focus,
+.el-dialog.image-processing-dialog .el-textarea__inner:focus,
+.el-dialog.image-processing-dialog .el-select .el-input.is-focus .el-input__inner,
+.el-dialog.image-processing-dialog .el-select .el-input__inner:focus {
+  border-color: #2c3e50 !important;
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.15) !important;
+}
+
+.el-dialog.image-processing-dialog .el-upload__tip {
+  color: #909399;
+}
+
+.el-dialog.image-processing-dialog .dialog-footer .el-button + .el-button {
+  margin-left: 10px;
+}
+
+/* 桌面端卡片悬浮效果 */
+@media screen and (min-width: 769px) {
+  .el-card {
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+  
+  .el-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 46px rgba(0, 0, 0, 0.28);
+  }
+}
 /* 全局覆盖Element UI组件的样式 */
 .card-list .el-loading-mask {
   margin-top: 0 !important;
@@ -3018,7 +3176,7 @@ export default {
     left: 0;
     right: 0;
     height: 56px;
-    background-color: #409EFF;
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     display: flex;
     align-items: center;
     padding: 0 15px;
@@ -3078,7 +3236,7 @@ export default {
     font-weight: 500;
     border-radius: 0;
     margin: 0;
-    background: linear-gradient(135deg, #1976d2, #64b5f6);
+    background: linear-gradient(90deg, #2c3e50, #4a6572);
     border: none;
     color: #fff;
     letter-spacing: 1px;
@@ -3090,7 +3248,7 @@ export default {
   }
   
   .mobile-submit-btn:active {
-    background: linear-gradient(135deg, #1565c0, #42a5f5);
+    background: linear-gradient(90deg, #1c2e40, #3a5562);
     transform: translateY(1px);
   }
   
@@ -3121,8 +3279,8 @@ export default {
   
   /* 输入框聚焦时的样式，提供用户反馈 */
   .el-input.is-focus .el-input__inner {
-    border-color: #409EFF !important;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2) !important;
+    border-color: #2c3e50 !important;
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.2) !important;
   }
   
   /* 图片容器移动端样式 */
@@ -3154,7 +3312,7 @@ export default {
 
 /* 蒙版编辑器头部样式 */
 .mask-editor-header {
-  background-color: #67C23A !important; /* 使用绿色以示区分 */
+  background: linear-gradient(90deg, #2c3e50, #4a6572) !important;
 }
 
 /* 增强返回按钮的触摸区域 */
@@ -3183,7 +3341,7 @@ export default {
 }
 
 .task-card .el-carousel__indicator.is-active .el-carousel__button {
-  background-color: #409EFF !important;
+  background-color: #2c3e50 !important;
 }
 
 .task-card .el-carousel__arrow {

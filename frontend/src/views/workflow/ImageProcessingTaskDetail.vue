@@ -4,14 +4,17 @@
       <img :src="previewUrl" :style="imageStyle" class="preview-image" ref="previewImage">
     </div>
     
-    <!-- PC端顶部导航栏 -->
+    <!-- PC端顶部导航栏（采用三分栏，标题绝对居中） -->
     <div class="page-header" v-show="!isMobile">
-      <h2>{{ currentModule ? currentModule.name : '图像处理' }}任务详情</h2>
-      <div>
-        <el-button @click="goBack" icon="el-icon-back">返回列表</el-button>
-        <el-button type="primary" @click="retryTask" :loading="retrying" v-if="task && task.status !== 'processing'">重试任务</el-button>
-        <el-button type="primary" @click="refreshTask" icon="el-icon-refresh">刷新</el-button>
-        <el-button type="success" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'">分享</el-button>
+      <div class="header-left">
+        <h2>{{ currentModule ? currentModule.name : '图像处理' }}任务详情</h2>
+      </div>
+      <div class="header-center"></div>
+      <div class="header-right">
+        <el-button type="primary" class="action-button" @click="goBack">返回列表</el-button>
+        <el-button type="primary" class="action-button" @click="retryTask" :loading="retrying" v-if="task && task.status !== 'processing'">重试任务</el-button>
+        <el-button type="primary" class="action-button" @click="refreshTask" icon="el-icon-refresh">刷新</el-button>
+        <el-button type="success" class="action-button" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'">分享</el-button>
       </div>
     </div>
     
@@ -23,7 +26,7 @@
       </div>
       <h2 class="header-title">{{ currentModule ? currentModule.name : '图像处理' }}任务</h2>
       <div class="mobile-share-btn" v-if="task && task.status === 'completed'">
-        <el-button type="success" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'" size="small" circle>
+        <el-button type="success" class="action-button" @click="shareTask" v-if="task && task.status === 'completed' && task.share_status !== 'approved' && task.share_status !== 'pending_review'" size="small" circle>
           <i class="el-icon-share"></i>
         </el-button>
       </div>
@@ -110,7 +113,7 @@
                     <template v-if="param.type === 'image' && param.value">
                       <img :src="param.value" :alt="param.alias || param.key" class="result-image" @click="previewImage(param.value)">
                       <div class="result-actions">
-                        <el-button type="primary" size="small" @click="downloadImage(param.value, param.key)">
+                        <el-button type="primary" class="action-button" size="small" @click="downloadImage(param.value, param.key)">
                           下载
                         </el-button>
                       </div>
@@ -128,7 +131,7 @@
                         </video>
                       </div>
                       <div class="result-actions">
-                        <el-button type="primary" size="small" @click="downloadVideo(param.value, param.key)">
+                        <el-button type="primary" class="action-button" size="small" @click="downloadVideo(param.value, param.key)">
                           下载
                         </el-button>
                       </div>
@@ -237,7 +240,7 @@
                       <img :src="param.value" :alt="param.alias || param.key" class="mobile-result-image" @click="previewImage(param.value)">
                     </div>
                       <div class="mobile-result-actions">
-                      <el-button type="primary" size="mini" @click="downloadImage(param.value, param.key)">下载</el-button>
+                      <el-button type="primary" class="action-button" size="mini" @click="downloadImage(param.value, param.key)">下载</el-button>
                     </div>
                   </template>
                   <!-- 视频类型结果 -->
@@ -252,7 +255,7 @@
                         您的浏览器不支持视频播放
                       </video>
                       <div class="mobile-result-actions">
-                        <el-button type="primary" size="mini" @click="downloadVideo(param.value, param.key)">
+                        <el-button type="primary" class="action-button" size="mini" @click="downloadVideo(param.value, param.key)">
                           下载
                         </el-button>
                       </div>
@@ -280,8 +283,8 @@
           
           <!-- 移动端操作按钮 -->
           <div class="mobile-actions">
-            <el-button type="primary" @click="refreshTask" icon="el-icon-refresh" size="small">刷新</el-button>
-            <el-button type="primary" @click="retryTask" :loading="retrying" size="small" v-if="task && task.status !== 'processing'">重试任务</el-button>
+            <el-button type="primary" class="action-button" @click="refreshTask" icon="el-icon-refresh" size="small">刷新</el-button>
+            <el-button type="primary" class="action-button" @click="retryTask" :loading="retrying" size="small" v-if="task && task.status !== 'processing'">重试任务</el-button>
           </div>
         </div>
         
@@ -1068,10 +1071,48 @@ export default {
 }
 
 .page-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
+  column-gap: 12px;
+  /* 与数字人详情页一致的宽度与外边距 */
+  width: calc(100% - 40px);
+  margin-left: 20px;
+  margin-right: 20px;
   margin-bottom: 20px;
+  padding: 8px 20px; /* 与数字人详情页一致的标题栏高度（通过内边距控制） */
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  /* 保持单行避免因按钮增多导致高度变化 */
+  white-space: nowrap;
+}
+
+/* 标题渐变与数字人详情页一致 */
+.page-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.3px;
+}
+
+/* 三分栏子元素对齐，确保标题在几何中心 */
+.header-left {
+  justify-self: start;
+}
+.header-center {
+  text-align: center;
+  justify-self: center;
+}
+.header-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .task-header {
@@ -1152,8 +1193,10 @@ export default {
 
 .param-name,
 .result-name {
-  font-weight: bold;
-  color: #409EFF;
+  font-weight: 600;
+  background: linear-gradient(120deg, #2c3e50, #4a6572);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .param-image,
@@ -1240,7 +1283,7 @@ export default {
   left: 0;
   right: 0;
   height: 56px;
-  background-color: #409EFF;
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -1304,7 +1347,31 @@ export default {
 }
 
 .detail-content-wrapper {
+  /* 与数字人详情页一致：与标题栏左右对齐 */
+  width: calc(100% - 40px);
+  margin: 0 20px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* PC 内容区域与数字人详情页保持一致的填充宽度 */
+.workflow-detail-container .detail-content {
   width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+/* 让卡片填满容器，由容器控制左右对齐（与数字人一致） */
+.workflow-detail-container .el-card {
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 卡片内边距与数字人一致 */
+.workflow-detail-container .el-card .el-card__body {
+  padding: 20px;
 }
 
 /* 移动端基本信息 */
@@ -1493,5 +1560,65 @@ export default {
   .mobile-video-preview {
     margin: 10px 0;
   }
+}
+</style>
+<style>
+/* 详情页内补充 action-button 样式（与数字人模块一致），并提供 small/mini 规约 */
+.action-button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.action-button.el-button--primary {
+  background: linear-gradient(90deg, #2c3e50, #4a6572);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+  color: #fff;
+}
+.action-button.el-button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 62, 80, 0.3);
+}
+.action-button.el-button--success {
+  background: linear-gradient(90deg, #2c8572, #2c5950);
+  border: none;
+  box-shadow: 0 5px 15px rgba(44, 133, 114, 0.2);
+  color: #fff;
+}
+.action-button.el-button--success:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(44, 133, 114, 0.3);
+}
+.action-button.secondary {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+.action-button i {
+  font-size: 16px;
+}
+.action-button:focus {
+  outline: 2px solid rgba(44, 62, 80, 0.4);
+  outline-offset: 2px;
+}
+
+/* 小尺寸规范：small/mini 的 padding、字号与圆角 */
+.el-button--small.action-button,
+.el-button--mini.action-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
 }
 </style>
